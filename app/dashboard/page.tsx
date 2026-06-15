@@ -16,12 +16,6 @@ const NAV = [
   { id: 'memories', icon: '📸', label: 'Memories' },
 ]
 
-const KNOTS = [
-  { id: '1', name: 'The Brampton Crew', emoji: '🍻', count: 5 },
-  { id: '2', name: 'Sunday Ballers',    emoji: '🏀', count: 8 },
-  { id: '3', name: 'Work Crew',         emoji: '💼', count: 6 },
-]
-
 const MEMBERS = [
   { id: '1', name: 'Amrinder', initials: 'AM', color: '#2A2850', text: '#6C63FF', budget: 'mid',    you: true  },
   { id: '2', name: 'Priya',    initials: 'PR', color: '#1A3028', text: '#4CAF87', budget: 'casual', you: false },
@@ -31,26 +25,51 @@ const MEMBERS = [
 ]
 
 export default function Dashboard() {
-  const [active, setActive]           = useState('feed')
-  const [activeKnot, setActiveKnot]   = useState(KNOTS[0])
-  const [user, setUser]               = useState<any>(null)
-  const [profile, setProfile]         = useState<any>(null)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [showNewKnot, setShowNewKnot] = useState(false)
-  const [newKnotName, setNewKnotName] = useState('')
+  const [active, setActive]             = useState('feed')
+  const [activeKnot, setActiveKnot]     = useState<any>(null)
+  const [user, setUser]                 = useState<any>(null)
+  const [profile, setProfile]           = useState<any>(null)
+  const [sidebarOpen, setSidebarOpen]   = useState(true)
+  const [showNewKnot, setShowNewKnot]   = useState(false)
+  const [newKnotName, setNewKnotName]   = useState('')
   const [newKnotEmoji, setNewKnotEmoji] = useState('🔗')
-  const [knots, setKnots]             = useState(KNOTS)
+  const [knots, setKnots]               = useState<any[]>([])
+  const [knotsLoading, setKnotsLoading] = useState(true)
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) { window.location.href = '/'; return }
       setUser(data.user)
+
+      // Load profile
       const { data: prof } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', data.user.id)
         .single()
       if (prof) setProfile(prof)
+
+      // Load user's knots
+      const { data: memberships } = await supabase
+        .from('knot_members')
+        .select('knot_id, knots(id, name, emoji)')
+        .eq('user_id', data.user.id)
+
+      if (memberships && memberships.length > 0) {
+        const knotList = await Promise.all(
+          memberships.map(async (m: any) => {
+            const k = m.knots
+            const { count } = await supabase
+              .from('knot_members')
+              .select('*', { count: 'exact', head: true })
+              .eq('knot_id', k.id)
+            return { id: k.id, name: k.name, emoji: k.emoji, count: count || 1 }
+          })
+        )
+        setKnots(knotList)
+        setActiveKnot(knotList[0])
+      }
+      setKnotsLoading(false)
     })
   }, [])
 
@@ -59,26 +78,42 @@ export default function Dashboard() {
     window.location.href = '/'
   }
 
-  async function createKnot() {
-    if (!newKnotName.trim()) return
-    const { data: { user: u } } = await supabase.auth.getUser()
-    if (!u) return
+async function createKnot() {
+  if (!newKnotName.trim()) {
+    alert('Please enter a name for your Knot')
+    return
+  }
+  
+  const { data: { user: u } } = await supabase.auth.getUser()
+  if (!u) { alert('Not logged in'); return }
 
+  try {
     const { data: knot, error } = await supabase
       .from('knots')
       .insert({ name: newKnotName.trim(), emoji: newKnotEmoji, created_by: u.id })
       .select()
       .single()
 
+    if (error) { alert('Error: ' + error.message); return }
+
     if (knot) {
-      await supabase.from('knot_members').insert({ knot_id: knot.id, user_id: u.id, role: 'founder' })
+      const { error: memberError } = await supabase
+        .from('knot_members')
+        .insert({ knot_id: knot.id, user_id: u.id, role: 'founder' })
+      
+      if (memberError) { alert('Member error: ' + memberError.message); return }
+
       const newK = { id: knot.id, name: knot.name, emoji: knot.emoji, count: 1 }
       setKnots(k => [...k, newK])
       setActiveKnot(newK)
       setNewKnotName('')
+      setNewKnotEmoji('🔗')
       setShowNewKnot(false)
     }
+  } catch (e: any) {
+    alert('Caught error: ' + e.message)
   }
+}
 
   const initials = (profile?.name || user?.user_metadata?.name || 'U')
     .split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()
@@ -92,6 +127,13 @@ export default function Dashboard() {
     navItem:  { display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 500, color: 'var(--text2)', transition: 'all 0.15s' },
     knotItem: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
   }
+
+  // Loading state
+  if (!user) return (
+    <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', color: 'var(--text2)', fontSize: 14 }}>
+      Loading...
+    </div>
+  )
 
   return (
     <div style={s.app}>
@@ -113,14 +155,22 @@ export default function Dashboard() {
         {/* KNOTS */}
         <div style={{ padding: '10px 10px 0' }}>
           <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text3)', letterSpacing: '.08em', textTransform: 'uppercase', padding: '0 4px', marginBottom: 6 }}>Your Knots</div>
-          {knots.map(k => (
+
+          {knotsLoading ? (
+            <div style={{ padding: '8px 4px', fontSize: 12, color: 'var(--text3)' }}>Loading...</div>
+          ) : knots.length === 0 ? (
+            <div style={{ padding: '8px 4px', fontSize: 12, color: 'var(--text3)', lineHeight: 1.6 }}>
+              No Knots yet — create your first one below.
+            </div>
+          ) : knots.map(k => (
             <div key={k.id} onClick={() => setActiveKnot(k)}
-              style={{ ...s.knotItem, background: activeKnot.id === k.id ? 'var(--indigo-soft)' : 'transparent' }}>
+              style={{ ...s.knotItem, background: activeKnot?.id === k.id ? 'var(--indigo-soft)' : 'transparent' }}>
               <span style={{ fontSize: 16 }}>{k.emoji}</span>
-              <span style={{ flex: 1, color: activeKnot.id === k.id ? 'var(--indigo)' : 'var(--text)', fontWeight: activeKnot.id === k.id ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{k.name}</span>
+              <span style={{ flex: 1, color: activeKnot?.id === k.id ? 'var(--indigo)' : 'var(--text)', fontWeight: activeKnot?.id === k.id ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{k.name}</span>
               <span style={{ fontSize: 11, color: 'var(--text3)' }}>{k.count}</span>
             </div>
           ))}
+
           <div onClick={() => setShowNewKnot(true)}
             style={{ ...s.knotItem, border: '1px dashed var(--border2)', borderRadius: 8, marginTop: 4, color: 'var(--text3)', fontSize: 12 }}>
             <span style={{ width: 20, height: 20, border: '1px dashed var(--border2)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>+</span>
@@ -201,16 +251,34 @@ export default function Dashboard() {
       <div style={s.main}>
         <div style={s.topbar}>
           <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', fontSize: 18, padding: '4px', borderRadius: 6 }}>☰</button>
-          <span style={{ fontSize: 16, fontWeight: 600, flex: 1 }}>{activeKnot.emoji} {activeKnot.name}</span>
-          <span style={{ fontSize: 12, color: 'var(--text3)' }}>{activeKnot.count} members</span>
+          <span style={{ fontSize: 16, fontWeight: 600, flex: 1 }}>
+            {activeKnot ? `${activeKnot.emoji} ${activeKnot.name}` : 'Select a Knot'}
+          </span>
+          <span style={{ fontSize: 12, color: 'var(--text3)' }}>
+            {activeKnot ? `${activeKnot.count} members` : ''}
+          </span>
         </div>
 
         <div style={s.content}>
-          {active === 'feed'     && <Feed      members={MEMBERS} knotName={activeKnot.name} />}
-          {active === 'hangout'  && <Hangout   members={MEMBERS} />}
-          {active === 'split'    && <BillSplit  members={MEMBERS} />}
-          {active === 'members'  && <Members   members={MEMBERS} />}
-          {active === 'memories' && <Memories  members={MEMBERS} />}
+          {!activeKnot ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: 16 }}>
+              <div style={{ fontSize: 48 }}>🔗</div>
+              <div style={{ fontSize: 18, fontWeight: 700 }}>No Knots yet</div>
+              <div style={{ fontSize: 14, color: 'var(--text2)' }}>Create your first Knot to get started.</div>
+              <button onClick={() => setShowNewKnot(true)}
+                style={{ padding: '10px 24px', background: 'var(--indigo)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                + Create a Knot
+              </button>
+            </div>
+          ) : (
+            <>
+              {active === 'feed'     && <Feed      members={MEMBERS} knotName={activeKnot.name} />}
+              {active === 'hangout'  && <Hangout   members={MEMBERS} />}
+              {active === 'split'    && <BillSplit  members={MEMBERS} />}
+              {active === 'members'  && <Members   members={MEMBERS} />}
+              {active === 'memories' && <Memories  members={MEMBERS} />}
+            </>
+          )}
         </div>
       </div>
     </div>
