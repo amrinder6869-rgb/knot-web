@@ -22,7 +22,7 @@ function httpsGet(url: string): Promise<string> {
 const CATEGORY_TO_TYPE: Record<string, string> = {
   '13000': 'restaurant',
   '13003': 'bar',
-  '10000': 'art_gallery',
+  '10000': 'museum',
   '18000': 'park',
   '13059': 'cafe',
   '10032': 'bowling_alley',
@@ -30,18 +30,10 @@ const CATEGORY_TO_TYPE: Record<string, string> = {
   '13029': 'restaurant',
 }
 
-const PRICE_TO_GOOGLE: Record<string, string> = {
-  '1': '1',
-  '2': '2',
-  '3': '3',
-  '4': '4',
-}
-
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const ll       = searchParams.get('ll')
   const category = searchParams.get('categories')
-  const price    = searchParams.get('price')
 
   if (!ll || !category) {
     return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
@@ -57,10 +49,9 @@ export async function GET(request: Request) {
 
   const params = new URLSearchParams({
     location: `${lat},${lng}`,
-    radius: '5000',
+    radius: '8000',
     type,
     key: apiKey,
-    ...(price ? { minprice: PRICE_TO_GOOGLE[price] || '1', maxprice: PRICE_TO_GOOGLE[price] || '4' } : {}),
   })
 
   try {
@@ -73,7 +64,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: data.status, message: data.error_message }, { status: 400 })
     }
 
-    // Normalize to match our UI expectations
     const results = (data.results || []).slice(0, 10).map((p: any) => ({
       fsq_id: p.place_id,
       name: p.name,

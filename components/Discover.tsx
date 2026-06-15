@@ -62,36 +62,35 @@ export default function Discover({ members }: { members: any[] }) {
   }
 
   async function searchVenues() {
-    if (!category) { setError('Pick a category first'); return }
-    let loc = location
-    if (!loc) { loc = await getLocation() }
-    if (!loc)  { setError('Could not get location'); return }
+  if (!category) { setError('Pick a category first'); return }
+  let loc = location
+  if (!loc) { loc = await getLocation() }
+  if (!loc) { setError('Could not get location'); return }
 
-    setLoading(true); setError(''); setVenues([]); setSearched(true)
+  setLoading(true); setError(''); setVenues([]); setSearched(true)
 
-    const params = new URLSearchParams({
-      ll: `${loc.lat},${loc.lng}`,
-      categories: category,
-      limit: '10',
-      ...(budget ? { price: String(budget) } : {}),
-    })
+  const params = new URLSearchParams({
+    ll: `${loc.lat},${loc.lng}`,
+    categories: category,
+    limit: '10',
+  })
 
-    try {
-      const res  = await fetch(`/api/venues?${params}`)
-      const data = await res.json()
+  try {
+    const res  = await fetch(`/api/venues?${params}`)
+    const data = await res.json()
 
-      if (data.error) {
-        setError(`Error: ${data.error} ${data.message || ''}`)
-      } else if (data.results && data.results.length > 0) {
-        setVenues(data.results)
-      } else {
-        setError('No venues found nearby. Try a different category or location.')
-      }
-    } catch (e: any) {
-      setError('Failed to fetch venues: ' + e.message)
+    if (data.error) {
+      setError(`Error: ${data.error} ${data.message || ''}`)
+    } else if (data.results && data.results.length > 0) {
+      setVenues(data.results)
+    } else {
+      setError('No venues found nearby. Try a different category or location.')
     }
-    setLoading(false)
+  } catch (e: any) {
+    setError('Failed to fetch venues: ' + e.message)
   }
+  setLoading(false)
+}
 
   function lockVenue(venue: any) {
     setSelected(venue); setLocked(true)
