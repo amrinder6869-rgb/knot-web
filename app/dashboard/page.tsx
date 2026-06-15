@@ -279,7 +279,7 @@ export default function Dashboard() {
               {active === 'hangout'   && <Hangout   members={knotMembers} knotId={activeKnot?.id} />}
               {active === 'split'     && <BillSplit members={knotMembers} knotId={activeKnot?.id} />}
               {active === 'members'   && <Members   members={knotMembers} knotId={activeKnot?.id} />}
-              {active === 'memories'  && <Memories  members={knotMembers} />}
+              {active === 'memories'  && <Memories  members={knotMembers} knotId={activeKnot?.id} />}
             </>
           )}
         </div>

@@ -1,84 +1,279 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { supabase } from '@/lib/supabase'
 
-const MEMORIES = {
-  '2025': [
-    { emoji:'🎤', name:'Karaoke Night',    date:'Jun 14', photos:24, type:'night' },
-    { emoji:'🍺', name:'Bier Markt Friday', date:'May 30', photos:18, type:'night' },
-    { emoji:'🎂', name:"Priya's Birthday",  date:'May 10', photos:41, type:'birthday' },
-  ],
-  '2024': [
-    { emoji:'✈️', name:'NYC Trip',          date:'Oct 2024', photos:89, type:'trip' },
-    { emoji:'🏀', name:'Sunday Basketball', date:'Aug 3',    photos:12, type:'night' },
-    { emoji:'🗝️', name:'Escape Room',       date:'Jul 2024', photos:9,  type:'night' },
-  ],
-}
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
-const GRADIENTS: Record<string,string> = {
-  night:    'linear-gradient(135deg,#2A2850,#1A3028)',
-  birthday: 'linear-gradient(135deg,#1e1528,#2A2850)',
-  trip:     'linear-gradient(135deg,#2B2010,#1A2535)',
-}
+export default function Memories({ members, knotId }: { members: any[], knotId?: string }) {
+  const [photos, setPhotos]         = useState<any[]>([])
+  const [hangouts, setHangouts]     = useState<any[]>([])
+  const [stats, setStats]           = useState({ hangs: 0, photos: 0, members: 0 })
+  const [loading, setLoading]       = useState(true)
+  const [uploading, setUploading]   = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [selectedHangout, setSelectedHangout] = useState<string|null>(null)
+  const [viewPhoto, setViewPhoto]   = useState<any|null>(null)
+  const [filter, setFilter]         = useState('All')
+  const [user, setUser]             = useState<any>(null)
+  const fileInputRef                = useRef<HTMLInputElement>(null)
 
-export default function Memories({ members }: { members: any[] }) {
-  const [filter, setFilter] = useState('All')
-  const filters = ['All','Nights out','Trips','Birthdays']
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => { if (data.user) setUser(data.user) })
+    if (knotId) loadMemories()
+  }, [knotId])
+
+  async function loadMemories() {
+    if (!knotId) return
+
+    // Load stats
+    const [{ count: hangCount }, { count: photoCount }, { count: memberCount }] = await Promise.all([
+      supabase.from('hangouts').select('*', { count: 'exact', head: true }).eq('knot_id', knotId),
+      supabase.from('photos').select('*', { count: 'exact', head: true }).eq('knot_id', knotId),
+      supabase.from('knot_members').select('*', { count: 'exact', head: true }).eq('knot_id', knotId),
+    ])
+
+    setStats({ hangs: hangCount || 0, photos: photoCount || 0, members: memberCount || 0 })
+
+    // Load hangouts with photos
+    const { data: hangoutData } = await supabase
+      .from('hangouts')
+      .select('*')
+      .eq('knot_id', knotId)
+      .order('created_at', { ascending: false })
+
+    if (hangoutData) setHangouts(hangoutData)
+
+    // Load photos
+    const { data: photoData } = await supabase
+      .from('photos')
+      .select('*, profiles:uploaded_by(name)')
+      .eq('knot_id', knotId)
+      .order('created_at', { ascending: false })
+
+    if (photoData) {
+      const withUrls = await Promise.all(photoData.map(async (p: any) => {
+        const { data: { publicUrl } } = supabase.storage
+          .from('knot-photos')
+          .getPublicUrl(p.storage_path)
+        return { ...p, url: publicUrl }
+      }))
+      setPhotos(withUrls)
+    }
+
+    setLoading(false)
+  }
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || [])
+    if (!files.length || !knotId || !user) return
+
+    // Validate file sizes
+    const oversized = files.filter(f => f.size > MAX_FILE_SIZE)
+    if (oversized.length > 0) {
+      alert(`${oversized.length} file(s) exceed 5MB limit: ${oversized.map(f => f.name).join(', ')}`)
+      return
+    }
+
+    setUploading(true)
+    setUploadProgress(0)
+
+    let uploaded = 0
+    for (const file of files) {
+      const ext      = file.name.split('.').pop()
+      const path     = `${knotId}/${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('knot-photos')
+        .upload(path, file, { contentType: file.type })
+
+      if (uploadError) { console.error('Upload error:', uploadError); continue }
+
+      await supabase.from('photos').insert({
+        knot_id:      knotId,
+        hangout_id:   selectedHangout || null,
+        uploaded_by:  user.id,
+        storage_path: path,
+        file_name:    file.name,
+        file_size:    file.size,
+      })
+
+      uploaded++
+      setUploadProgress(Math.round(uploaded / files.length * 100))
+    }
+
+    // Post to feed
+    await supabase.from('posts').insert({
+      knot_id:   knotId,
+      author_id: user.id,
+      content:   `added ${uploaded} photo${uploaded > 1 ? 's' : ''} to memories 📸`,
+      post_type: 'moment'
+    })
+
+    setUploading(false)
+    setUploadProgress(0)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+    await loadMemories()
+  }
+
+  async function deletePhoto(photo: any) {
+    if (!confirm('Delete this photo?')) return
+    await supabase.storage.from('knot-photos').remove([photo.storage_path])
+    await supabase.from('photos').delete().eq('id', photo.id)
+    await loadMemories()
+  }
+
+  // Group photos by hangout
+  const ungrouped = photos.filter(p => !p.hangout_id)
+  const byHangout = hangouts.map(h => ({
+    ...h,
+    photos: photos.filter(p => p.hangout_id === h.id)
+  })).filter(h => h.photos.length > 0)
+
+  const formatDate = (d: string) => new Date(d).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
+
+  if (loading) return <div style={{ color: 'var(--text2)', fontSize: 13, padding: '20px 0' }}>Loading memories...</div>
 
   return (
-    <div style={{ maxWidth:720 }}>
+    <div style={{ maxWidth: 800 }}>
+
       {/* Stats */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:20 }}>
-        {[['47','Hangs','var(--indigo)'],['312','Photos','var(--sage)'],['2','Trips','var(--amber)'],['3 yrs','Together','var(--coral)']].map(([v,l,c]) => (
-          <div key={l} style={{ background:'var(--bg2)', border:`1px solid ${c}`, borderRadius:12, padding:'14px', textAlign:'center' }}>
-            <div style={{ fontSize:22, fontWeight:800, color:c as string }}>{v}</div>
-            <div style={{ fontSize:12, color:'var(--text2)', marginTop:2 }}>{l}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* On this day */}
-      <div style={{ background:'var(--bg2)', border:'1px solid var(--indigo)', borderRadius:12, padding:14, marginBottom:20, display:'flex', alignItems:'center', gap:12 }}>
-        <div style={{ width:40, height:40, borderRadius:'50%', background:'var(--indigo-soft)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, flexShrink:0 }}>📅</div>
-        <div style={{ flex:1 }}>
-          <div style={{ fontSize:13, fontWeight:700 }}>On this day, one year ago</div>
-          <div style={{ fontSize:12, color:'var(--text2)' }}>You were all at Karaoke — Sugar Factory, June 14 2024 🎤</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
+        <div style={{ background: 'var(--bg2)', border: '1px solid var(--indigo)', borderRadius: 12, padding: '14px', textAlign: 'center' }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--indigo)' }}>{stats.hangs}</div>
+          <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>Hangs together</div>
         </div>
-        <button style={{ padding:'7px 14px', background:'var(--bg3)', border:'1px solid var(--border2)', borderRadius:8, color:'var(--text2)', fontSize:12, cursor:'pointer', fontFamily:'inherit', flexShrink:0 }}>View</button>
+        <div style={{ background: 'var(--bg2)', border: '1px solid var(--sage)', borderRadius: 12, padding: '14px', textAlign: 'center' }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--sage)' }}>{stats.photos}</div>
+          <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>Photos saved</div>
+        </div>
+        <div style={{ background: 'var(--bg2)', border: '1px solid var(--amber)', borderRadius: 12, padding: '14px', textAlign: 'center' }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--amber)' }}>{stats.members}</div>
+          <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>Members</div>
+        </div>
       </div>
 
-      {/* Filters */}
-      <div style={{ display:'flex', gap:6, marginBottom:20, flexWrap:'wrap' }}>
-        {filters.map(f => (
-          <button key={f} onClick={() => setFilter(f)}
-            style={{ padding:'6px 14px', borderRadius:20, border:`1px solid ${filter===f ? 'var(--indigo)' : 'var(--border2)'}`, background: filter===f ? 'var(--indigo-soft)' : 'transparent', color: filter===f ? 'var(--indigo)' : 'var(--text3)', fontSize:12, fontWeight: filter===f ? 600 : 400, cursor:'pointer', fontFamily:'inherit', transition:'all 0.15s' }}>
-            {f}
+      {/* Upload */}
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: selectedHangout !== undefined ? 10 : 0 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>📸 Add photos</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)' }}>Max 5MB per photo · stays private to this Knot forever</div>
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleUpload}
+            style={{ display: 'none' }} id="photo-upload" />
+          <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
+            style={{ padding: '8px 16px', background: 'var(--indigo)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: uploading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: uploading ? 0.7 : 1, whiteSpace: 'nowrap' }}>
+            {uploading ? `Uploading ${uploadProgress}%` : '+ Add photos'}
           </button>
-        ))}
+        </div>
+
+        {/* Link to hangout */}
+        {hangouts.length > 0 && (
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>Link to a hangout (optional)</div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <div onClick={() => setSelectedHangout(null)}
+                style={{ padding: '4px 10px', borderRadius: 20, border: `1px solid ${!selectedHangout ? 'var(--indigo)' : 'var(--border2)'}`, background: !selectedHangout ? 'var(--indigo-dim)' : 'transparent', fontSize: 12, cursor: 'pointer', color: !selectedHangout ? 'var(--indigo)' : 'var(--text2)' }}>
+                General
+              </div>
+              {hangouts.slice(0, 5).map(h => (
+                <div key={h.id} onClick={() => setSelectedHangout(h.id)}
+                  style={{ padding: '4px 10px', borderRadius: 20, border: `1px solid ${selectedHangout === h.id ? 'var(--indigo)' : 'var(--border2)'}`, background: selectedHangout === h.id ? 'var(--indigo-dim)' : 'transparent', fontSize: 12, cursor: 'pointer', color: selectedHangout === h.id ? 'var(--indigo)' : 'var(--text2)' }}>
+                  {h.title || 'Hangout'} · {formatDate(h.created_at)}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {uploading && (
+          <div style={{ marginTop: 10 }}>
+            <div style={{ height: 4, background: 'var(--bg4)', borderRadius: 2, overflow: 'hidden' }}>
+              <div style={{ height: '100%', background: 'var(--indigo)', width: `${uploadProgress}%`, transition: 'width 0.3s', borderRadius: 2 }} />
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Albums */}
-      {Object.entries(MEMORIES).map(([year, items]) => (
-        <div key={year} style={{ marginBottom:24 }}>
-          <div style={{ fontSize:14, fontWeight:700, color:'var(--text3)', marginBottom:12 }}>{year}</div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10 }}>
-            {items.map(m => (
-              <div key={m.name} onClick={() => alert(`Opening ${m.name} · ${m.photos} photos`)}
-                style={{ background:'var(--bg2)', border:'1px solid var(--border)', borderRadius:12, overflow:'hidden', cursor:'pointer', transition:'border-color 0.15s' }}>
-                <div style={{ aspectRatio:'1', background:GRADIENTS[m.type], display:'flex', alignItems:'center', justifyContent:'center', fontSize:36 }}>{m.emoji}</div>
-                <div style={{ padding:'10px 12px' }}>
-                  <div style={{ fontSize:13, fontWeight:600 }}>{m.name}</div>
-                  <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{m.date} · {m.photos} photos</div>
-                </div>
+      {/* Privacy note */}
+      <div style={{ padding: '10px 14px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 12, color: 'var(--text3)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+        🔒 Photos are permanently private to this Knot. No sharing outside, no public access, ever.
+      </div>
+
+      {/* Photo viewer modal */}
+      {viewPhoto && (
+        <div onClick={() => setViewPhoto(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={e => e.stopPropagation()} style={{ maxWidth: 800, width: '100%', position: 'relative' }}>
+            <img src={viewPhoto.url} alt="" style={{ width: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: 12 }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>
+                Added by {viewPhoto.profiles?.name || 'someone'} · {formatDate(viewPhoto.created_at)}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {viewPhoto.uploaded_by === user?.id && (
+                  <button onClick={() => { deletePhoto(viewPhoto); setViewPhoto(null) }}
+                    style={{ padding: '6px 14px', background: 'rgba(232,98,74,0.2)', border: '1px solid rgba(232,98,74,0.4)', borderRadius: 8, color: 'var(--coral)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Delete
+                  </button>
+                )}
+                <button onClick={() => setViewPhoto(null)}
+                  style={{ padding: '6px 14px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, color: '#fff', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* No photos yet */}
+      {photos.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text2)' }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>📸</div>
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>No photos yet</div>
+          <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 16 }}>Add your first photo from a night out.</div>
+          <button onClick={() => fileInputRef.current?.click()}
+            style={{ padding: '10px 20px', background: 'var(--indigo)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+            + Add photos
+          </button>
+        </div>
+      )}
+
+      {/* Photos by hangout */}
+      {byHangout.map(h => (
+        <div key={h.id} style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+            {h.title || 'Hangout'}
+            <span style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 400 }}>· {formatDate(h.created_at)} · {h.photos.length} photo{h.photos.length !== 1 ? 's' : ''}</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+            {h.photos.map((p: any) => (
+              <div key={p.id} onClick={() => setViewPhoto(p)}
+                style={{ aspectRatio: '1', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', background: 'var(--bg3)', border: '1px solid var(--border)' }}>
+                <img src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
             ))}
           </div>
         </div>
       ))}
 
-      {/* Privacy note */}
-      <div style={{ padding:'12px 14px', background:'var(--bg2)', border:'1px solid var(--border)', borderRadius:10, fontSize:12, color:'var(--text3)', display:'flex', alignItems:'center', gap:8 }}>
-        🔒 Photos are permanently private to this Knot. No sharing outside, no public access, ever.
-      </div>
+      {/* Ungrouped photos */}
+      {ungrouped.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: 'var(--text2)' }}>
+            General · {ungrouped.length} photo{ungrouped.length !== 1 ? 's' : ''}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+            {ungrouped.map((p: any) => (
+              <div key={p.id} onClick={() => setViewPhoto(p)}
+                style={{ aspectRatio: '1', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', background: 'var(--bg3)', border: '1px solid var(--border)' }}>
+                <img src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
