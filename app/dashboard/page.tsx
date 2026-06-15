@@ -273,10 +273,10 @@ async function createKnot() {
           ) : (
             <>
               {active === 'feed'     && <Feed      members={MEMBERS} knotName={activeKnot.name} />}
-              {active === 'hangout'  && <Hangout   members={MEMBERS} />}
-              {active === 'split'    && <BillSplit  members={MEMBERS} />}
-              {active === 'members'  && <Members   members={MEMBERS} />}
-              {active === 'memories' && <Memories  members={MEMBERS} />}
+{active === 'hangout'  && <Hangout   members={MEMBERS} />}
+{active === 'split'    && <BillSplit members={MEMBERS} />}
+{active === 'members'  && <Members   members={MEMBERS} knotId={activeKnot?.id} />}
+{active === 'memories' && <Memories  members={MEMBERS} />}
             </>
           )}
         </div>
