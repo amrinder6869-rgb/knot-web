@@ -1,128 +1,297 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
 
-const OPTIONS = [
-  { id:1, emoji:'🍺', label:'Drinks & bar',  votes:4 },
-  { id:2, emoji:'🎤', label:'Karaoke',        votes:3 },
-  { id:3, emoji:'🍕', label:'Dinner out',     votes:2 },
-  { id:4, emoji:'🎳', label:'Bowling',        votes:1 },
-  { id:5, emoji:'🎬', label:'Movie',          votes:1 },
-]
-
-const VENUES = [
-  { emoji:'🍺', name:'Bier Markt',    meta:'0.4 km · King West · $$',                 tags:['550 beers','Group-friendly','Open til 2am'], over:false },
-  { emoji:'🥂', name:'Bar Hop',       meta:'0.7 km · King West · $$',                 tags:['Craft cocktails','Low key vibe'], over:false },
-  { emoji:'🍸', name:'Bar Centrale',  meta:'0.9 km · Entertainment District · $$$',   tags:['Slightly over budget','Good for groups'], over:true },
+const ACTIVITY_OPTIONS = [
+  { emoji: '🍺', label: 'Drinks & bar' },
+  { emoji: '🎤', label: 'Karaoke' },
+  { emoji: '🍕', label: 'Dinner out' },
+  { emoji: '🎳', label: 'Bowling' },
+  { emoji: '🎬', label: 'Movie' },
+  { emoji: '🎮', label: 'Arcade' },
+  { emoji: '☕', label: 'Cafe' },
+  { emoji: '🏃', label: 'Outdoors' },
 ]
 
 const BUDGETS = [
-  { id:'casual', icon:'☕', label:'Casual',    range:'$20–40' },
-  { id:'mid',    icon:'🍕', label:'Mid',       range:'$40–80' },
-  { id:'nice',   icon:'🍽️', label:'Nice',      range:'$80–150' },
-  { id:'splurge',icon:'⭐', label:'Splurge',   range:'$150+' },
+  { id: 1, label: 'Casual',  symbol: '$' },
+  { id: 2, label: 'Mid',     symbol: '$$' },
+  { id: 3, label: 'Nice',    symbol: '$$$' },
+  { id: 4, label: 'Splurge', symbol: '$$$$' },
 ]
 
-export default function Hangout({ members }: { members: any[] }) {
-  const [myVote, setMyVote]       = useState<number|null>(1)
-  const [budget, setBudget]       = useState('mid')
-  const [locked, setLocked]       = useState(false)
-  const [treatSent, setTreatSent] = useState(false)
-  const max = Math.max(...OPTIONS.map(o => o.votes))
+export default function Hangout({ members, knotId }: { members: any[], knotId?: string }) {
+  const [hangout, setHangout]       = useState<any>(null)
+  const [options, setOptions]       = useState<any[]>([])
+  const [myVote, setMyVote]         = useState<string|null>(null)
+  const [budget, setBudget]         = useState(2)
+  const [loading, setLoading]       = useState(true)
+  const [creating, setCreating]     = useState(false)
+  const [voting, setVoting]         = useState(false)
+  const [showCreate, setShowCreate] = useState(false)
+  const [selected, setSelected]     = useState<string[]>([])
+
+  useEffect(() => {
+    if (knotId) loadHangout()
+  }, [knotId])
+
+  async function loadHangout() {
+    if (!knotId) return
+    const { data } = await supabase
+      .from('hangouts')
+      .select('*')
+      .eq('knot_id', knotId)
+      .eq('status', 'voting')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (data) {
+      setHangout(data)
+      await loadOptions(data.id)
+    }
+    setLoading(false)
+  }
+
+  async function loadOptions(hangoutId: string) {
+    const { data } = await supabase
+      .from('hangout_options')
+      .select('*')
+      .eq('hangout_id', hangoutId)
+      .order('vote_count', { ascending: false })
+
+    if (data) setOptions(data)
+
+    const { data: { user: u } } = await supabase.auth.getUser()
+    if (u) {
+      const { data: vote } = await supabase
+        .from('hangout_votes')
+        .select('option_id')
+        .eq('hangout_id', hangoutId)
+        .eq('user_id', u.id)
+        .single()
+      if (vote) setMyVote(vote.option_id)
+    }
+  }
+
+  async function createPoll() {
+    if (!knotId || selected.length === 0) return
+    setCreating(true)
+
+    const { data: { user: u } } = await supabase.auth.getUser()
+    if (!u) { setCreating(false); return }
+
+    const { data: h } = await supabase
+      .from('hangouts')
+      .insert({ knot_id: knotId, created_by: u.id, status: 'voting', budget_sweet_spot: String(budget) })
+      .select().single()
+
+    if (h) {
+      const opts = selected.map(label => {
+        const opt = ACTIVITY_OPTIONS.find(o => o.label === label)
+        return { hangout_id: h.id, label, emoji: opt?.emoji || '🎯', vote_count: 0 }
+      })
+      await supabase.from('hangout_options').insert(opts)
+      await supabase.from('posts').insert({
+        knot_id: knotId, author_id: u.id,
+        content: `started a hangout poll — vote on what to do tonight! 🗳️`,
+        post_type: 'moment'
+      })
+      setHangout(h)
+      await loadOptions(h.id)
+      setShowCreate(false)
+      setSelected([])
+    }
+    setCreating(false)
+  }
+
+  async function castVote(optionId: string) {
+    if (!hangout || myVote || voting) return
+    setVoting(true)
+
+    const { data: { user: u } } = await supabase.auth.getUser()
+    if (!u) { setVoting(false); return }
+
+    const { error } = await supabase.from('hangout_votes').insert({
+      hangout_id: hangout.id, option_id: optionId, user_id: u.id
+    })
+
+    if (error) {
+      console.error('Vote error:', error)
+      alert('Vote error: ' + error.message)
+      setVoting(false)
+      return
+    }
+
+    const currentCount = options.find(o => o.id === optionId)?.vote_count || 0
+    await supabase.from('hangout_options')
+      .update({ vote_count: currentCount + 1 })
+      .eq('id', optionId)
+
+    setMyVote(optionId)
+    await loadOptions(hangout.id)
+    setVoting(false)
+  }
+
+  async function lockPlan() {
+    if (!hangout) return
+    const { data: { user: u } } = await supabase.auth.getUser()
+    if (!u) return
+    const winner = options[0]
+    await supabase.from('hangouts')
+      .update({ status: 'locked', title: winner.label })
+      .eq('id', hangout.id)
+    await supabase.from('posts').insert({
+      knot_id: knotId, author_id: u.id,
+      content: `locked in tonight's plan — ${winner.emoji} ${winner.label}! Who's in? 🎉`,
+      post_type: 'moment'
+    })
+    setHangout({ ...hangout, status: 'locked', title: winner.label })
+  }
+
+  if (loading) return (
+    <div style={{ color: 'var(--text2)', fontSize: 13, padding: '20px 0' }}>Loading...</div>
+  )
+
+  const maxVotes = Math.max(...options.map(o => o.vote_count), 1)
 
   return (
-    <div style={{ maxWidth:720 }}>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
+    <div style={{ maxWidth: 720 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
 
-        {/* LEFT — Vote */}
         <div>
-          <div style={{ fontSize:15, fontWeight:700, marginBottom:14, display:'flex', alignItems:'center', gap:8 }}>🗳️ What's the vibe?</div>
-          {OPTIONS.map(o => {
-            const isWinner = o.id === 1
-            const isVoted  = myVote === o.id
-            return (
-              <div key={o.id} onClick={() => !locked && setMyVote(o.id)}
-                style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 14px', border:`1px solid ${isWinner ? 'var(--sage)' : isVoted ? 'var(--indigo)' : 'var(--border2)'}`, borderRadius:8, marginBottom:8, cursor: locked ? 'default' : 'pointer', background: isWinner ? 'var(--sage-dim)' : isVoted ? 'var(--indigo-dim)' : 'transparent', transition:'all 0.15s' }}>
-                <span style={{ fontSize:20, width:28, textAlign:'center' }}>{o.emoji}</span>
-                <span style={{ flex:1, fontSize:13, fontWeight:500 }}>{o.label}</span>
-                <div style={{ width:80, height:4, background:'var(--bg4)', borderRadius:2, overflow:'hidden' }}>
-                  <div style={{ height:'100%', borderRadius:2, background: isWinner ? 'var(--sage)' : 'var(--indigo)', width:`${Math.round(o.votes/max*100)}%`, transition:'width 0.4s' }} />
-                </div>
-                <span style={{ fontSize:12, color:'var(--text3)', width:52, textAlign:'right' }}>{o.votes} votes</span>
-                {isWinner && <span style={{ fontSize:10, color:'var(--sage)' }}>🏆</span>}
-              </div>
-            )
-          })}
-
-          <div style={{ marginTop:10, marginBottom:4, fontSize:11, color:'var(--text3)', display:'flex', alignItems:'center', gap:6 }}>
-            <span>Who's voted:</span>
-            {members.map((m,i) => (
-              <div key={m.id} style={{ width:22, height:22, borderRadius:'50%', background:m.color, color:m.text, fontSize:9, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', opacity: i < 3 ? 1 : 0.35, border: i >= 3 ? '1.5px dashed var(--border2)' : 'none' }}>{m.initials}</div>
-            ))}
-            <span style={{ fontSize:11, color:'var(--text3)' }}>3 of 5</span>
-          </div>
-
-          <div style={{ marginTop:20, marginBottom:10, fontSize:15, fontWeight:700, display:'flex', alignItems:'center', gap:8 }}>💰 Your budget</div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:8 }}>
-            {BUDGETS.map(b => (
-              <div key={b.id} onClick={() => setBudget(b.id)}
-                style={{ padding:'10px 6px', border:`${budget===b.id ? '1.5px solid var(--indigo)' : '1px solid var(--border2)'}`, borderRadius:8, textAlign:'center', cursor:'pointer', background: budget===b.id ? 'var(--indigo-dim)' : 'transparent', transition:'all 0.15s' }}>
-                <div style={{ fontSize:18, marginBottom:4 }}>{b.icon}</div>
-                <div style={{ fontSize:12, fontWeight:600, color: budget===b.id ? 'var(--indigo)' : 'var(--text)' }}>{b.label}</div>
-                <div style={{ fontSize:10, color:'var(--text3)', marginTop:2 }}>{b.range}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ fontSize:11, color:'var(--text3)', display:'flex', alignItems:'center', gap:5, marginBottom:16 }}>🔒 Your budget is never shown to others</div>
-
-          {!treatSent ? (
-            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', background:'var(--indigo-soft)', border:'1px solid rgba(108,99,255,0.3)', borderRadius:8 }}>
-              <span style={{ fontSize:18 }}>🎉</span>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:13, fontWeight:500 }}>Offer a treat to the group</div>
-                <div style={{ fontSize:12, color:'var(--text2)' }}>Drinks, food, entry, or the ride home</div>
-              </div>
-              <button onClick={() => setTreatSent(true)} style={{ background:'var(--indigo)', border:'none', borderRadius:6, color:'#fff', padding:'6px 12px', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>+ Offer</button>
+          {hangout && hangout.status === 'locked' ? (
+            <div style={{ background: 'var(--bg2)', border: '1px solid var(--sage)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--sage)', marginBottom: 6 }}>✓ Tonight is locked in!</div>
+              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{options[0]?.emoji} {hangout.title}</div>
+              <button onClick={() => { setHangout(null); setOptions([]); setMyVote(null) }}
+                style={{ fontSize: 12, padding: '6px 14px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                Start new poll
+              </button>
             </div>
+          ) : hangout ? (
+            <>
+              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                🗳️ Tonight's vote
+                <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 400 }}>
+                  · {options.reduce((a, o) => a + o.vote_count, 0)} votes
+                </span>
+              </div>
+
+              {options.map(o => {
+                const isWinner = o.id === options[0]?.id && o.vote_count > 0
+                const isMyVote = myVote === o.id
+                return (
+                  <button key={o.id}
+  onClick={() => castVote(o.id)}
+  disabled={!!myVote || voting}
+  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', border: `1px solid ${isWinner ? 'var(--sage)' : isMyVote ? 'var(--indigo)' : 'var(--border2)'}`, borderRadius: 8, marginBottom: 8, cursor: myVote || voting ? 'default' : 'pointer', background: isWinner ? 'var(--sage-dim)' : isMyVote ? 'var(--indigo-dim)' : 'transparent', transition: 'all 0.15s', width: '100%', fontFamily: 'inherit', textAlign: 'left' }}>
+                    <span style={{ fontSize: 20, width: 28, textAlign: 'center' }}>{o.emoji}</span>
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{o.label}</span>
+                    <div style={{ width: 80, height: 4, background: 'var(--bg4)', borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', borderRadius: 2, background: isWinner ? 'var(--sage)' : 'var(--indigo)', width: `${Math.round(o.vote_count / maxVotes * 100)}%`, transition: 'width 0.4s' }} />
+                    </div>
+                    <span style={{ fontSize: 12, color: 'var(--text3)', width: 52, textAlign: 'right' }}>
+                      {o.vote_count} vote{o.vote_count !== 1 ? 's' : ''}
+                    </span>
+                    {isWinner && o.vote_count > 0 && <span style={{ fontSize: 10, color: 'var(--sage)' }}>🏆</span>}
+                  </button>
+                )
+              })}
+
+              {myVote && options.length > 0 && options[0].vote_count > 0 && (
+                <div style={{ background: 'var(--bg2)', border: '1px solid var(--sage)', borderRadius: 10, padding: 14, marginTop: 8 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--sage)', marginBottom: 6 }}>
+                    🏆 Winner: {options[0].label}
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 10 }}>Lock in tonight's plan?</div>
+                  <button onClick={lockPlan}
+                    style={{ background: 'var(--sage-soft)', border: '1px solid rgba(76,175,135,0.3)', borderRadius: 8, color: 'var(--sage)', padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    🔒 Lock plan
+                  </button>
+                </div>
+              )}
+
+              {!myVote && !voting && (
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 8 }}>
+                  Click an option to cast your vote
+                </div>
+              )}
+              {voting && (
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 8 }}>Saving vote...</div>
+              )}
+            </>
           ) : (
-            <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 12px', background:'var(--sage-soft)', border:'1px solid rgba(76,175,135,0.3)', borderRadius:8, fontSize:13, color:'var(--sage)' }}>
-              ✓ Treat offer sent — the crew sees "You've got the first round!"
+            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+              <div style={{ fontSize: 36, marginBottom: 12 }}>🗳️</div>
+              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>No active poll</div>
+              <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 16 }}>
+                Start a poll to decide what to do tonight.
+              </div>
+              <button onClick={() => setShowCreate(true)}
+                style={{ background: 'var(--indigo)', border: 'none', borderRadius: 8, color: '#fff', padding: '10px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                + Start a poll
+              </button>
+            </div>
+          )}
+
+          {showCreate && (
+            <div style={{ background: 'var(--bg2)', border: '1px solid var(--indigo)', borderRadius: 12, padding: 16, marginTop: 12 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Pick activities to vote on</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 14 }}>
+                {ACTIVITY_OPTIONS.map(o => (
+                  <div key={o.label}
+                    onClick={() => setSelected(s => s.includes(o.label) ? s.filter(x => x !== o.label) : s.length < 5 ? [...s, o.label] : s)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', border: `1px solid ${selected.includes(o.label) ? 'var(--indigo)' : 'var(--border2)'}`, borderRadius: 8, cursor: 'pointer', background: selected.includes(o.label) ? 'var(--indigo-dim)' : 'transparent' }}>
+                    <span>{o.emoji}</span>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: selected.includes(o.label) ? 'var(--indigo)' : 'var(--text2)' }}>{o.label}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={createPoll} disabled={creating || selected.length === 0}
+                  style={{ flex: 1, padding: '9px', background: 'var(--indigo)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: creating || selected.length === 0 ? 0.7 : 1 }}>
+                  {creating ? 'Creating...' : `Start poll (${selected.length} options)`}
+                </button>
+                <button onClick={() => setShowCreate(false)}
+                  style={{ padding: '9px 14px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Cancel
+                </button>
+              </div>
             </div>
           )}
         </div>
 
-        {/* RIGHT — Venues */}
         <div>
-          <div style={{ fontSize:15, fontWeight:700, marginBottom:6, display:'flex', alignItems:'center', gap:8 }}>📍 Suggested spots</div>
-          <div style={{ fontSize:12, color:'var(--text3)', marginBottom:12 }}>Filtered to $$ · near Liberty Village · Drinks & bar</div>
-
-          {VENUES.map(v => (
-            <div key={v.name} style={{ display:'flex', gap:12, padding:12, background:'var(--bg2)', border:`1px solid ${v.over ? 'rgba(240,168,85,0.3)' : 'var(--border)'}`, borderRadius:10, marginBottom:8, cursor:'pointer', transition:'border-color 0.15s' }}>
-              <div style={{ width:48, height:48, borderRadius:8, background:'var(--bg3)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0 }}>{v.emoji}</div>
-              <div>
-                <div style={{ fontSize:13, fontWeight:700 }}>{v.name}</div>
-                <div style={{ fontSize:12, color:'var(--text2)', marginTop:2 }}>{v.meta}</div>
-                <div style={{ display:'flex', gap:4, marginTop:6, flexWrap:'wrap' }}>
-                  {v.tags.map(t => <span key={t} style={{ fontSize:11, padding:'2px 8px', borderRadius:20, background: v.over && t.includes('over') ? 'var(--amber-soft)' : 'var(--indigo-soft)', color: v.over && t.includes('over') ? 'var(--amber)' : 'var(--indigo)' }}>{t}</span>)}
-                </div>
+          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>💰 Budget tonight</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 16 }}>
+            {BUDGETS.map(b => (
+              <div key={b.id} onClick={() => setBudget(b.id)}
+                style={{ padding: '10px 8px', border: `${budget === b.id ? '1.5px solid var(--indigo)' : '1px solid var(--border2)'}`, borderRadius: 8, textAlign: 'center', cursor: 'pointer', background: budget === b.id ? 'var(--indigo-dim)' : 'transparent' }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: budget === b.id ? 'var(--indigo)' : 'var(--text)' }}>{b.symbol}</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{b.label}</div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 20 }}>
+            🔒 Your budget is never shown to others
+          </div>
 
-          <div style={{ fontSize:12, color:'var(--text2)', display:'flex', alignItems:'center', gap:5, marginBottom:14 }}>👥 Group sweet spot: Mid-range · 4 of 5 comfortable</div>
-
-          {!locked ? (
-            <div style={{ background:'var(--bg2)', border:'1px solid var(--sage)', borderRadius:10, padding:14 }}>
-              <div style={{ fontSize:12, fontWeight:600, color:'var(--sage)', marginBottom:6 }}>🏆 Winner: Drinks & bar</div>
-              <div style={{ fontSize:13, color:'var(--text2)', marginBottom:12 }}>Lock in Bier Markt for tonight?</div>
-              <div style={{ display:'flex', gap:8 }}>
-                <button onClick={() => setLocked(true)} style={{ background:'var(--sage-soft)', border:'1px solid rgba(76,175,135,0.3)', borderRadius:8, color:'var(--sage)', padding:'8px 16px', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>🔒 Lock plan</button>
-                <button style={{ background:'var(--bg3)', border:'1px solid var(--border2)', borderRadius:8, color:'var(--text2)', padding:'8px 16px', fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>More spots</button>
+          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10 }}>👥 Who's voted</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {members.map(m => (
+              <div key={m.id} style={{ width: 32, height: 32, borderRadius: '50%', background: m.color, color: m.text, fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg)' }}>
+                {m.initials}
               </div>
-            </div>
-          ) : (
-            <div style={{ background:'var(--sage-soft)', border:'1px solid rgba(76,175,135,0.4)', borderRadius:10, padding:14 }}>
-              <div style={{ fontSize:14, fontWeight:700, color:'var(--sage)', marginBottom:4 }}>✓ Bier Markt locked for tonight!</div>
-              <div style={{ fontSize:12, color:'var(--text2)' }}>The crew has been notified. See you at 9 PM 🍺</div>
+            ))}
+          </div>
+
+          {!hangout && (
+            <div style={{ marginTop: 20 }}>
+              <button onClick={() => setShowCreate(true)}
+                style={{ width: '100%', padding: '12px', background: 'var(--indigo)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                🗳️ Start tonight's poll
+              </button>
             </div>
           )}
         </div>
