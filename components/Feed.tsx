@@ -1,4 +1,10 @@
 'use client'
+type Reaction = { e: string; n: number; mine: boolean }
+type Post = {
+  id: number; author: string; initials: string; color: string; text: string
+  action: string; time: string; sub: string; type: string
+  emojis?: string[]; reactions: Reaction[]
+}
 import { useState } from 'react'
 
 const POSTS = [
@@ -10,7 +16,7 @@ const POSTS = [
 ]
 
 export default function Feed({ members, knotName }: { members: any[], knotName: string }) {
-  const [posts, setPosts] = useState(POSTS)
+  const [posts, setPosts] = useState<Post[]>(POSTS as Post[])
   const [newPost, setNewPost] = useState('')
 
   function toggleReaction(postId: number, emoji: string) {
