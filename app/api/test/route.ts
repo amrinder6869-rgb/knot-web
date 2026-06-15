@@ -1,19 +1,41 @@
 import { NextResponse } from 'next/server'
-import axios from 'axios'
+import https from 'https'
+
+function httpsGet(url: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url)
+    const req = https.request({
+      hostname: urlObj.hostname,
+      path: urlObj.pathname + urlObj.search,
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    }, (res) => {
+      let body = ''
+      res.on('data', chunk => body += chunk)
+      res.on('end', () => resolve(body))
+    })
+    req.on('error', reject)
+    req.end()
+  })
+}
 
 export async function GET() {
-  const apiKey = process.env.FOURSQUARE_API_KEY
-  if (!apiKey) return NextResponse.json({ error: 'No API key' })
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY
+  if (!apiKey) return NextResponse.json({ error: 'No API key', keyFound: false })
 
   try {
-    const { data } = await axios.get('https://api.foursquare.com/v3/places/search', {
-      headers: { Authorization: apiKey, Accept: 'application/json' },
-      params: { ll: '43.593,-79.756', categories: '13003', limit: '3' },
-      timeout: 10000,
+    const body = await httpsGet(
+      `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=43.593,-79.756&radius=2000&type=bar&key=${apiKey}`
+    )
+    const data = JSON.parse(body)
+    return NextResponse.json({
+      status: data.status,
+      count: data.results?.length,
+      first: data.results?.[0]?.name,
+      error: data.error_message,
+      keyPrefix: apiKey.substring(0, 6),
     })
-    return NextResponse.json({ status: 200, results: data.results?.length, first: data.results?.[0]?.name })
   } catch (e: any) {
-    const msg = e.response?.data || e.message
-    return NextResponse.json({ error: JSON.stringify(msg) })
+    return NextResponse.json({ error: e.message })
   }
 }

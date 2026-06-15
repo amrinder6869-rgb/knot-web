@@ -21,6 +21,18 @@ const BUDGETS = [
 
 const PRICE_MAP: Record<number, string> = { 1:'$', 2:'$$', 3:'$$$', 4:'$$$$' }
 
+function Stars({ rating }: { rating: number }) {
+  const full  = Math.floor(rating)
+  const half  = rating % 1 >= 0.5
+  const empty = 5 - full - (half ? 1 : 0)
+  return (
+    <span style={{ color: '#F0A855', fontSize: 12 }}>
+      {'★'.repeat(full)}{half ? '½' : ''}{'☆'.repeat(empty)}
+      <span style={{ color: 'var(--text3)', marginLeft: 4 }}>{rating.toFixed(1)}</span>
+    </span>
+  )
+}
+
 export default function Discover({ members }: { members: any[] }) {
   const [category, setCategory] = useState<string|null>(null)
   const [budget, setBudget]     = useState<number|null>(2)
@@ -39,65 +51,50 @@ export default function Discover({ members }: { members: any[] }) {
       navigator.geolocation.getCurrentPosition(
         pos => {
           const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude, name: 'Your location' }
-          setLocation(loc)
-          setLocating(false)
-          resolve(loc)
+          setLocation(loc); setLocating(false); resolve(loc)
         },
         () => {
           const loc = { lat: 43.5890, lng: -79.6441, name: 'Mississauga, ON' }
-          setLocation(loc)
-          setLocating(false)
-          resolve(loc)
+          setLocation(loc); setLocating(false); resolve(loc)
         }
       )
     })
   }
 
   async function searchVenues() {
-  if (!category) { setError('Pick a category first'); return }
+    if (!category) { setError('Pick a category first'); return }
+    let loc = location
+    if (!loc) { loc = await getLocation() }
+    if (!loc)  { setError('Could not get location'); return }
 
-  let loc = location
-  if (!loc) { loc = await getLocation() }
-  if (!loc) { setError('Could not get location'); return }
+    setLoading(true); setError(''); setVenues([]); setSearched(true)
 
-  setLoading(true); setError(''); setVenues([]); setSearched(true)
-
-  const params = new URLSearchParams({
-    ll: `${loc.lat},${loc.lng}`,
-    categories: category,
-    limit: '10',
-    ...(budget ? { price: String(budget) } : {}),
-  })
-
-  try {
-    const res = await fetch(`https://api.foursquare.com/v3/places/search?${params}`, {
-      headers: {
-        Authorization: '1MP2WKRQKBQ3GMSUZMXZO4TX5G1KD5ZKFIBD2T1KYWWWY0A3',
-        Accept: 'application/json',
-      }
+    const params = new URLSearchParams({
+      ll: `${loc.lat},${loc.lng}`,
+      categories: category,
+      limit: '10',
+      ...(budget ? { price: String(budget) } : {}),
     })
-    const data = await res.json()
-    console.log('Venues:', data)
 
-    if (data.results && data.results.length > 0) {
-      setVenues(data.results)
-    } else {
-      setError('No venues found nearby. Try a different category or location.')
+    try {
+      const res  = await fetch(`/api/venues?${params}`)
+      const data = await res.json()
+
+      if (data.error) {
+        setError(`Error: ${data.error} ${data.message || ''}`)
+      } else if (data.results && data.results.length > 0) {
+        setVenues(data.results)
+      } else {
+        setError('No venues found nearby. Try a different category or location.')
+      }
+    } catch (e: any) {
+      setError('Failed to fetch venues: ' + e.message)
     }
-  } catch (e: any) {
-    setError('Error: ' + e.message)
-  }
-  setLoading(false)
-}Authorization: '1MP2WKRQKBQ3GMSUZMXZO4TX5G1KD5ZKFIBD2T1KYWWWY0A3',
-  function lockVenue(venue: any) {
-    setSelected(venue)
-    setLocked(true)
+    setLoading(false)
   }
 
-  const distanceLabel = (v: any) => {
-    const d = v.distance
-    if (!d) return ''
-    return d < 1000 ? `${d}m away` : `${(d / 1000).toFixed(1)}km away`
+  function lockVenue(venue: any) {
+    setSelected(venue); setLocked(true)
   }
 
   return (
@@ -109,35 +106,29 @@ export default function Discover({ members }: { members: any[] }) {
       </div>
 
       {locked && selected ? (
+        /* LOCKED */
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--sage)', borderRadius: 16, padding: 24, textAlign: 'center' }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
           <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4, color: 'var(--sage)' }}>Plan locked in!</div>
-          <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>{selected.name}</div>
-          <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 4 }}>
-            {selected.location?.formatted_address || selected.location?.address || ''}
-          </div>
-          {selected.distance && (
-            <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 16 }}>{distanceLabel(selected)}</div>
-          )}
+          <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>{selected.name}</div>
+          <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 6 }}>{selected.location?.formatted_address}</div>
+          {selected.rating && <div style={{ marginBottom: 8 }}><Stars rating={selected.rating} /></div>}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 20 }}>
             {selected.categories?.map((c: any) => (
-              <span key={c.id} style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: 'var(--indigo-soft)', color: 'var(--indigo)' }}>{c.name}</span>
+              <span key={c.id} style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: 'var(--indigo-soft)', color: 'var(--indigo)', textTransform: 'capitalize' }}>{c.name}</span>
             ))}
-            {selected.price && (
-              <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: 'var(--sage-soft)', color: 'var(--sage)' }}>{PRICE_MAP[selected.price]}</span>
-            )}
+            {selected.price && <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: 'var(--sage-soft)', color: 'var(--sage)' }}>{PRICE_MAP[selected.price]}</span>}
+            {selected.closed_bucket === 'VeryLikelyOpen' && <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: 'var(--sage-soft)', color: 'var(--sage)' }}>Open now</span>}
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
             <button onClick={() => { setLocked(false); setSelected(null) }}
               style={{ padding: '9px 20px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
               Change plan
             </button>
-            {selected.fsq_id && (
-              <a href={`https://foursquare.com/v/${selected.fsq_id}`} target="_blank" rel="noreferrer"
-                style={{ padding: '9px 20px', background: 'var(--indigo)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none' }}>
-                View on Foursquare ↗
-              </a>
-            )}
+            <a href={selected.google_maps_url} target="_blank" rel="noreferrer"
+              style={{ padding: '9px 20px', background: 'var(--indigo)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none' }}>
+              Open in Google Maps ↗
+            </a>
           </div>
         </div>
       ) : (
@@ -147,11 +138,9 @@ export default function Discover({ members }: { members: any[] }) {
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', marginBottom: 8 }}>📍 LOCATION</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ flex: 1, fontSize: 13, color: location ? 'var(--sage)' : 'var(--text2)' }}>
-                {location
-                  ? `✓ ${location.name} (${location.lat.toFixed(3)}, ${location.lng.toFixed(3)})`
-                  : 'Click to detect your location'}
+                {location ? `✓ ${location.name} (${location.lat.toFixed(3)}, ${location.lng.toFixed(3)})` : 'Click to detect your location'}
               </div>
-              <button onClick={getLocation} disabled={locating}
+              <button onClick={() => getLocation()} disabled={locating}
                 style={{ padding: '7px 14px', background: 'var(--indigo)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: locating ? 0.7 : 1, whiteSpace: 'nowrap' }}>
                 {locating ? 'Locating...' : location ? '📍 Update' : '📍 Use my location'}
               </button>
@@ -184,9 +173,7 @@ export default function Discover({ members }: { members: any[] }) {
                 </div>
               ))}
             </div>
-            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>
-              🔒 Budget matched to group sweet spot automatically
-            </div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>🔒 Budget matched to group sweet spot automatically</div>
           </div>
 
           {/* ERROR */}
@@ -196,13 +183,13 @@ export default function Discover({ members }: { members: any[] }) {
             </div>
           )}
 
-          {/* SEARCH BUTTON */}
+          {/* SEARCH */}
           <button onClick={searchVenues} disabled={loading || !category}
             style={{ width: '100%', padding: '13px', background: category ? 'var(--indigo)' : 'var(--bg3)', border: `1px solid ${category ? 'var(--indigo)' : 'var(--border2)'}`, borderRadius: 10, color: category ? '#fff' : 'var(--text3)', fontSize: 14, fontWeight: 600, cursor: category ? 'pointer' : 'not-allowed', fontFamily: 'inherit', marginBottom: 20, opacity: loading ? 0.7 : 1 }}>
             {loading ? '🔍 Finding places...' : '🔍 Find places nearby'}
           </button>
 
-          {/* LOADING SKELETONS */}
+          {/* SKELETONS */}
           {loading && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[1,2,3].map(i => (
@@ -222,30 +209,35 @@ export default function Discover({ members }: { members: any[] }) {
                   <div key={v.fsq_id}
                     style={{ display: 'flex', gap: 14, padding: 14, background: 'var(--bg2)', border: `1px solid ${selected?.fsq_id === v.fsq_id ? 'var(--indigo)' : 'var(--border)'}`, borderRadius: 12, cursor: 'pointer', transition: 'all 0.15s' }}
                     onClick={() => setSelected(selected?.fsq_id === v.fsq_id ? null : v)}>
-                    <div style={{ width: 52, height: 52, borderRadius: 10, background: 'var(--bg3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0, overflow: 'hidden' }}>
-                      {v.categories?.[0]?.icon
-                        ? <img src={`${v.categories[0].icon.prefix}64${v.categories[0].icon.suffix}`} alt="" style={{ width: 36, height: 36 }} />
-                        : '📍'}
+
+                    {/* Icon */}
+                    <div style={{ width: 52, height: 52, borderRadius: 10, background: 'var(--bg3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, flexShrink: 0 }}>
+                      {CATEGORIES.find(c => c.id === category)?.emoji || '📍'}
                     </div>
+
+                    {/* Info */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 3 }}>{v.name}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6 }}>
-                        {v.location?.formatted_address || v.location?.address || v.location?.locality || ''}
-                      </div>
-                      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                        {v.categories?.slice(0,2).map((c: any) => (
-                          <span key={c.id} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--indigo-soft)', color: 'var(--indigo)' }}>{c.name}</span>
-                        ))}
+                      <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 5 }}>{v.location?.formatted_address}</div>
+                      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
+                        {v.rating && <Stars rating={v.rating} />}
+                        {v.rating_count && <span style={{ fontSize: 11, color: 'var(--text3)' }}>({v.rating_count.toLocaleString()})</span>}
                         {v.price && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--sage-soft)', color: 'var(--sage)' }}>{PRICE_MAP[v.price]}</span>}
-                        {v.distance && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--bg4)', color: 'var(--text3)' }}>{distanceLabel(v)}</span>}
-                        {v.closed_bucket === 'VeryLikelyOpen' && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--sage-soft)', color: 'var(--sage)' }}>Open now</span>}
+                        {v.closed_bucket === 'VeryLikelyOpen' && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--sage-soft)', color: 'var(--sage)' }}>Open now ✓</span>}
+                        {v.categories?.[0] && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--indigo-soft)', color: 'var(--indigo)', textTransform: 'capitalize' }}>{v.categories[0].name}</span>}
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+
+                    {/* Actions */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', justifyContent: 'center', flexShrink: 0 }}>
                       <button onClick={e => { e.stopPropagation(); lockVenue(v) }}
                         style={{ padding: '7px 14px', background: 'var(--sage-soft)', border: '1px solid rgba(76,175,135,0.3)', borderRadius: 8, color: 'var(--sage)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
                         Lock in ✓
                       </button>
+                      <a href={v.google_maps_url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+                        style={{ fontSize: 11, color: 'var(--indigo)', textDecoration: 'none' }}>
+                        Maps ↗
+                      </a>
                     </div>
                   </div>
                 ))}
