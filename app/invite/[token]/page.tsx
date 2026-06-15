@@ -13,14 +13,11 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
 
   useEffect(() => {
     async function load() {
-      // Step 1: fetch invite only
       const { data: inv, error: invError } = await supabase
         .from('invites')
         .select('*')
         .eq('token', token)
         .single()
-
-      console.log('inv:', inv, 'invError:', invError)
 
       if (invError || !inv) { setStatus('error'); return }
       if (inv.used_by) { setStatus('used'); return }
@@ -28,21 +25,17 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
 
       setInvite(inv)
 
-      // Step 2: fetch knot separately
-      const { data: knotData, error: knotError } = await supabase
+      const { data: knotData } = await supabase
         .from('knots')
         .select('id, name, emoji')
         .eq('id', inv.knot_id)
         .single()
-
-      console.log('knotData:', knotData, 'knotError:', knotError)
 
       if (!knotData) { setStatus('error'); return }
 
       setKnot(knotData)
       setStatus('valid')
 
-      // Step 3: check if logged in
       const { data: { user: u } } = await supabase.auth.getUser()
       if (u) setUser(u)
     }
@@ -50,7 +43,11 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
   }, [token])
 
   async function joinKnot() {
-    if (!user) { window.location.href = '/'; return }
+    if (!user) {
+      localStorage.setItem('pending_invite', token)
+      window.location.href = '/'
+      return
+    }
     setJoining(true)
 
     const { error } = await supabase
@@ -116,7 +113,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
         {status === 'used' && (
           <>
             <div style={{ fontSize: 36, marginBottom: 12 }}>🔒</div>
-            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Invite already used</div>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Already used</div>
             <div style={{ fontSize: 13, color: 'var(--text2)' }}>This one-time link has already been claimed.</div>
           </>
         )}
@@ -134,9 +131,13 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
                 <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 16 }}>
                   Sign up or log in to join this Knot.
                 </div>
-                <button onClick={() => window.location.href = '/'}
-                  style={{ width: '100%', padding: '11px', background: '#6C63FF', border: 'none', borderRadius: 8, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                <button onClick={joinKnot}
+                  style={{ width: '100%', padding: '11px', background: '#6C63FF', border: 'none', borderRadius: 8, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 8 }}>
                   Sign up to join
+                </button>
+                <button onClick={() => { localStorage.setItem('pending_invite', token); window.location.href = '/' }}
+                  style={{ width: '100%', padding: '11px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Already have an account? Sign in
                 </button>
               </>
             ) : (

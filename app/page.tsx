@@ -25,12 +25,20 @@ export default function Home() {
   }
 
   async function handleSignIn() {
-    setLoading(true); setError(''); setMessage('')
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) setError(error.message)
-    else if (data.session) window.location.href = '/dashboard'
-    setLoading(false)
+  setLoading(true); setError(''); setMessage('')
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+  if (error) { setError(error.message); setLoading(false); return }
+  if (data.session) {
+    const pendingInvite = localStorage.getItem('pending_invite')
+    if (pendingInvite) {
+      localStorage.removeItem('pending_invite')
+      window.location.href = `/invite/${pendingInvite}`
+    } else {
+      window.location.href = '/dashboard'
+    }
   }
+  setLoading(false)
+}
 
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '11px 14px',
