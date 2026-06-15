@@ -8,6 +8,7 @@ import BillSplit from '@/components/BillSplit'
 import Members from '@/components/Members'
 import Memories from '@/components/Memories'
 import Discover from '@/components/Discover'
+import Games from '@/components/Games'
 
 const NAV = [
   { id: 'discover', icon: '🗺️', label: 'Discover' },
@@ -16,6 +17,7 @@ const NAV = [
   { id: 'split',    icon: '💰', label: 'Bills' },
   { id: 'members',  icon: '👥', label: 'Members' },
   { id: 'memories', icon: '📸', label: 'Memories' },
+{ id: 'games',    icon: '🎮', label: 'Games' },
 ]
 
 const MEMBER_COLORS = [
@@ -27,19 +29,23 @@ const MEMBER_COLORS = [
 ]
 
 export default function Dashboard() {
-  const [active, setActive]               = useState('feed')
-  const [activeKnot, setActiveKnot]       = useState<any>(null)
-  const [user, setUser]                   = useState<any>(null)
-  const [profile, setProfile]             = useState<any>(null)
-  const [sidebarOpen, setSidebarOpen]     = useState(true)
-  const [showNewKnot, setShowNewKnot]     = useState(false)
+  const [active, setActive]                 = useState('feed')
+  const [activeKnot, setActiveKnot]         = useState<any>(null)
+  const [user, setUser]                     = useState<any>(null)
+  const [profile, setProfile]               = useState<any>(null)
+  const [sidebarOpen, setSidebarOpen]       = useState(true)
+  const [showNewKnot, setShowNewKnot]       = useState(false)
   const [showRenameKnot, setShowRenameKnot] = useState(false)
-  const [showKnotMenu, setShowKnotMenu]   = useState(false)
-  const [newKnotName, setNewKnotName]     = useState('')
-  const [newKnotEmoji, setNewKnotEmoji]   = useState('🔗')
-  const [knots, setKnots]                 = useState<any[]>([])
-  const [knotsLoading, setKnotsLoading]   = useState(true)
-  const [knotMembers, setKnotMembers]     = useState<any[]>([])
+  const [showKnotMenu, setShowKnotMenu]     = useState(false)
+  const [showProfile, setShowProfile]       = useState(false)
+  const [newKnotName, setNewKnotName]       = useState('')
+  const [newKnotEmoji, setNewKnotEmoji]     = useState('🔗')
+  const [knots, setKnots]                   = useState<any[]>([])
+  const [knotsLoading, setKnotsLoading]     = useState(true)
+  const [knotMembers, setKnotMembers]       = useState<any[]>([])
+  const [editName, setEditName]             = useState('')
+  const [editBudget, setEditBudget]         = useState('mid')
+  const [savingProfile, setSavingProfile]   = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -48,7 +54,11 @@ export default function Dashboard() {
 
       const { data: prof } = await supabase
         .from('profiles').select('*').eq('id', data.user.id).single()
-      if (prof) setProfile(prof)
+      if (prof) {
+        setProfile(prof)
+        setEditName(prof.name || '')
+        setEditBudget(prof.budget_tier || 'mid')
+      }
 
       const { data: memberships } = await supabase
         .from('knot_members')
@@ -79,7 +89,6 @@ export default function Dashboard() {
       .from('knot_members')
       .select('user_id, role, profiles:user_id(id, name, budget_tier)')
       .eq('knot_id', knotId)
-
     if (data) {
       const currentUserId = userId || user?.id
       setKnotMembers(data.map((m: any, i: number) => ({
@@ -125,9 +134,7 @@ export default function Dashboard() {
         setNewKnotEmoji('🔗')
         setShowNewKnot(false)
       }
-    } catch (e: any) {
-      alert('Error: ' + e.message)
-    }
+    } catch (e: any) { alert('Error: ' + e.message) }
   }
 
   async function renameKnot() {
@@ -154,6 +161,19 @@ export default function Dashboard() {
     setActiveKnot(remaining[0] || null)
     if (remaining[0]) await loadKnotMembers(remaining[0].id)
     else setKnotMembers([])
+  }
+
+  async function saveProfile() {
+    if (!editName.trim() || !user) return
+    setSavingProfile(true)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ name: editName.trim(), budget_tier: editBudget })
+      .eq('id', user.id)
+    if (error) { alert('Error: ' + error.message); setSavingProfile(false); return }
+    setProfile({ ...profile, name: editName.trim(), budget_tier: editBudget })
+    setShowProfile(false)
+    setSavingProfile(false)
   }
 
   const initials = (profile?.name || user?.user_metadata?.name || 'U')
@@ -224,17 +244,21 @@ export default function Dashboard() {
           ))}
         </nav>
 
+        {/* PROFILE */}
         <div style={{ padding: '10px 14px', borderTop: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--indigo)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
-              {initials}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
+           <div onClick={() => setShowProfile(true)}
+  style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--indigo)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0, cursor: 'pointer', overflow: 'hidden' }}>
+  {profile?.avatar_url
+    ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+    : initials}
+</div>
+            <div onClick={() => setShowProfile(true)} style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}>
               <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {profile?.name || user?.user_metadata?.name || 'Loading...'}
               </div>
               <div style={{ fontSize: 11, color: 'var(--text3)', textTransform: 'capitalize' }}>
-                {profile?.budget_tier || 'mid'}-range
+                {profile?.budget_tier || 'mid'}-range · Edit profile
               </div>
             </div>
             <span style={{ fontSize: 16, cursor: 'pointer', color: 'var(--text3)' }} onClick={signOut} title="Sign out">↪</span>
@@ -308,6 +332,88 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* PROFILE MODAL */}
+      {showProfile && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 16, padding: 24, width: 380 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Your profile</div>
+            <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20 }}>Visible to members of your Knots.</div>
+
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+  <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => document.getElementById('avatar-upload')?.click()}>
+    {profile?.avatar_url ? (
+      <img src={profile.avatar_url} alt="avatar"
+        style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--indigo)' }} />
+    ) : (
+      <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--indigo)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, color: '#fff' }}>
+        {editName ? editName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase() : initials}
+      </div>
+    )}
+    <div style={{ position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, borderRadius: '50%', background: 'var(--indigo)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#fff', border: '2px solid var(--bg2)' }}>+</div>
+    <input id="avatar-upload" type="file" accept="image/*" style={{ display: 'none' }}
+      onChange={async (e) => {
+        const file = e.target.files?.[0]
+        if (!file || !user) return
+        if (file.size > 2 * 1024 * 1024) { alert('Max 2MB for avatar'); return }
+        const ext  = file.name.split('.').pop()
+        const path = `avatars/${user.id}.${ext}`
+        const { error: upErr } = await supabase.storage.from('knot-photos').upload(path, file, { upsert: true })
+        if (upErr) { alert('Upload error: ' + upErr.message); return }
+        const { data: { publicUrl } } = supabase.storage.from('knot-photos').getPublicUrl(path)
+        await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id)
+        setProfile((p: any) => ({ ...p, avatar_url: publicUrl }))
+      }} />
+  </div>
+</div>
+
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Your name</div>
+            <input value={editName} onChange={e => setEditName(e.target.value)}
+              placeholder="Your name"
+              style={{ width: '100%', padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', marginBottom: 16 }} />
+
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Email</div>
+            <div style={{ padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, fontSize: 13, color: 'var(--text3)', marginBottom: 16 }}>
+              {user?.email}
+            </div>
+
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8 }}>Budget comfort for a night out</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 6 }}>
+              {[
+                { id: 'casual',  symbol: '$',    label: 'Casual' },
+                { id: 'mid',     symbol: '$$',   label: 'Mid' },
+                { id: 'nice',    symbol: '$$$',  label: 'Nice' },
+                { id: 'splurge', symbol: '$$$$', label: 'Splurge' },
+              ].map(b => (
+                <div key={b.id} onClick={() => setEditBudget(b.id)}
+                  style={{ padding: '10px 6px', border: `1px solid ${editBudget === b.id ? 'var(--indigo)' : 'var(--border2)'}`, borderRadius: 8, textAlign: 'center', cursor: 'pointer', background: editBudget === b.id ? 'var(--indigo-soft)' : 'transparent' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: editBudget === b.id ? 'var(--indigo)' : 'var(--text)' }}>{b.symbol}</div>
+                  <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{b.label}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 20 }}>🔒 Never shown as a number to others</div>
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={saveProfile} disabled={savingProfile || !editName.trim()}
+                style={{ flex: 1, padding: '10px', background: 'var(--indigo)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: savingProfile ? 0.7 : 1 }}>
+                {savingProfile ? 'Saving...' : 'Save profile'}
+              </button>
+              <button onClick={() => setShowProfile(false)}
+                style={{ padding: '10px 16px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Cancel
+              </button>
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--border)', marginTop: 16, paddingTop: 14 }}>
+              <button onClick={() => { setShowProfile(false); signOut() }}
+                style={{ width: '100%', padding: '9px', background: 'var(--coral-soft)', border: '1px solid rgba(212,79,56,0.2)', borderRadius: 8, color: 'var(--coral)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MAIN */}
       <div style={s.main}>
         <div style={s.topbar}>
@@ -364,6 +470,7 @@ export default function Dashboard() {
               {active === 'split'     && <BillSplit members={knotMembers} knotId={activeKnot?.id} />}
               {active === 'members'   && <Members   members={knotMembers} knotId={activeKnot?.id} />}
               {active === 'memories'  && <Memories  members={knotMembers} knotId={activeKnot?.id} />}
+{active === 'games'     && <Games     members={knotMembers} knotId={activeKnot?.id} currentUser={profile} />}
             </>
           )}
         </div>
