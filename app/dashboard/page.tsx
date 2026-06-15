@@ -7,8 +7,10 @@ import Hangout from '@/components/Hangout'
 import BillSplit from '@/components/BillSplit'
 import Members from '@/components/Members'
 import Memories from '@/components/Memories'
+import Discover from '@/components/Discover'
 
 const NAV = [
+  { id: 'discover', icon: '🗺️', label: 'Discover' },
   { id: 'feed',     icon: '⚡', label: 'Feed' },
   { id: 'hangout',  icon: '🗳️', label: 'Tonight' },
   { id: 'split',    icon: '💰', label: 'Bills' },
@@ -273,10 +275,12 @@ async function createKnot() {
           ) : (
             <>
               {active === 'feed'     && <Feed      members={MEMBERS} knotName={activeKnot.name} />}
-{active === 'hangout'  && <Hangout   members={MEMBERS} />}
-{active === 'split'    && <BillSplit members={MEMBERS} />}
-{active === 'members'  && <Members   members={MEMBERS} knotId={activeKnot?.id} />}
-{active === 'memories' && <Memories  members={MEMBERS} />}
+{active === 'discover'  && <Discover  members={MEMBERS} />}
+{active === 'feed'      && <Feed      members={MEMBERS} knotName={activeKnot.name} />}
+{active === 'hangout'   && <Hangout   members={MEMBERS} />}
+{active === 'split'     && <BillSplit members={MEMBERS} />}
+{active === 'members'   && <Members   members={MEMBERS} knotId={activeKnot?.id} />}
+{active === 'memories'  && <Memories  members={MEMBERS} />}
             </>
           )}
         </div>
