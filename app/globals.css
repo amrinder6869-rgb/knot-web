@@ -1,25 +1,25 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #0F1117;
-  --bg2: #171B25;
-  --bg3: #1E2330;
-  --bg4: #252A38;
-  --border: #2A2F40;
-  --border2: #343A4F;
-  --text: #F2EFE9;
-  --text2: #9BA3B8;
-  --text3: #5C6478;
-  --indigo: #6C63FF;
-  --indigo-dim: rgba(108,99,255,0.12);
-  --indigo-soft: #2A2850;
-  --sage: #4CAF87;
-  --sage-dim: rgba(76,175,135,0.12);
-  --sage-soft: #1A3028;
-  --coral: #E8624A;
-  --coral-soft: #2E1C18;
-  --amber: #F0A855;
-  --amber-soft: #2B2010;
+  --bg: #F5F5F7;
+  --bg2: #FFFFFF;
+  --bg3: #F0F0F2;
+  --bg4: #E5E5EA;
+  --border: #E0E0E5;
+  --border2: #D0D0D8;
+  --text: #1A1A2E;
+  --text2: #555570;
+  --text3: #8888A0;
+  --indigo: #5A52D5;
+  --indigo-dim: rgba(90,82,213,0.10);
+  --indigo-soft: #EEEDFB;
+  --sage: #2E9E6E;
+  --sage-dim: rgba(46,158,110,0.10);
+  --sage-soft: #E6F5EE;
+  --coral: #D44F38;
+  --coral-soft: #FCECEA;
+  --amber: #C07A10;
+  --amber-soft: #FEF3E2;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
