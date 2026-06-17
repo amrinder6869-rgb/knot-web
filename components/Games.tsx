@@ -30,7 +30,7 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
       .insert({ knot_id: knotId, created_by: currentUser.id, game_type: type, status: 'waiting' })
       .select().single()
     if (data) {
-      await supabase.from('game_players').insert({ game_id: data.id, user_id: currentUser.id, color: '#6C63FF' })
+      await supabase.from('game_players').insert({ game_id: data.id, user_id: currentUser.id, color: 'var(--rust)' })
       setActiveGame(data)
       loadGames()
     }
@@ -38,7 +38,7 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
 
   async function joinGame(game: any) {
     if (!currentUser?.id) return
-    const colors = ['#6C63FF','#4CAF87','#E8624A','#F0A855']
+    const colors = ['#B85C38', '#6B705C', '#4A7C5F', '#C07A10']
     const { data: players } = await supabase.from('game_players').select('*').eq('game_id', game.id)
     const alreadyIn = players?.some((p: any) => p.user_id === currentUser.id)
     if (!alreadyIn) {
@@ -48,12 +48,10 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
     setActiveGame(game)
   }
 
-  // Guards
   if (!currentUser || !knotId) return (
     <div style={{ color: 'var(--text2)', fontSize: 13, padding: '20px 0' }}>Loading...</div>
   )
 
-  // Active game view
   if (activeGame?.id) return (
     <div>
       <button onClick={() => { setActiveGame(null); loadGames() }}
@@ -61,60 +59,45 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
         ← Back to games
       </button>
       {activeGame.game_type === 'most_likely' && (
-        <MostLikelyTo
-          game={activeGame}
-          members={members}
-          currentUser={currentUser}
-          knotId={knotId}
-          onEnd={() => { setActiveGame(null); loadGames() }}
-        />
+        <MostLikelyTo game={activeGame} members={members} currentUser={currentUser} knotId={knotId} onEnd={() => { setActiveGame(null); loadGames() }} />
       )}
       {activeGame.game_type === 'ludo' && (
-        <Ludo
-          game={activeGame}
-          members={members}
-          currentUser={currentUser}
-          knotId={knotId}
-          onEnd={() => { setActiveGame(null); loadGames() }}
-        />
+        <Ludo game={activeGame} members={members} currentUser={currentUser} knotId={knotId} onEnd={() => { setActiveGame(null); loadGames() }} />
       )}
     </div>
   )
 
-  // Game lobby
   return (
     <div style={{ maxWidth: 700 }}>
-      <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>🎮 Games</div>
+      <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Games</div>
       <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 24 }}>Play together inside your Knot.</div>
 
       {/* Game picker */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 28 }}>
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 20, cursor: 'pointer', transition: 'border-color 0.15s' }}
           onClick={() => createGame('most_likely')}
-          onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--indigo)')}
+          onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--rust)')}
           onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>🤔</div>
-          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Most Likely To</div>
+          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Most Likely To</div>
           <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5, marginBottom: 14 }}>
             Vote on who in the group is most likely to... Results revealed after everyone votes.
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--indigo-soft)', color: 'var(--indigo)' }}>2–10 players</span>
-            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--sage-soft)', color: 'var(--sage)' }}>Async</span>
+            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--rust-soft)', color: 'var(--rust)' }}>2–10 players</span>
+            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--olive-soft)', color: 'var(--olive)' }}>Async</span>
           </div>
         </div>
 
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 20, cursor: 'pointer', transition: 'border-color 0.15s' }}
           onClick={() => createGame('ludo')}
-          onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--indigo)')}
+          onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--rust)')}
           onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>🎲</div>
-          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Ludo</div>
+          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Ludo</div>
           <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5, marginBottom: 14 }}>
             Classic board game. Roll dice, race your pieces home, knock opponents back to start.
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--indigo-soft)', color: 'var(--indigo)' }}>2–4 players</span>
+            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--rust-soft)', color: 'var(--rust)' }}>2–4 players</span>
             <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--amber-soft)', color: 'var(--amber)' }}>Real-time</span>
           </div>
         </div>
@@ -128,7 +111,9 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Recent games</div>
           {games.map(g => (
             <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, marginBottom: 8 }}>
-              <span style={{ fontSize: 24 }}>{g.game_type === 'most_likely' ? '🤔' : '🎲'}</span>
+              <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--bg3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'var(--text3)', flexShrink: 0 }}>
+                {g.game_type === 'most_likely' ? 'MLT' : 'LUDO'}
+              </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 600 }}>{g.game_type === 'most_likely' ? 'Most Likely To' : 'Ludo'}</div>
                 <div style={{ fontSize: 12, color: 'var(--text2)' }}>Started by {g.profiles?.name || 'someone'}</div>
@@ -138,7 +123,7 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
               </span>
               {g.status !== 'finished' && (
                 <button onClick={() => joinGame(g)}
-                  style={{ padding: '6px 14px', background: 'var(--indigo)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  style={{ padding: '6px 14px', background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                   {g.status === 'waiting' ? 'Join' : 'Rejoin'}
                 </button>
               )}
@@ -147,7 +132,6 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
         </div>
       ) : (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text2)' }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>🎮</div>
           <div style={{ fontWeight: 600, marginBottom: 6 }}>No games yet</div>
           <div style={{ fontSize: 13, color: 'var(--text3)' }}>Start a game above to play with your Knot.</div>
         </div>

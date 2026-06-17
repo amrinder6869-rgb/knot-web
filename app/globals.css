@@ -1,25 +1,31 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 :root {
-  --bg: #F5F5F7;
-  --bg2: #FFFFFF;
-  --bg3: #F0F0F2;
-  --bg4: #E5E5EA;
-  --border: #E0E0E5;
-  --border2: #D0D0D8;
-  --text: #1A1A2E;
-  --text2: #555570;
-  --text3: #8888A0;
-  --indigo: #5A52D5;
-  --indigo-dim: rgba(90,82,213,0.10);
-  --indigo-soft: #EEEDFB;
-  --sage: #2E9E6E;
-  --sage-dim: rgba(46,158,110,0.10);
-  --sage-soft: #E6F5EE;
-  --coral: #D44F38;
-  --coral-soft: #FCECEA;
-  --amber: #C07A10;
-  --amber-soft: #FEF3E2;
+  --bg:          #FFF8F0;
+  --bg2:         #FFFFFF;
+  --bg3:         #F6EFE6;
+  --bg4:         #EDE6DC;
+  --border:      #DDD6CC;
+  --border2:     #CCC4B8;
+  --text:        #1A1A1A;
+  --text2:       #4A4A4A;
+  --text3:       #888880;
+
+  --olive:       #6B705C;
+  --olive-dim:   rgba(107,112,92,0.12);
+  --olive-soft:  #EDEEE9;
+
+  --rust:        #B85C38;
+  --rust-dim:    rgba(184,92,56,0.12);
+  --rust-soft:   #F7EAE4;
+
+  --sage:        #4A7C5F;
+  --sage-dim:    rgba(74,124,95,0.12);
+  --sage-soft:   #E6F0EA;
+
+  --amber:       #C07A10;
+  --amber-soft:  #FEF3E2;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -27,7 +33,7 @@
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-sans, 'Inter', sans-serif);
+  font-family: 'Manrope', sans-serif;
   min-height: 100vh;
 }
 

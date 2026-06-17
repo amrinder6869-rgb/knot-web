@@ -11,21 +11,21 @@ import Discover from '@/components/Discover'
 import Games from '@/components/Games'
 
 const NAV = [
-  { id: 'discover', icon: '🗺️', label: 'Discover' },
-  { id: 'feed',     icon: '⚡', label: 'Feed' },
-  { id: 'hangout',  icon: '🗳️', label: 'Tonight' },
-  { id: 'split',    icon: '💰', label: 'Bills' },
-  { id: 'members',  icon: '👥', label: 'Members' },
-  { id: 'memories', icon: '📸', label: 'Memories' },
-{ id: 'games',    icon: '🎮', label: 'Games' },
+  { id: 'discover', label: 'Discover' },
+  { id: 'feed',     label: 'Feed' },
+  { id: 'hangout',  label: 'Tonight' },
+  { id: 'split',    label: 'Bills' },
+  { id: 'members',  label: 'Members' },
+  { id: 'memories', label: 'Memories' },
+  { id: 'games',    label: 'Games' },
 ]
 
 const MEMBER_COLORS = [
-  { bg: '#2A2850', text: '#6C63FF' },
-  { bg: '#1A3028', text: '#4CAF87' },
-  { bg: '#2E1C18', text: '#E8624A' },
-  { bg: '#2B2010', text: '#F0A855' },
-  { bg: '#1e1528', text: '#C97BB2' },
+  { bg: '#EDE6DC', text: '#6B705C' },
+  { bg: '#F7EAE4', text: '#B85C38' },
+  { bg: '#E6F0EA', text: '#4A7C5F' },
+  { bg: '#FEF3E2', text: '#C07A10' },
+  { bg: '#EDE6DC', text: '#8B7355' },
 ]
 
 export default function Dashboard() {
@@ -203,11 +203,11 @@ export default function Dashboard() {
         <div style={{ padding: '16px 14px 12px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <svg width="26" height="26" viewBox="0 0 44 44" fill="none">
-              <circle cx="17" cy="17" r="10" stroke="#6C63FF" strokeWidth="3" fill="none"/>
-              <circle cx="27" cy="27" r="10" stroke="#4CAF87" strokeWidth="3" fill="none"/>
+              <circle cx="17" cy="17" r="10" stroke="var(--rust)" strokeWidth="3" fill="none"/>
+              <circle cx="27" cy="27" r="10" stroke="var(--olive)" strokeWidth="3" fill="none"/>
             </svg>
             <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.5px', whiteSpace: 'nowrap' }}>
-              kn<span style={{ color: 'var(--indigo)' }}>o</span>t
+              kn<span style={{ color: 'var(--rust)' }}>o</span>t
             </span>
           </div>
         </div>
@@ -220,9 +220,9 @@ export default function Dashboard() {
             <div style={{ padding: '8px 4px', fontSize: 12, color: 'var(--text3)', lineHeight: 1.6 }}>No Knots yet.</div>
           ) : knots.map(k => (
             <div key={k.id} onClick={() => switchKnot(k)}
-              style={{ ...s.knotItem, background: activeKnot?.id === k.id ? 'var(--indigo-soft)' : 'transparent' }}>
+              style={{ ...s.knotItem, background: activeKnot?.id === k.id ? 'var(--rust-soft)' : 'transparent' }}>
               <span style={{ fontSize: 16 }}>{k.emoji}</span>
-              <span style={{ flex: 1, color: activeKnot?.id === k.id ? 'var(--indigo)' : 'var(--text)', fontWeight: activeKnot?.id === k.id ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{k.name}</span>
+              <span style={{ flex: 1, color: activeKnot?.id === k.id ? 'var(--rust)' : 'var(--text)', fontWeight: activeKnot?.id === k.id ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{k.name}</span>
               <span style={{ fontSize: 11, color: 'var(--text3)' }}>{k.count}</span>
             </div>
           ))}
@@ -236,23 +236,22 @@ export default function Dashboard() {
         <nav style={{ padding: '12px 10px', flex: 1 }}>
           <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text3)', letterSpacing: '.08em', textTransform: 'uppercase', padding: '0 4px', marginBottom: 6 }}>Navigate</div>
           {NAV.map(n => (
-            <div key={n.id} onClick={() => setActive(n.id)}
-              style={{ ...s.navItem, background: active === n.id ? 'var(--indigo-soft)' : 'transparent', color: active === n.id ? 'var(--indigo)' : 'var(--text2)' }}>
-              <span style={{ fontSize: 15 }}>{n.icon}</span>
-              <span style={{ whiteSpace: 'nowrap' }}>{n.label}</span>
-            </div>
-          ))}
+  <div key={n.id} onClick={() => setActive(n.id)}
+    style={{ ...s.navItem, background: active === n.id ? 'var(--rust-soft)' : 'transparent', color: active === n.id ? 'var(--rust)' : 'var(--text2)' }}>
+    <span style={{ whiteSpace: 'nowrap' }}>{n.label}</span>
+  </div>
+))}
         </nav>
 
         {/* PROFILE */}
         <div style={{ padding: '10px 14px', borderTop: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-           <div onClick={() => setShowProfile(true)}
-  style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--indigo)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0, cursor: 'pointer', overflow: 'hidden' }}>
-  {profile?.avatar_url
-    ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-    : initials}
-</div>
+            <div onClick={() => setShowProfile(true)}
+              style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--olive)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0, cursor: 'pointer', overflow: 'hidden' }}>
+              {profile?.avatar_url
+                ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : initials}
+            </div>
             <div onClick={() => setShowProfile(true)} style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}>
               <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {profile?.name || user?.user_metadata?.name || 'Loading...'}
@@ -276,7 +275,7 @@ export default function Dashboard() {
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
               {['🍻','🏀','💼','🎮','🎵','🌍','🏕️','🎉','❤️','🔗'].map(e => (
                 <span key={e} onClick={() => setNewKnotEmoji(e)}
-                  style={{ fontSize: 20, padding: '6px 8px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${newKnotEmoji === e ? 'var(--indigo)' : 'var(--border)'}`, background: newKnotEmoji === e ? 'var(--indigo-soft)' : 'transparent' }}>
+                  style={{ fontSize: 20, padding: '6px 8px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${newKnotEmoji === e ? 'var(--rust)' : 'var(--border)'}`, background: newKnotEmoji === e ? 'var(--rust-soft)' : 'transparent' }}>
                   {e}
                 </span>
               ))}
@@ -288,7 +287,7 @@ export default function Dashboard() {
               style={{ width: '100%', padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', marginBottom: 16 }} />
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={createKnot}
-                style={{ flex: 1, padding: '10px', background: 'var(--indigo)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                style={{ flex: 1, padding: '10px', background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                 Create Knot
               </button>
               <button onClick={() => { setShowNewKnot(false); setNewKnotName('') }}
@@ -309,7 +308,7 @@ export default function Dashboard() {
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
               {['🍻','🏀','💼','🎮','🎵','🌍','🏕️','🎉','❤️','🔗'].map(e => (
                 <span key={e} onClick={() => setNewKnotEmoji(e)}
-                  style={{ fontSize: 20, padding: '6px 8px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${newKnotEmoji === e ? 'var(--indigo)' : 'var(--border)'}`, background: newKnotEmoji === e ? 'var(--indigo-soft)' : 'transparent' }}>
+                  style={{ fontSize: 20, padding: '6px 8px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${newKnotEmoji === e ? 'var(--rust)' : 'var(--border)'}`, background: newKnotEmoji === e ? 'var(--rust-soft)' : 'transparent' }}>
                   {e}
                 </span>
               ))}
@@ -320,7 +319,7 @@ export default function Dashboard() {
               style={{ width: '100%', padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', marginBottom: 16 }} />
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={renameKnot}
-                style={{ flex: 1, padding: '10px', background: 'var(--indigo)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                style={{ flex: 1, padding: '10px', background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                 Save changes
               </button>
               <button onClick={() => { setShowRenameKnot(false); setNewKnotName('') }}
@@ -340,31 +339,31 @@ export default function Dashboard() {
             <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20 }}>Visible to members of your Knots.</div>
 
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
-  <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => document.getElementById('avatar-upload')?.click()}>
-    {profile?.avatar_url ? (
-      <img src={profile.avatar_url} alt="avatar"
-        style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--indigo)' }} />
-    ) : (
-      <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--indigo)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, color: '#fff' }}>
-        {editName ? editName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase() : initials}
-      </div>
-    )}
-    <div style={{ position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, borderRadius: '50%', background: 'var(--indigo)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#fff', border: '2px solid var(--bg2)' }}>+</div>
-    <input id="avatar-upload" type="file" accept="image/*" style={{ display: 'none' }}
-      onChange={async (e) => {
-        const file = e.target.files?.[0]
-        if (!file || !user) return
-        if (file.size > 2 * 1024 * 1024) { alert('Max 2MB for avatar'); return }
-        const ext  = file.name.split('.').pop()
-        const path = `avatars/${user.id}.${ext}`
-        const { error: upErr } = await supabase.storage.from('knot-photos').upload(path, file, { upsert: true })
-        if (upErr) { alert('Upload error: ' + upErr.message); return }
-        const { data: { publicUrl } } = supabase.storage.from('knot-photos').getPublicUrl(path)
-        await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id)
-        setProfile((p: any) => ({ ...p, avatar_url: publicUrl }))
-      }} />
-  </div>
-</div>
+              <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => document.getElementById('avatar-upload')?.click()}>
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="avatar"
+                    style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--rust)' }} />
+                ) : (
+                  <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--olive)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, color: '#fff' }}>
+                    {editName ? editName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase() : initials}
+                  </div>
+                )}
+                <div style={{ position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, borderRadius: '50%', background: 'var(--rust)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#fff', border: '2px solid var(--bg2)' }}>+</div>
+                <input id="avatar-upload" type="file" accept="image/*" style={{ display: 'none' }}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0]
+                    if (!file || !user) return
+                    if (file.size > 2 * 1024 * 1024) { alert('Max 2MB for avatar'); return }
+                    const ext  = file.name.split('.').pop()
+                    const path = `avatars/${user.id}.${ext}`
+                    const { error: upErr } = await supabase.storage.from('knot-photos').upload(path, file, { upsert: true })
+                    if (upErr) { alert('Upload error: ' + upErr.message); return }
+                    const { data: { publicUrl } } = supabase.storage.from('knot-photos').getPublicUrl(path)
+                    await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id)
+                    setProfile((p: any) => ({ ...p, avatar_url: publicUrl }))
+                  }} />
+              </div>
+            </div>
 
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Your name</div>
             <input value={editName} onChange={e => setEditName(e.target.value)}
@@ -385,17 +384,17 @@ export default function Dashboard() {
                 { id: 'splurge', symbol: '$$$$', label: 'Splurge' },
               ].map(b => (
                 <div key={b.id} onClick={() => setEditBudget(b.id)}
-                  style={{ padding: '10px 6px', border: `1px solid ${editBudget === b.id ? 'var(--indigo)' : 'var(--border2)'}`, borderRadius: 8, textAlign: 'center', cursor: 'pointer', background: editBudget === b.id ? 'var(--indigo-soft)' : 'transparent' }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: editBudget === b.id ? 'var(--indigo)' : 'var(--text)' }}>{b.symbol}</div>
+                  style={{ padding: '10px 6px', border: `1px solid ${editBudget === b.id ? 'var(--rust)' : 'var(--border2)'}`, borderRadius: 8, textAlign: 'center', cursor: 'pointer', background: editBudget === b.id ? 'var(--rust-soft)' : 'transparent' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: editBudget === b.id ? 'var(--rust)' : 'var(--text)' }}>{b.symbol}</div>
                   <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{b.label}</div>
                 </div>
               ))}
             </div>
-            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 20 }}>🔒 Never shown as a number to others</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 20 }}> Never shown as a number to others</div>
 
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={saveProfile} disabled={savingProfile || !editName.trim()}
-                style={{ flex: 1, padding: '10px', background: 'var(--indigo)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: savingProfile ? 0.7 : 1 }}>
+                style={{ flex: 1, padding: '10px', background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: savingProfile ? 0.7 : 1 }}>
                 {savingProfile ? 'Saving...' : 'Save profile'}
               </button>
               <button onClick={() => setShowProfile(false)}
@@ -406,7 +405,7 @@ export default function Dashboard() {
 
             <div style={{ borderTop: '1px solid var(--border)', marginTop: 16, paddingTop: 14 }}>
               <button onClick={() => { setShowProfile(false); signOut() }}
-                style={{ width: '100%', padding: '9px', background: 'var(--coral-soft)', border: '1px solid rgba(212,79,56,0.2)', borderRadius: 8, color: 'var(--coral)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                style={{ width: '100%', padding: '9px', background: 'var(--rust-soft)', border: '1px solid var(--rust-dim)', borderRadius: 8, color: 'var(--rust)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
                 Sign out
               </button>
             </div>
@@ -437,13 +436,13 @@ export default function Dashboard() {
                     style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text)' }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg3)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                    ✏️ Rename Knot
+                    Rename Knot
                   </div>
                   <div onClick={() => { setShowKnotMenu(false); deleteKnot() }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--coral)' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--coral-soft)')}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--rust)' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--rust-soft)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                    🗑️ Delete Knot
+                    Delete Knot
                   </div>
                 </div>
               )}
@@ -454,11 +453,10 @@ export default function Dashboard() {
         <div style={s.content}>
           {!activeKnot ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: 16 }}>
-              <div style={{ fontSize: 48 }}>🔗</div>
               <div style={{ fontSize: 18, fontWeight: 700 }}>No Knots yet</div>
               <div style={{ fontSize: 14, color: 'var(--text2)' }}>Create your first Knot to get started.</div>
               <button onClick={() => setShowNewKnot(true)}
-                style={{ padding: '10px 24px', background: 'var(--indigo)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                style={{ padding: '10px 24px', background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                 + Create a Knot
               </button>
             </div>
@@ -470,7 +468,7 @@ export default function Dashboard() {
               {active === 'split'     && <BillSplit members={knotMembers} knotId={activeKnot?.id} />}
               {active === 'members'   && <Members   members={knotMembers} knotId={activeKnot?.id} />}
               {active === 'memories'  && <Memories  members={knotMembers} knotId={activeKnot?.id} />}
-{active === 'games'     && <Games     members={knotMembers} knotId={activeKnot?.id} currentUser={profile} />}
+              {active === 'games'     && <Games     members={knotMembers} knotId={activeKnot?.id} currentUser={profile} />}
             </>
           )}
         </div>
