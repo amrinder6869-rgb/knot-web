@@ -21,16 +21,18 @@ export default function BillSplit({ members, knotId }: { members: any[], knotId?
   const [knotMembers, setKnotMembers] = useState<any[]>([])
 
   useEffect(() => {
-    async function init() {
-      const { data: { user: u } } = await supabase.auth.getUser()
-      if (u) setUser(u)
-      if (knotId) {
-        await loadKnotMembers()
-        await loadBills()
-      }
+  async function init() {
+    const { data: { user: u } } = await supabase.auth.getUser()
+    if (u) setUser(u)
+    if (knotId) {
+      setBills([])
+      setLoading(true)
+      await loadKnotMembers()
+      await loadBills()
     }
-    init()
-  }, [knotId])
+  }
+  init()
+}, [knotId])
 
   async function loadKnotMembers() {
     const { data } = await supabase

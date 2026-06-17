@@ -40,3 +40,17 @@ body {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+@media (max-width: 768px) {
+  .sidebar-hidden { display: none !important; }
+  .bottom-nav { display: flex !important; }
+  .desktop-only { display: none !important; }
+  .mobile-only { display: block !important; }
+  .grid-2col { grid-template-columns: 1fr !important; }
+  .content-pad { padding: 16px !important; }
+}
+
+@media (min-width: 769px) {
+  .bottom-nav { display: none !important; }
+  .mobile-only { display: none !important; }
+}
