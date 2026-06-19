@@ -100,7 +100,13 @@ export default function BillSplit({ members, knotId }: { members: any[], knotId?
   }
 
   async function settleUp(splitId: string) {
-    await supabase.from('bill_splits').update({ settled: true, settled_at: new Date().toISOString() }).eq('id', splitId)
+    if (!user) return
+    // Enforce that only the current user can settle their own split
+    await supabase
+      .from('bill_splits')
+      .update({ settled: true, settled_at: new Date().toISOString() })
+      .eq('id', splitId)
+      .eq('user_id', user.id)
     await loadBills()
   }
 

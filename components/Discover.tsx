@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { supabase } from '@/lib/supabase'
 
 const CATEGORIES = [
   { id: '13000', label: 'Restaurants' },
@@ -64,19 +65,25 @@ export default function Discover({ members }: { members: any[] }) {
     if (!loc) { loc = await getLocation() }
     if (!loc) { setError('Could not get location'); return }
     setLoading(true); setError(''); setVenues([]); setSearched(true)
+
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { setError('Not authenticated'); setLoading(false); return }
+
     const params = new URLSearchParams({ ll: `${loc.lat},${loc.lng}`, categories: category, limit: '10' })
     try {
-      const res  = await fetch(`/api/venues?${params}`)
+      const res  = await fetch(`/api/venues?${params}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
       const data = await res.json()
       if (data.error) {
-        setError(`Error: ${data.error} ${data.message || ''}`)
+        setError('Could not load venues. Please try again.')
       } else if (data.results && data.results.length > 0) {
         setVenues(data.results)
       } else {
         setError('No venues found nearby. Try a different category or location.')
       }
-    } catch (e: any) {
-      setError('Failed to fetch venues: ' + e.message)
+    } catch {
+      setError('Failed to fetch venues. Please try again.')
     }
     setLoading(false)
   }

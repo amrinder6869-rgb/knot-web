@@ -60,13 +60,19 @@ useEffect(() => {
   }
 
   async function loadOptions(hangoutId: string) {
-    const { data } = await supabase
-      .from('hangout_options')
-      .select('*')
-      .eq('hangout_id', hangoutId)
-      .order('vote_count', { ascending: false })
+    // Compute vote counts from hangout_votes directly to avoid race conditions
+    const [{ data: opts }, { data: allVotes }] = await Promise.all([
+      supabase.from('hangout_options').select('*').eq('hangout_id', hangoutId),
+      supabase.from('hangout_votes').select('option_id').eq('hangout_id', hangoutId),
+    ])
 
-    if (data) setOptions(data)
+    if (opts && allVotes) {
+      const counted = opts.map(o => ({
+        ...o,
+        vote_count: allVotes.filter((v: any) => v.option_id === o.id).length,
+      })).sort((a, b) => b.vote_count - a.vote_count)
+      setOptions(counted)
+    }
 
     const { data: { user: u } } = await supabase.auth.getUser()
     if (u) {
@@ -119,13 +125,9 @@ useEffect(() => {
       hangout_id: hangout.id, option_id: optionId, user_id: u.id
     })
 
-    if (error) { console.error('Vote error:', error); alert('Vote error: ' + error.message); setVoting(false); return }
+    if (error) { setVoting(false); return }
 
-    const currentCount = options.find(o => o.id === optionId)?.vote_count || 0
-    await supabase.from('hangout_options')
-      .update({ vote_count: currentCount + 1 })
-      .eq('id', optionId)
-
+    // Vote counts are now computed from hangout_votes on each load — no manual increment needed
     setMyVote(optionId)
     await loadOptions(hangout.id)
     setVoting(false)
@@ -135,10 +137,13 @@ useEffect(() => {
     if (!hangout) return
     const { data: { user: u } } = await supabase.auth.getUser()
     if (!u) return
+    // Only the poll creator can lock the plan
+    if (u.id !== hangout.created_by) return
     const winner = options[0]
     await supabase.from('hangouts')
       .update({ status: 'locked', title: winner.label })
       .eq('id', hangout.id)
+      .eq('created_by', u.id)
     await supabase.from('posts').insert({
       knot_id: knotId, author_id: u.id,
       content: `locked in tonight's plan — ${winner.label}`,

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import https from 'https'
+import { createClient } from '@supabase/supabase-js'
 
 function httpsGet(url: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -30,7 +31,27 @@ const CATEGORY_TO_TYPE: Record<string, string> = {
   '13029': 'restaurant',
 }
 
+const ALLOWED_CATEGORIES = new Set(Object.keys(CATEGORY_TO_TYPE))
+
 export async function GET(request: Request) {
+  // Require authentication — extract the Supabase JWT from the Authorization header
+  const authHeader = request.headers.get('authorization')
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
+
+  if (!token) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { global: { headers: { Authorization: `Bearer ${token}` } } }
+  )
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const { searchParams } = new URL(request.url)
   const ll       = searchParams.get('ll')
   const category = searchParams.get('categories')
@@ -39,13 +60,28 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
   }
 
+  // Validate coordinate format
+  const parts = ll.split(',')
+  if (parts.length !== 2) {
+    return NextResponse.json({ error: 'Invalid ll format' }, { status: 400 })
+  }
+  const lat = parseFloat(parts[0])
+  const lng = parseFloat(parts[1])
+  if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return NextResponse.json({ error: 'Invalid coordinates' }, { status: 400 })
+  }
+
+  // Validate category against known allowlist
+  if (!ALLOWED_CATEGORIES.has(category)) {
+    return NextResponse.json({ error: 'Invalid category' }, { status: 400 })
+  }
+
   const apiKey = process.env.GOOGLE_PLACES_API_KEY
   if (!apiKey) {
     return NextResponse.json({ error: 'API key not configured' }, { status: 500 })
   }
 
-  const [lat, lng] = ll.split(',')
-  const type = CATEGORY_TO_TYPE[category] || 'restaurant'
+  const type = CATEGORY_TO_TYPE[category]
 
   const params = new URLSearchParams({
     location: `${lat},${lng}`,
@@ -61,7 +97,7 @@ export async function GET(request: Request) {
     const data = JSON.parse(body)
 
     if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-      return NextResponse.json({ error: data.status, message: data.error_message }, { status: 400 })
+      return NextResponse.json({ error: 'Places API error' }, { status: 400 })
     }
 
     const results = (data.results || []).slice(0, 10).map((p: any) => ({
@@ -82,7 +118,7 @@ export async function GET(request: Request) {
     }))
 
     return NextResponse.json({ results })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+  } catch {
+    return NextResponse.json({ error: 'Failed to fetch venues' }, { status: 500 })
   }
 }

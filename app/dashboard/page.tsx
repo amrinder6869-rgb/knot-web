@@ -55,6 +55,8 @@ export default function Dashboard() {
   const [editName, setEditName]             = useState('')
   const [editBudget, setEditBudget]         = useState('mid')
   const [savingProfile, setSavingProfile]   = useState(false)
+  const [knotError, setKnotError]           = useState('')
+  const [avatarError, setAvatarError]       = useState('')
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -96,7 +98,8 @@ export default function Dashboard() {
   async function loadKnotMembers(knotId: string, userId?: string) {
     const { data } = await supabase
       .from('knot_members')
-      .select('user_id, role, profiles:user_id(id, name, budget_tier)')
+      // budget_tier is intentionally excluded — it is private per-user data
+      .select('user_id, role, profiles:user_id(id, name)')
       .eq('knot_id', knotId)
     if (data) {
       const currentUserId = userId || user?.id
@@ -106,7 +109,6 @@ export default function Dashboard() {
         initials: (m.profiles?.name || 'U').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
         color:    MEMBER_COLORS[i % MEMBER_COLORS.length].bg,
         text:     MEMBER_COLORS[i % MEMBER_COLORS.length].text,
-        budget:   m.profiles?.budget_tier || 'mid',
         you:      m.user_id === currentUserId,
       })))
     }
@@ -125,15 +127,16 @@ export default function Dashboard() {
   }
 
   async function createKnot() {
-    if (!newKnotName.trim()) { alert('Please enter a name'); return }
+    if (!newKnotName.trim()) { setKnotError('Please enter a name'); return }
     const { data: { user: u } } = await supabase.auth.getUser()
     if (!u) return
+    setKnotError('')
     try {
       const { data: knot, error } = await supabase
         .from('knots')
         .insert({ name: newKnotName.trim(), emoji: newKnotEmoji, created_by: u.id })
         .select().single()
-      if (error) { alert('Error: ' + error.message); return }
+      if (error) { setKnotError('Could not create Knot. Please try again.'); return }
       if (knot) {
         await supabase.from('knot_members').insert({ knot_id: knot.id, user_id: u.id, role: 'founder' })
         const newK = { id: knot.id, name: knot.name, emoji: knot.emoji, count: 1 }
@@ -144,16 +147,19 @@ export default function Dashboard() {
         setNewKnotEmoji('🔗')
         setShowNewKnot(false)
       }
-    } catch (e: any) { alert('Error: ' + e.message) }
+    } catch { setKnotError('Could not create Knot. Please try again.') }
   }
 
   async function renameKnot() {
-    if (!newKnotName.trim() || !activeKnot) return
+    if (!newKnotName.trim() || !activeKnot || !user) return
+    setKnotError('')
+    // Only the founder can rename — enforce in the query by also matching created_by
     const { error } = await supabase
       .from('knots')
       .update({ name: newKnotName.trim(), emoji: newKnotEmoji })
       .eq('id', activeKnot.id)
-    if (error) { alert('Error: ' + error.message); return }
+      .eq('created_by', user.id)
+    if (error) { setKnotError('Could not rename. Only the founder can rename this Knot.'); return }
     const updated = { ...activeKnot, name: newKnotName.trim(), emoji: newKnotEmoji }
     setKnots(ks => ks.map(k => k.id === activeKnot.id ? updated : k))
     setActiveKnot(updated)
@@ -162,10 +168,15 @@ export default function Dashboard() {
   }
 
   async function deleteKnot() {
-    if (!activeKnot) return
+    if (!activeKnot || !user) return
     if (!confirm(`Delete "${activeKnot.name}"? This cannot be undone.`)) return
-    const { error } = await supabase.from('knots').delete().eq('id', activeKnot.id)
-    if (error) { alert('Error: ' + error.message); return }
+    // Only the founder can delete — enforce in the query by also matching created_by
+    const { error } = await supabase
+      .from('knots')
+      .delete()
+      .eq('id', activeKnot.id)
+      .eq('created_by', user.id)
+    if (error) { setKnotError('Could not delete. Only the founder can delete this Knot.'); return }
     const remaining = knots.filter(k => k.id !== activeKnot.id)
     setKnots(remaining)
     setActiveKnot(remaining[0] || null)
@@ -180,7 +191,7 @@ export default function Dashboard() {
       .from('profiles')
       .update({ name: editName.trim(), budget_tier: editBudget })
       .eq('id', user.id)
-    if (error) { alert('Error: ' + error.message); setSavingProfile(false); return }
+    if (error) { setSavingProfile(false); return }
     setProfile({ ...profile, name: editName.trim(), budget_tier: editBudget })
     setShowProfile(false)
     setSavingProfile(false)
@@ -294,6 +305,7 @@ export default function Dashboard() {
               onKeyDown={e => e.key === 'Enter' && createKnot()}
               placeholder="e.g. The Brampton Crew"
               style={{ width: '100%', padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', marginBottom: 16 }} />
+            {knotError && <div style={{ padding: '8px 12px', background: 'var(--rust-soft)', border: '1px solid var(--rust-dim)', borderRadius: 8, fontSize: 12, color: 'var(--rust)', marginBottom: 12 }}>{knotError}</div>}
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={createKnot}
                 style={{ flex: 1, padding: '10px', background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -358,21 +370,35 @@ export default function Dashboard() {
                   </div>
                 )}
                 <div style={{ position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, borderRadius: '50%', background: 'var(--rust)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#fff', border: '2px solid var(--bg2)' }}>+</div>
-                <input id="avatar-upload" type="file" accept="image/*" style={{ display: 'none' }}
+                <input id="avatar-upload" type="file" accept="image/jpeg,image/png,image/webp,image/gif" style={{ display: 'none' }}
                   onChange={async (e) => {
                     const file = e.target.files?.[0]
                     if (!file || !user) return
-                    if (file.size > 2 * 1024 * 1024) { alert('Max 2MB for avatar'); return }
-                    const ext  = file.name.split('.').pop()
-                    const path = `avatars/${user.id}.${ext}`
-                    const { error: upErr } = await supabase.storage.from('knot-photos').upload(path, file, { upsert: true })
-                    if (upErr) { alert('Upload error: ' + upErr.message); return }
-                    const { data: { publicUrl } } = supabase.storage.from('knot-photos').getPublicUrl(path)
+                    const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+                    const allowedExts = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif'])
+                    const ext = (file.name.split('.').pop() || '').toLowerCase()
+                    if (!allowed.has(file.type) || !allowedExts.has(ext)) {
+                      setAvatarError('Only JPEG, PNG, WebP, or GIF images are allowed.')
+                      return
+                    }
+                    if (file.size > 2 * 1024 * 1024) { setAvatarError('Max 2 MB for avatar.'); return }
+                    setAvatarError('')
+                    const safeType = file.type === 'image/png' ? 'image/png' : file.type === 'image/gif' ? 'image/gif' : file.type === 'image/webp' ? 'image/webp' : 'image/jpeg'
+                    const safePath = `avatars/${user.id}.${ext}`
+                    const { error: upErr } = await supabase.storage.from('knot-photos').upload(safePath, file, { upsert: true, contentType: safeType })
+                    if (upErr) { setAvatarError('Upload failed. Please try again.'); return }
+                    const { data: { publicUrl } } = supabase.storage.from('knot-photos').getPublicUrl(safePath)
                     await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id)
                     setProfile((p: any) => ({ ...p, avatar_url: publicUrl }))
                   }} />
               </div>
             </div>
+
+            {avatarError && (
+              <div style={{ padding: '8px 12px', background: 'var(--rust-soft)', border: '1px solid var(--rust-dim)', borderRadius: 8, fontSize: 12, color: 'var(--rust)', marginBottom: 12 }}>
+                {avatarError}
+              </div>
+            )}
 
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Your name</div>
             <input value={editName} onChange={e => setEditName(e.target.value)}
