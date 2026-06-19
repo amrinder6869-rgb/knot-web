@@ -45,16 +45,16 @@ export default function Home() {
     background: 'var(--bg3)', border: '1px solid var(--border2)',
     borderRadius: 8, color: 'var(--text)', fontSize: 14,
     outline: 'none', fontFamily: 'inherit',
+    transition: 'border-color 0.15s, box-shadow 0.15s',
   }
 
-  const btnPrimary: React.CSSProperties = {
-    width: '100%', padding: '11px',
-    background: 'var(--rust)', color: '#fff',
-    border: 'none', borderRadius: 8,
-    fontSize: 14, fontWeight: 600,
-    cursor: loading ? 'not-allowed' : 'pointer',
-    opacity: loading ? 0.7 : 1,
-    fontFamily: 'inherit',
+  function focusInput(e: React.FocusEvent<HTMLInputElement>) {
+    e.currentTarget.style.borderColor = 'var(--rust)'
+    e.currentTarget.style.boxShadow   = '0 0 0 3px var(--rust-dim)'
+  }
+  function blurInput(e: React.FocusEvent<HTMLInputElement>) {
+    e.currentTarget.style.borderColor = 'var(--border2)'
+    e.currentTarget.style.boxShadow   = 'none'
   }
 
   if (mode === 'landing') return (
@@ -90,10 +90,10 @@ export default function Home() {
 
       {/* CTA */}
       <div style={{ display: 'flex', gap: 12 }}>
-        <button onClick={() => setMode('signup')} style={{ ...btnPrimary, width: 'auto', padding: '12px 28px', fontSize: 15 }}>
+        <button className="btn btn-primary" onClick={() => setMode('signup')} style={{ padding: '12px 28px', fontSize: 15 }}>
           Create your Knot
         </button>
-        <button onClick={() => setMode('signin')} style={{ padding: '12px 28px', background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 15, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
+        <button className="btn btn-secondary" onClick={() => setMode('signin')} style={{ padding: '12px 28px', fontSize: 15 }}>
           Sign in
         </button>
       </div>
@@ -123,16 +123,17 @@ export default function Home() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {mode === 'signup' && (
-            <input style={inputStyle} placeholder="Your name" value={name} onChange={e => setName(e.target.value)} />
+            <input style={inputStyle} placeholder="Your name" value={name} onChange={e => setName(e.target.value)} onFocus={focusInput} onBlur={blurInput} />
           )}
-          <input style={inputStyle} type="email" placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)} />
+          <input style={inputStyle} type="email" placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)} onFocus={focusInput} onBlur={blurInput} />
           <input style={inputStyle} type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)}
+            onFocus={focusInput} onBlur={blurInput}
             onKeyDown={e => e.key === 'Enter' && (mode === 'signup' ? handleSignUp() : handleSignIn())} />
 
           {error && <p style={{ fontSize: 13, color: 'var(--rust)', padding: '8px 12px', background: 'var(--rust-soft)', borderRadius: 6 }}>{error}</p>}
           {message && <p style={{ fontSize: 13, color: 'var(--sage)', padding: '8px 12px', background: 'var(--sage-soft)', borderRadius: 6 }}>{message}</p>}
 
-          <button style={btnPrimary} onClick={mode === 'signup' ? handleSignUp : handleSignIn} disabled={loading}>
+          <button className="btn btn-primary" onClick={mode === 'signup' ? handleSignUp : handleSignIn} disabled={loading} style={{ width: '100%', padding: '11px', fontSize: 14 }}>
             {loading ? 'Please wait...' : mode === 'signup' ? 'Create account' : 'Sign in'}
           </button>
         </div>

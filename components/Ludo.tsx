@@ -267,25 +267,34 @@ export default function Ludo({ game, members, currentUser, knotId, onEnd }: any)
     )
   }
 
-  if (loading) return <div style={{ color: 'var(--text2)', fontSize: 13 }}>Loading Ludo...</div>
+  if (loading) return (
+    <div style={{ maxWidth: 700, display: 'grid', gridTemplateColumns: '1fr auto', gap: 20 }}>
+      <div style={{ background: 'var(--bg3)', borderRadius: 12, aspectRatio: '1', maxWidth: 500 }} />
+      <div style={{ width: 180, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ background: 'var(--bg3)', borderRadius: 12, height: 160 }} />
+        <div style={{ background: 'var(--bg3)', borderRadius: 12, height: 80 }} />
+      </div>
+    </div>
+  )
 
   if (phase === 'lobby') return (
     <div style={{ maxWidth: 480 }}>
-      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 24, textAlign: 'center' }}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>🎲</div>
-        <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>Ludo</div>
-        <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20 }}>2–4 players · Waiting for players to join...</div>
+      <div className="card-hover" style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 24, textAlign: 'center' }}>
+        <div style={{ width: 48, height: 48, background: 'var(--olive-soft)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="3" stroke="var(--olive)" strokeWidth="2"/><circle cx="8" cy="8" r="1.5" fill="var(--olive)"/><circle cx="16" cy="16" r="1.5" fill="var(--olive)"/></svg>
+        </div>
+        <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6, letterSpacing: '-0.3px' }}>Ludo</div>
+        <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20, lineHeight: 1.6 }}>2–4 players · Waiting for everyone to join</div>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 20 }}>
           {players.map((p: any, i) => (
-            <div key={p.user_id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: PLAYER_COLORS[i] + '22', border: `1px solid ${PLAYER_COLORS[i]}`, borderRadius: 20, fontSize: 13, color: PLAYER_COLORS[i] }}>
-              ● {p.profiles?.name || 'Player'} ({PLAYER_LABELS[i]})
-            </div>
+            <span key={p.user_id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: PLAYER_COLORS[i] + '22', border: `1px solid ${PLAYER_COLORS[i]}`, borderRadius: 20, fontSize: 12, color: PLAYER_COLORS[i], fontWeight: 600 }}>
+              {p.profiles?.name || 'Player'} ({PLAYER_LABELS[i]})
+            </span>
           ))}
         </div>
         {currentUser?.id === game.created_by ? (
-          <button onClick={startGame} disabled={players.length < 2}
-            style={{ padding: '11px 28px', background: players.length >= 2 ? 'var(--indigo)' : 'var(--bg3)', border: 'none', borderRadius: 10, color: players.length >= 2 ? '#fff' : 'var(--text3)', fontSize: 14, fontWeight: 600, cursor: players.length >= 2 ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
-            {players.length < 2 ? 'Need at least 2 players' : 'Start Ludo →'}
+          <button className="btn btn-primary" onClick={startGame} disabled={players.length < 2} style={{ fontSize: 14, padding: '11px 28px' }}>
+            {players.length < 2 ? 'Need at least 2 players' : 'Start Ludo'}
           </button>
         ) : (
           <div style={{ fontSize: 13, color: 'var(--text2)' }}>Waiting for host to start...</div>
@@ -296,16 +305,17 @@ export default function Ludo({ game, members, currentUser, knotId, onEnd }: any)
 
   if (phase === 'finished') return (
     <div style={{ maxWidth: 400, textAlign: 'center' }}>
-      <div style={{ background: 'var(--bg2)', border: `2px solid ${PLAYER_COLORS[winner || 0]}`, borderRadius: 16, padding: 32 }}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>🏆</div>
-        <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>
+      <div className="card-hover" style={{ background: 'var(--bg2)', border: `2px solid ${PLAYER_COLORS[winner || 0]}`, borderRadius: 16, padding: 32 }}>
+        <div style={{ width: 56, height: 56, borderRadius: '50%', background: PLAYER_COLORS[winner || 0] + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', border: `2px solid ${PLAYER_COLORS[winner || 0]}` }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M5 7h14M7 7V5h10v2M12 7v12M9 19h6" stroke={PLAYER_COLORS[winner || 0]} strokeWidth="2" strokeLinecap="round"/></svg>
+        </div>
+        <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, letterSpacing: '-0.3px' }}>
           {players[winner || 0]?.profiles?.name || PLAYER_LABELS[winner || 0]} wins!
         </div>
         <div style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 20 }}>
           Playing as {PLAYER_LABELS[winner || 0]}
         </div>
-        <button onClick={onEnd}
-          style={{ padding: '11px 28px', background: 'var(--indigo)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+        <button className="btn btn-primary" onClick={onEnd} style={{ fontSize: 14, padding: '11px 28px' }}>
           Back to games
         </button>
       </div>
@@ -315,48 +325,42 @@ export default function Ludo({ game, members, currentUser, knotId, onEnd }: any)
   return (
     <div style={{ maxWidth: 700 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 20 }}>
-        {/* Board */}
-        <div>
-          {renderBoard()}
-        </div>
+        <div>{renderBoard()}</div>
 
         {/* Controls */}
         <div style={{ width: 180 }}>
-          {/* Players */}
           <div style={{ marginBottom: 16 }}>
             {players.map((p: any, i) => (
-              <div key={p.user_id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, background: i === currentTurn ? PLAYER_COLORS[i] + '22' : 'transparent', border: i === currentTurn ? `1px solid ${PLAYER_COLORS[i]}` : '1px solid transparent', marginBottom: 4 }}>
-                <div style={{ width: 10, height: 10, borderRadius: '50%', background: PLAYER_COLORS[i], flexShrink: 0 }} />
-                <span style={{ fontSize: 12, fontWeight: i === currentTurn ? 700 : 400, color: i === currentTurn ? PLAYER_COLORS[i] : 'var(--text2)' }}>
+              <div key={p.user_id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, background: i === currentTurn ? PLAYER_COLORS[i] + '18' : 'transparent', border: i === currentTurn ? `1px solid ${PLAYER_COLORS[i]}40` : '1px solid transparent', marginBottom: 4, transition: 'all 0.2s' }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: PLAYER_COLORS[i], flexShrink: 0 }} />
+                <span style={{ fontSize: 12, fontWeight: i === currentTurn ? 700 : 400, color: i === currentTurn ? PLAYER_COLORS[i] : 'var(--text3)' }}>
                   {p.profiles?.name || PLAYER_LABELS[i]}
                 </span>
-                {i === currentTurn && <span style={{ fontSize: 10, marginLeft: 'auto', color: PLAYER_COLORS[i] }}>▶</span>}
+                {i === currentTurn && <span style={{ fontSize: 9, marginLeft: 'auto', color: PLAYER_COLORS[i], fontWeight: 700 }}>TURN</span>}
               </div>
             ))}
           </div>
 
-          {/* Dice */}
-          <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, textAlign: 'center', marginBottom: 12 }}>
-            <div style={{ fontSize: 48, marginBottom: 8 }}>
-              {dice ? ['⚀','⚁','⚂','⚃','⚄','⚅'][dice-1] : '🎲'}
+          <div className="card-hover" style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, textAlign: 'center', marginBottom: 12 }}>
+            <div style={{ fontSize: 42, marginBottom: 8 }}>
+              {dice ? ['⚀','⚁','⚂','⚃','⚄','⚅'][dice-1] : '·'}
             </div>
             {myTurn && !rolled && (
-              <button onClick={rollDice}
-                style={{ width: '100%', padding: '9px', background: 'var(--indigo)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button className="btn btn-primary" onClick={rollDice} style={{ width: '100%', fontSize: 13, padding: '9px' }}>
                 Roll dice
               </button>
             )}
             {!myTurn && (
-              <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-                {players[currentTurn]?.profiles?.name || PLAYER_LABELS[currentTurn]}'s turn
+              <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500 }}>
+                {players[currentTurn]?.profiles?.name || PLAYER_LABELS[currentTurn]}&apos;s turn
               </div>
             )}
             {myTurn && rolled && movablePieces.length > 0 && (
-              <div style={{ fontSize: 12, color: 'var(--sage)' }}>Pick a piece to move</div>
+              <div style={{ fontSize: 11, color: 'var(--sage)', fontWeight: 600 }}>Pick a piece</div>
             )}
           </div>
 
-          {dice === 6 && <div style={{ fontSize: 12, color: 'var(--amber)', textAlign: 'center' }}>🎉 Six! Roll again after moving.</div>}
+          {dice === 6 && <div style={{ fontSize: 11, color: 'var(--amber)', textAlign: 'center', fontWeight: 600 }}>Six! Roll again after moving.</div>}
         </div>
       </div>
     </div>

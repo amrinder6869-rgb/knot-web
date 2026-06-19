@@ -277,7 +277,7 @@ export default function Dashboard() {
       {/* NEW KNOT MODAL */}
       {showNewKnot && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 360 }}>
+          <div className="modal-card" style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 360, boxShadow: '0 8px 40px rgba(0,0,0,0.12)' }}>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Create a new Knot</div>
             <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20 }}>Invite only. Your friends need a vote to join.</div>
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Choose an emoji</div>
@@ -292,8 +292,10 @@ export default function Dashboard() {
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Knot name</div>
             <input value={newKnotName} onChange={e => setNewKnotName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && createKnot()}
+              onFocus={e => { e.currentTarget.style.borderColor = 'var(--rust)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--rust-dim)' }}
+              onBlur={e => { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.boxShadow = 'none' }}
               placeholder="e.g. The Brampton Crew"
-              style={{ width: '100%', padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', marginBottom: 16 }} />
+              style={{ width: '100%', padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', marginBottom: 16, transition: 'border-color 0.15s, box-shadow 0.15s' }} />
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={createKnot}
                 style={{ flex: 1, padding: '10px', background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -311,7 +313,7 @@ export default function Dashboard() {
       {/* RENAME KNOT MODAL */}
       {showRenameKnot && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 360 }}>
+          <div className="modal-card" style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 360, boxShadow: '0 8px 40px rgba(0,0,0,0.12)' }}>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Rename Knot</div>
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Choose an emoji</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
@@ -325,7 +327,9 @@ export default function Dashboard() {
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Knot name</div>
             <input value={newKnotName} onChange={e => setNewKnotName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && renameKnot()}
-              style={{ width: '100%', padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', marginBottom: 16 }} />
+              onFocus={e => { e.currentTarget.style.borderColor = 'var(--rust)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--rust-dim)' }}
+              onBlur={e => { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.boxShadow = 'none' }}
+              style={{ width: '100%', padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', marginBottom: 16, transition: 'border-color 0.15s, box-shadow 0.15s' }} />
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={renameKnot}
                 style={{ flex: 1, padding: '10px', background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -343,7 +347,7 @@ export default function Dashboard() {
       {/* PROFILE MODAL */}
       {showProfile && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 380, maxHeight: '90vh', overflowY: 'auto' }}>
+          <div className="modal-card" style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 380, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.12)' }}>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Your profile</div>
             <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20 }}>Visible to members of your Knots.</div>
 
@@ -377,7 +381,9 @@ export default function Dashboard() {
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Your name</div>
             <input value={editName} onChange={e => setEditName(e.target.value)}
               placeholder="Your name"
-              style={{ width: '100%', padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', marginBottom: 16 }} />
+              onFocus={e => { e.currentTarget.style.borderColor = 'var(--rust)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--rust-dim)' }}
+              onBlur={e => { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.boxShadow = 'none' }}
+              style={{ width: '100%', padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', marginBottom: 16, transition: 'border-color 0.15s, box-shadow 0.15s' }} />
 
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Email</div>
             <div style={{ padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, fontSize: 13, color: 'var(--text3)', marginBottom: 16 }}>
@@ -525,7 +531,7 @@ export default function Dashboard() {
         </div>
 
         {/* BOTTOM NAV — mobile only */}
-        <nav className="bottom-nav" style={{ display: 'none', position: 'fixed', bottom: 0, left: 0, right: 0, height: 64, background: 'var(--bg2)', borderTop: '1px solid var(--border)', zIndex: 40, alignItems: 'center', justifyContent: 'space-around', padding: '0 8px' }}>
+        <nav className="bottom-nav" style={{ display: 'none', position: 'fixed', bottom: 0, left: 0, right: 0, height: 64, background: 'var(--bg2)', borderTop: '1px solid var(--border)', zIndex: 40, alignItems: 'center', justifyContent: 'space-around', padding: '0 4px' }}>
           {BOTTOM_NAV.map(n => {
             const isActive = n.id === 'more' ? showMore : active === n.id
             return (
@@ -534,9 +540,8 @@ export default function Dashboard() {
                   if (n.id === 'more') { setShowMore(!showMore) }
                   else { setActive(n.id); setShowMore(false) }
                 }}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '6px 12px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', flex: 1 }}>
-                <div style={{ width: 24, height: 3, borderRadius: 2, background: isActive ? 'var(--rust)' : 'transparent', marginBottom: 2, transition: 'all 0.15s' }} />
-                <span style={{ fontSize: 12, fontWeight: isActive ? 600 : 400, color: isActive ? 'var(--rust)' : 'var(--text3)' }}>{n.label}</span>
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, padding: '6px 14px', background: isActive ? 'var(--rust-soft)' : 'none', border: 'none', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', flex: 1, transition: 'all 0.15s', maxWidth: 76, minHeight: 48 }}>
+                <span style={{ fontSize: 11, fontWeight: isActive ? 600 : 400, color: isActive ? 'var(--rust)' : 'var(--text3)', transition: 'color 0.15s' }}>{n.label}</span>
               </button>
             )
           })}

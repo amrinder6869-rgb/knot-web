@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { Skeleton, SkeletonRow } from '@/components/Skeleton'
 
 type Reaction = { e: string; n: number; mine: boolean }
 type Post = {
@@ -44,6 +45,8 @@ function timeAgo(date: string) {
   return `${Math.floor(seconds / 86400)}d ago`
 }
 
+const REACTION_EMOJIS = ['🔥', '😂', '❤️', '🏆']
+
 export default function Feed({ members, knotName, knotId, currentUser }: {
   members: any[], knotName: string, knotId?: string, currentUser?: any
 }) {
@@ -73,7 +76,7 @@ export default function Feed({ members, knotName, knotId, currentUser }: {
       .order('created_at', { ascending: false })
       .limit(20)
 
-    if (error) { console.error('Posts error:', error); setLoading(false); return }
+    if (error) { setLoading(false); return }
 
     const mapped: Post[] = (data || []).map((p: any) => {
       const name = p.profiles?.name || 'Unknown'
@@ -107,10 +110,8 @@ export default function Feed({ members, knotName, knotId, currentUser }: {
       content:   newPost.trim(),
       post_type: 'moment',
     })
-    if (error) { console.error('Post error:', error); setPosting(false); return }
-    setNewPost('')
+    if (!error) { setNewPost(''); loadPosts() }
     setPosting(false)
-    loadPosts()
   }
 
   async function toggleReaction(postId: string, emoji: string) {
@@ -137,60 +138,101 @@ export default function Feed({ members, knotName, knotId, currentUser }: {
   const userName  = currentUser?.name || 'You'
   const userColor = getColor(currentUser?.id || 'default')
 
+  function focusInput(e: React.FocusEvent<HTMLInputElement>) {
+    e.currentTarget.style.borderColor = 'var(--rust)'
+    e.currentTarget.style.boxShadow   = '0 0 0 3px var(--rust-dim)'
+  }
+  function blurInput(e: React.FocusEvent<HTMLInputElement>) {
+    e.currentTarget.style.borderColor = 'var(--border2)'
+    e.currentTarget.style.boxShadow   = 'none'
+  }
+
   return (
     <div style={{ maxWidth: 640 }}>
 
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
-        <div style={{ background: 'var(--bg2)', border: '1px solid var(--rust)', borderRadius: 12, padding: '14px 16px' }}>
-          <div style={{ fontSize: 11, color: 'var(--rust)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Tonight's Plan</div>
+        <div className="card-hover" style={{ background: 'var(--bg2)', border: '1px solid var(--rust)', borderRadius: 12, padding: '14px 16px' }}>
+          <div style={{ fontSize: 11, color: 'var(--rust)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Tonight&apos;s Plan</div>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Start a hangout poll</div>
-          <div style={{ fontSize: 12, color: 'var(--text2)' }}>Go to Tonight to plan</div>
+          <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.6 }}>Go to Tonight to plan</div>
         </div>
-        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px' }}>
+        <div className="card-hover" style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px' }}>
           <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Members</div>
-          <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>{members.length}</div>
-          <div style={{ fontSize: 12, color: 'var(--text2)' }}>in this Knot</div>
+          <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 4, letterSpacing: '-0.3px' }}>{members.length}</div>
+          <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.6 }}>in this Knot</div>
         </div>
       </div>
 
-      {/* Post box */}
-      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 14, marginBottom: 20 }}>
+      {/* Compose */}
+      <div className="card-hover" style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 14, marginBottom: 20 }}>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <div style={{ width: 32, height: 32, borderRadius: '50%', background: userColor.bg, color: userColor.text, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             {getInitials(userName)}
           </div>
-          <input value={newPost} onChange={e => setNewPost(e.target.value)}
+          <input
+            value={newPost}
+            onChange={e => setNewPost(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && addPost()}
+            onFocus={focusInput}
+            onBlur={blurInput}
             placeholder="Share a moment with the group..."
-            style={{ flex: 1, background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit' }} />
-          <button onClick={addPost} disabled={posting || !newPost.trim()}
-            style={{ background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: posting ? 0.7 : 1 }}>
+            style={{ flex: 1, background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', transition: 'border-color 0.15s, box-shadow 0.15s' }}
+          />
+          <button
+            className="btn btn-primary"
+            onClick={addPost}
+            disabled={posting || !newPost.trim()}
+            style={{ padding: '9px 16px', fontSize: 13 }}
+          >
             {posting ? '...' : 'Post'}
           </button>
         </div>
       </div>
 
-      {/* Feed */}
+      {/* Loading skeletons */}
       {loading && (
-        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text3)', fontSize: 13 }}>
-          Loading...
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {[0, 1, 2].map(i => (
+            <div key={i} style={{ display: 'flex', gap: 12, padding: '16px 0', borderBottom: '1px solid var(--border)' }}>
+              <Skeleton width={36} height={36} borderRadius={18} />
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 4 }}>
+                <Skeleton height={13} width="45%" />
+                <Skeleton height={12} width="75%" />
+                <Skeleton height={11} width="25%" />
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
+      {/* Empty state */}
       {!loading && posts.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text2)', fontSize: 14 }}>
-          <div style={{ fontWeight: 600, marginBottom: 6 }}>No posts yet</div>
-          <div style={{ fontSize: 13, color: 'var(--text3)' }}>Be the first to share a moment.</div>
+        <div style={{ textAlign: 'center', padding: '56px 20px' }}>
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style={{ marginBottom: 16, opacity: 0.25 }}>
+            <path d="M8 12C8 9.79086 9.79086 8 12 8H36C38.2091 8 40 9.79086 40 12V28C40 30.2091 38.2091 32 36 32H26L18 40V32H12C9.79086 32 8 30.2091 8 28V12Z" stroke="var(--text)" strokeWidth="2" fill="none"/>
+          </svg>
+          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, letterSpacing: '-0.3px' }}>Nothing here yet.</div>
+          <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 20, lineHeight: 1.6 }}>Be the first to share a moment with the group.</div>
+          <button
+            className="btn btn-primary"
+            onClick={() => document.querySelector<HTMLInputElement>('input[placeholder*="moment"]')?.focus()}
+            style={{ fontSize: 13 }}
+          >
+            Share something
+          </button>
         </div>
       )}
 
+      {/* Posts */}
       {posts.map(p => (
         <div key={p.id} style={{ display: 'flex', gap: 12, padding: '16px 0', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ width: 36, height: 36, borderRadius: '50%', background: p.color, color: p.text, fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{p.initials}</div>
+          <div style={{ width: 36, height: 36, borderRadius: '50%', background: p.color, color: p.text, fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            {p.initials}
+          </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13 }}>
-              <strong style={{ color: 'var(--text)' }}>{p.author}</strong>
+            <div style={{ fontSize: 13, lineHeight: 1.6 }}>
+              <strong style={{ color: 'var(--text)', fontWeight: 600 }}>{p.author}</strong>
               <span style={{ color: 'var(--text2)', marginLeft: 6 }}>{p.action}</span>
             </div>
             <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{p.time}</div>
@@ -205,21 +247,21 @@ export default function Feed({ members, knotName, knotId, currentUser }: {
             )}
 
             <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-              {['🔥', '😂', '❤️', '🏆'].map(e => {
+              {REACTION_EMOJIS.map(e => {
                 const r = p.reactions.find(r => r.e === e)
                 return r ? (
                   <button key={e} onClick={() => toggleReaction(p.id, e)}
-                    style={{ padding: '4px 10px', borderRadius: 20, background: r.mine ? 'var(--rust-dim)' : 'var(--bg3)', border: `1px solid ${r.mine ? 'var(--rust)' : 'var(--border2)'}`, color: 'var(--text)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    style={{ padding: '4px 10px', borderRadius: 20, background: r.mine ? 'var(--rust-dim)' : 'var(--bg3)', border: `1px solid ${r.mine ? 'var(--rust-dim)' : 'var(--border2)'}`, color: 'var(--text)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
                     {e} {r.n}
                   </button>
                 ) : null
               })}
-              <button onClick={() => {
-                const emojis = ['🔥', '😂', '❤️', '🏆']
-                const next = emojis.find(e => !p.reactions.find(r => r.e === e)) || '🔥'
-                toggleReaction(p.id, next)
-              }}
-                style={{ padding: '4px 10px', borderRadius: 20, background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button
+                onClick={() => {
+                  const next = REACTION_EMOJIS.find(e => !p.reactions.find(r => r.e === e)) || REACTION_EMOJIS[0]
+                  toggleReaction(p.id, next)
+                }}
+                style={{ padding: '4px 10px', borderRadius: 20, background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
                 + React
               </button>
             </div>

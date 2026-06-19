@@ -107,8 +107,7 @@ export default function Discover({ members }: { members: any[] }) {
             {selected.closed_bucket === 'VeryLikelyOpen' && <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20, background: 'var(--sage-soft)', color: 'var(--sage)' }}>Open now</span>}
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-            <button onClick={() => { setLocked(false); setSelected(null) }}
-              style={{ padding: '9px 20px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button className="btn btn-secondary" onClick={() => { setLocked(false); setSelected(null) }} style={{ fontSize: 13, padding: '9px 20px' }}>
               Change plan
             </button>
             <a href={selected.google_maps_url} target="_blank" rel="noreferrer"
@@ -169,8 +168,8 @@ export default function Discover({ members }: { members: any[] }) {
           )}
 
           {/* Search */}
-          <button onClick={searchVenues} disabled={loading || !category}
-            style={{ width: '100%', padding: '13px', background: category ? 'var(--rust)' : 'var(--bg3)', border: `1px solid ${category ? 'var(--rust)' : 'var(--border2)'}`, borderRadius: 10, color: category ? '#fff' : 'var(--text3)', fontSize: 14, fontWeight: 600, cursor: category ? 'pointer' : 'not-allowed', fontFamily: 'inherit', marginBottom: 20, opacity: loading ? 0.7 : 1 }}>
+          <button className="btn btn-primary" onClick={searchVenues} disabled={loading || !category}
+            style={{ width: '100%', padding: '13px', fontSize: 14, marginBottom: 20, opacity: !category ? 0.55 : loading ? 0.7 : 1 }}>
             {loading ? 'Finding places...' : 'Find places nearby'}
           </button>
 
@@ -233,8 +232,13 @@ export default function Discover({ members }: { members: any[] }) {
           )}
 
           {!loading && searched && venues.length === 0 && !error && (
-            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text2)', fontSize: 14 }}>
-              No venues found. Try a different category or budget.
+            <div style={{ textAlign: 'center', padding: '48px 20px' }}>
+              <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style={{ marginBottom: 14, opacity: 0.2 }}>
+                <circle cx="18" cy="18" r="12" stroke="var(--text)" strokeWidth="2"/>
+                <path d="M28 28l8 8" stroke="var(--text)" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6, letterSpacing: '-0.3px' }}>No places found.</div>
+              <div style={{ fontSize: 13, color: 'var(--text3)', lineHeight: 1.6 }}>Try a different category or update your location.</div>
             </div>
           )}
         </>
