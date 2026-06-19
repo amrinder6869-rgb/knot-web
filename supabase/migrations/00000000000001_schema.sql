@@ -23,10 +23,13 @@ create table if not exists public.knots (
   created_at timestamptz not null default now()
 );
 
+-- user_id references public.profiles so PostgREST can resolve the
+-- `profiles:user_id(...)` embeds used in the Members / BillSplit / Dashboard
+-- queries. profiles.id mirrors auth.users.id (created by the signup trigger).
 create table if not exists public.knot_members (
   id        uuid primary key default gen_random_uuid(),
   knot_id   uuid not null references public.knots(id) on delete cascade,
-  user_id   uuid not null references auth.users(id) on delete cascade,
+  user_id   uuid not null references public.profiles(id) on delete cascade,
   role      text default 'member',
   joined_at timestamptz not null default now(),
   unique (knot_id, user_id)
@@ -95,7 +98,7 @@ create table if not exists public.hangout_votes (
 create table if not exists public.posts (
   id         uuid primary key default gen_random_uuid(),
   knot_id    uuid not null references public.knots(id) on delete cascade,
-  author_id  uuid references auth.users(id) on delete set null,
+  author_id  uuid references public.profiles(id) on delete set null,
   content    text,
   post_type  text default 'moment',
   created_at timestamptz not null default now()
@@ -113,7 +116,7 @@ create table if not exists public.reactions (
 create table if not exists public.bills (
   id           uuid primary key default gen_random_uuid(),
   knot_id      uuid not null references public.knots(id) on delete cascade,
-  added_by     uuid references auth.users(id) on delete set null,
+  added_by     uuid references public.profiles(id) on delete set null,
   total_amount numeric not null,
   description  text,
   split_type   text default 'equal',
@@ -123,7 +126,7 @@ create table if not exists public.bills (
 create table if not exists public.bill_splits (
   id         uuid primary key default gen_random_uuid(),
   bill_id    uuid not null references public.bills(id) on delete cascade,
-  user_id    uuid references auth.users(id) on delete set null,
+  user_id    uuid references public.profiles(id) on delete set null,
   amount     numeric not null default 0,
   is_treat   boolean not null default false,
   settled    boolean not null default false,
@@ -135,7 +138,7 @@ create table if not exists public.photos (
   id           uuid primary key default gen_random_uuid(),
   knot_id      uuid not null references public.knots(id) on delete cascade,
   hangout_id   uuid references public.hangouts(id) on delete set null,
-  uploaded_by  uuid references auth.users(id) on delete set null,
+  uploaded_by  uuid references public.profiles(id) on delete set null,
   storage_path text not null,
   file_name    text,
   file_size    bigint,
@@ -145,7 +148,7 @@ create table if not exists public.photos (
 create table if not exists public.games (
   id         uuid primary key default gen_random_uuid(),
   knot_id    uuid not null references public.knots(id) on delete cascade,
-  created_by uuid references auth.users(id) on delete set null,
+  created_by uuid references public.profiles(id) on delete set null,
   game_type  text not null,
   status     text default 'waiting',
   data       jsonb default '{}'::jsonb,
@@ -155,7 +158,7 @@ create table if not exists public.games (
 create table if not exists public.game_players (
   id         uuid primary key default gen_random_uuid(),
   game_id    uuid not null references public.games(id) on delete cascade,
-  user_id    uuid not null references auth.users(id) on delete cascade,
+  user_id    uuid not null references public.profiles(id) on delete cascade,
   color      text,
   created_at timestamptz not null default now()
 );
