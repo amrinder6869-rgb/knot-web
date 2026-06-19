@@ -2,7 +2,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
+const MAX_FILES     = 20
+const ALLOWED_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif'])
+const ALLOWED_EXTS  = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif'])
 
 export default function Memories({ members, knotId }: { members: any[], knotId?: string }) {
   const [photos, setPhotos]         = useState<any[]>([])
@@ -13,6 +16,7 @@ export default function Memories({ members, knotId }: { members: any[], knotId?:
   const [uploadProgress, setUploadProgress] = useState(0)
   const [selectedHangout, setSelectedHangout] = useState<string|null>(null)
   const [viewPhoto, setViewPhoto]   = useState<any|null>(null)
+  const [uploadError, setUploadError] = useState('')
   const [user, setUser]             = useState<any>(null)
   const fileInputRef                = useRef<HTMLInputElement>(null)
 
@@ -61,25 +65,51 @@ export default function Memories({ members, knotId }: { members: any[], knotId?:
     const files = Array.from(e.target.files || [])
     if (!files.length || !knotId || !user) return
 
-    const oversized = files.filter(f => f.size > MAX_FILE_SIZE)
-    if (oversized.length > 0) {
-      alert(`${oversized.length} file(s) exceed 5MB: ${oversized.map(f => f.name).join(', ')}`)
+    // Cap batch size
+    if (files.length > MAX_FILES) {
+      setUploadError(`You can upload at most ${MAX_FILES} photos at once.`)
+      if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
 
+    // Validate type and size for every file
+    const invalid = files.filter(f => {
+      const ext = f.name.split('.').pop()?.toLowerCase() || ''
+      return !ALLOWED_TYPES.has(f.type) || !ALLOWED_EXTS.has(ext)
+    })
+    if (invalid.length > 0) {
+      setUploadError(`Only JPEG, PNG, GIF, WebP, and HEIC images are allowed.`)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
+
+    const oversized = files.filter(f => f.size > MAX_FILE_SIZE)
+    if (oversized.length > 0) {
+      setUploadError(`${oversized.length} file(s) exceed the 5 MB limit.`)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
+
+    setUploadError('')
     setUploading(true)
     setUploadProgress(0)
 
     let uploaded = 0
     for (const file of files) {
-      const ext  = file.name.split('.').pop()
+      const ext  = (file.name.split('.').pop() || 'jpg').toLowerCase()
+      // Use a safe, deterministic content type from the extension, not client-supplied
+      const safeType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg'
+        : ext === 'png'  ? 'image/png'
+        : ext === 'gif'  ? 'image/gif'
+        : ext === 'webp' ? 'image/webp'
+        : 'image/jpeg'
       const path = `${knotId}/${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
 
       const { error: uploadError } = await supabase.storage
         .from('knot-photos')
-        .upload(path, file, { contentType: file.type })
+        .upload(path, file, { contentType: safeType })
 
-      if (uploadError) { console.error('Upload error:', uploadError); continue }
+      if (uploadError) { continue }
 
       await supabase.from('photos').insert({
         knot_id:      knotId,
@@ -94,12 +124,14 @@ export default function Memories({ members, knotId }: { members: any[], knotId?:
       setUploadProgress(Math.round(uploaded / files.length * 100))
     }
 
-    await supabase.from('posts').insert({
-      knot_id:   knotId,
-      author_id: user.id,
-      content:   `added ${uploaded} photo${uploaded > 1 ? 's' : ''} to memories`,
-      post_type: 'moment'
-    })
+    if (uploaded > 0) {
+      await supabase.from('posts').insert({
+        knot_id:   knotId,
+        author_id: user.id,
+        content:   `added ${uploaded} photo${uploaded > 1 ? 's' : ''} to memories`,
+        post_type: 'moment'
+      })
+    }
 
     setUploading(false)
     setUploadProgress(0)
@@ -108,9 +140,12 @@ export default function Memories({ members, knotId }: { members: any[], knotId?:
   }
 
   async function deletePhoto(photo: any) {
+    if (!user) return
+    // Only the uploader can delete — enforce in both the query and the UI
+    if (photo.uploaded_by !== user.id) return
     if (!confirm('Delete this photo?')) return
     await supabase.storage.from('knot-photos').remove([photo.storage_path])
-    await supabase.from('photos').delete().eq('id', photo.id)
+    await supabase.from('photos').delete().eq('id', photo.id).eq('uploaded_by', user.id)
     await loadMemories()
   }
 
@@ -173,6 +208,12 @@ export default function Memories({ members, knotId }: { members: any[], knotId?:
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {uploadError && (
+          <div style={{ marginTop: 10, padding: '8px 12px', background: 'var(--rust-soft)', border: '1px solid var(--rust-dim)', borderRadius: 8, fontSize: 12, color: 'var(--rust)' }}>
+            {uploadError}
           </div>
         )}
 

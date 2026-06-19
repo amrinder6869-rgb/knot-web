@@ -30,8 +30,10 @@ export default function Home() {
     if (error) { setError(error.message); setLoading(false); return }
     if (data.session) {
       const pendingInvite = localStorage.getItem('pending_invite')
-      if (pendingInvite) {
-        localStorage.removeItem('pending_invite')
+      localStorage.removeItem('pending_invite')
+      // Only follow a pending invite if it looks like a valid UUID token
+      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      if (pendingInvite && UUID_RE.test(pendingInvite)) {
         window.location.href = `/invite/${pendingInvite}`
       } else {
         window.location.href = '/dashboard'

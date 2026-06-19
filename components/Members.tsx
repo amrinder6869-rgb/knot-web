@@ -50,7 +50,8 @@ export default function Members({ members, knotId }: { members: any[], knotId?: 
   async function loadMembers() {
     const { data } = await supabase
       .from('knot_members')
-      .select('user_id, role, joined_at, profiles:user_id(id, name, budget_tier)')
+      // budget_tier is intentionally excluded — it is private per-user data
+      .select('user_id, role, joined_at, profiles:user_id(id, name)')
       .eq('knot_id', knotId)
     if (data) setKnotMembers(data)
   }
@@ -95,7 +96,7 @@ export default function Members({ members, knotId }: { members: any[], knotId?: 
       nomination_id: nominationId, voter_id: user.id, vote, anon_note: note
     })
 
-    if (error) { alert('Error: ' + error.message); return }
+    if (error) { return }
 
     setSubmitted(prev => ({ ...prev, [nominationId]: true }))
     setShowNote(prev => ({ ...prev, [nominationId]: false }))
@@ -120,14 +121,14 @@ export default function Members({ members, knotId }: { members: any[], knotId?: 
   }
 
   async function generateInvite() {
-    if (!knotId || !user) { alert('No Knot selected'); return }
+    if (!knotId || !user) return
     setGenerating(true)
     const { data, error } = await supabase
       .from('invites')
       .insert({ knot_id: knotId, created_by: user.id })
       .select().single()
 
-    if (error) { alert('Error: ' + error.message); setGenerating(false); return }
+    if (error) { setGenerating(false); return }
     const link = `${window.location.origin}/invite/${data.token}`
     setInviteLink(link)
     navigator.clipboard.writeText(link).catch(() => {})
@@ -144,7 +145,6 @@ export default function Members({ members, knotId }: { members: any[], knotId?: 
 
     if (newKnot) {
       await supabase.from('knot_members').insert({ knot_id: newKnot.id, user_id: user.id, role: 'founder' })
-      alert(`New Knot created. Invite the others and ${nom?.nominee_name} to join.`)
       setShowSplinter(prev => ({ ...prev, [nominationId]: false }))
       window.location.reload()
     }
@@ -175,7 +175,7 @@ export default function Members({ members, knotId }: { members: any[], knotId?: 
                     {name}{isMe ? <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 400 }}> (you)</span> : ''}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2, textTransform: 'capitalize' }}>
-                    {m.role} · {m.profiles?.budget_tier || 'mid'}-range budget
+                    {m.role}
                   </div>
                 </div>
                 <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 20, background: m.role === 'founder' ? 'var(--rust-soft)' : 'var(--olive-soft)', color: m.role === 'founder' ? 'var(--rust)' : 'var(--olive)' }}>
@@ -262,7 +262,7 @@ export default function Members({ members, knotId }: { members: any[], knotId?: 
 
                     {showNote[nom.id] && (
                       <div style={{ background: 'var(--rust-soft)', border: '1px solid var(--rust-dim)', borderRadius: 8, padding: '10px 12px', marginBottom: 10 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--rust)', marginBottom: 6 }}>Anonymous note (optional)</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--rust)', marginBottom: 6 }}>Private note (optional · not shown to the nominee)</div>
                         <textarea value={anonNote[nom.id] || ''} onChange={e => setAnonNote(prev => ({ ...prev, [nom.id]: e.target.value }))}
                           placeholder="Share why privately..."
                           style={{ width: '100%', background: 'transparent', border: 'none', color: 'var(--text2)', fontFamily: 'inherit', fontSize: 12, resize: 'none', outline: 'none', minHeight: 56, lineHeight: 1.5 }} />
@@ -278,7 +278,7 @@ export default function Members({ members, knotId }: { members: any[], knotId?: 
                   </>
                 ) : (
                   <div style={{ padding: '10px 12px', background: 'var(--sage-soft)', border: '1px solid var(--sage-dim)', borderRadius: 8, fontSize: 13, color: 'var(--sage)' }}>
-                    Vote submitted anonymously
+                    Vote submitted
                   </div>
                 )}
 
@@ -305,7 +305,7 @@ export default function Members({ members, knotId }: { members: any[], knotId?: 
           })}
 
           <div style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.8, padding: '10px 12px', background: 'var(--bg2)', borderRadius: 8, border: '1px solid var(--border)', marginTop: 8 }}>
-            More Yes than No = accepted. Votes are always anonymous. A rejected nominee sees: "This Knot isn't open right now."
+            More Yes than No = accepted. A rejected nominee sees: "This Knot isn't open right now."
           </div>
         </div>
       </div>
