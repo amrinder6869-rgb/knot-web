@@ -1,31 +1,35 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 :root {
-  --bg:          #FFF8F0;
-  --bg2:         #FFFFFF;
-  --bg3:         #F6EFE6;
-  --bg4:         #EDE6DC;
-  --border:      #DDD6CC;
-  --border2:     #CCC4B8;
-  --text:        #1A1A1A;
-  --text2:       #4A4A4A;
-  --text3:       #888880;
+  --bg:          #111111;
+  --bg2:         #1A1A1A;
+  --bg3:         #222222;
+  --bg4:         #2A2A2A;
+  --border:      #2E2E2E;
+  --border2:     #3A3A3A;
+  --text:        #F5F5F5;
+  --text2:       #A0A0A0;
+  --text3:       #666666;
 
-  --olive:       #6B705C;
-  --olive-dim:   rgba(107,112,92,0.12);
-  --olive-soft:  #EDEEE9;
+  --yellow:      #F8BD03;
+  --yellow-dim:  rgba(248,189,3,0.12);
+  --yellow-soft: rgba(248,189,3,0.08);
 
-  --rust:        #B85C38;
-  --rust-dim:    rgba(184,92,56,0.12);
-  --rust-soft:   #F7EAE4;
+  --rust:        #F8BD03;
+  --rust-dim:    rgba(248,189,3,0.12);
+  --rust-soft:   rgba(248,189,3,0.08);
+
+  --olive:       #F8BD03;
+  --olive-dim:   rgba(248,189,3,0.12);
+  --olive-soft:  rgba(248,189,3,0.08);
 
   --sage:        #4A7C5F;
-  --sage-dim:    rgba(74,124,95,0.12);
-  --sage-soft:   #E6F0EA;
+  --sage-dim:    rgba(74,124,95,0.15);
+  --sage-soft:   rgba(74,124,95,0.12);
 
   --amber:       #C07A10;
-  --amber-soft:  #FEF3E2;
+  --amber-soft:  rgba(192,122,16,0.12);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
