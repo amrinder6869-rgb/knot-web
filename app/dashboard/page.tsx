@@ -1,5 +1,6 @@
 'use client'
 
+import HomeFeed from '@/components/HomeFeed'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import Feed from '@/components/Feed'
@@ -10,30 +11,28 @@ import Memories from '@/components/Memories'
 import Discover from '@/components/Discover'
 import Games from '@/components/Games'
 
-const NAV = [
-  { id: 'discover', label: 'Discover' },
-  { id: 'feed',     label: 'Feed' },
+const TABS = [
+  { id: 'feed',     label: 'Discussion' },
   { id: 'hangout',  label: 'Tonight' },
-  { id: 'split',    label: 'Bills' },
+  { id: 'memories', label: 'Media' },
   { id: 'members',  label: 'Members' },
-  { id: 'memories', label: 'Memories' },
-  { id: 'games',    label: 'Games' },
+  { id: 'discover', label: 'Discover' },
 ]
 
 const BOTTOM_NAV = [
-  { id: 'feed',     label: 'Feed' },
+  { id: 'feed',     label: 'Discussion' },
   { id: 'hangout',  label: 'Tonight' },
-  { id: 'discover', label: 'Discover' },
-  { id: 'memories', label: 'Memories' },
+  { id: 'memories', label: 'Media' },
+  { id: 'members',  label: 'Members' },
   { id: 'more',     label: 'More' },
 ]
 
 const MEMBER_COLORS = [
-  { bg: '#EDE6DC', text: '#6B705C' },
-  { bg: '#F7EAE4', text: '#B85C38' },
-  { bg: '#E6F0EA', text: '#4A7C5F' },
-  { bg: '#FEF3E2', text: '#C07A10' },
-  { bg: '#EDE6DC', text: '#8B7355' },
+  { bg: '#2A2A2A', text: '#F8BD03' },
+  { bg: '#1A1A1A', text: '#F8BD03' },
+  { bg: '#222222', text: '#F8BD03' },
+  { bg: '#2E2E2E', text: '#F8BD03' },
+  { bg: '#1E1E1E', text: '#F8BD03' },
 ]
 
 export default function Dashboard() {
@@ -41,12 +40,13 @@ export default function Dashboard() {
   const [activeKnot, setActiveKnot]         = useState<any>(null)
   const [user, setUser]                     = useState<any>(null)
   const [profile, setProfile]               = useState<any>(null)
-  const [sidebarOpen, setSidebarOpen]       = useState(true)
+  const [showHome, setShowHome]             = useState(true)
   const [showNewKnot, setShowNewKnot]       = useState(false)
   const [showRenameKnot, setShowRenameKnot] = useState(false)
   const [showKnotMenu, setShowKnotMenu]     = useState(false)
   const [showProfile, setShowProfile]       = useState(false)
   const [showMore, setShowMore]             = useState(false)
+  const [showKnotList, setShowKnotList]     = useState(false)
   const [newKnotName, setNewKnotName]       = useState('')
   const [newKnotEmoji, setNewKnotEmoji]     = useState('🔗')
   const [knots, setKnots]                   = useState<any[]>([])
@@ -98,7 +98,6 @@ export default function Dashboard() {
   async function loadKnotMembers(knotId: string, userId?: string) {
     const { data } = await supabase
       .from('knot_members')
-      // budget_tier is intentionally excluded — it is private per-user data
       .select('user_id, role, profiles:user_id(id, name)')
       .eq('knot_id', knotId)
     if (data) {
@@ -115,9 +114,12 @@ export default function Dashboard() {
   }
 
   async function switchKnot(k: any) {
+    setShowHome(false)
     setActiveKnot(k)
     setShowKnotMenu(false)
     setShowMore(false)
+    setShowKnotList(false)
+    setActive('feed')
     await loadKnotMembers(k.id)
   }
 
@@ -153,13 +155,12 @@ export default function Dashboard() {
   async function renameKnot() {
     if (!newKnotName.trim() || !activeKnot || !user) return
     setKnotError('')
-    // Only the founder can rename — enforce in the query by also matching created_by
     const { error } = await supabase
       .from('knots')
       .update({ name: newKnotName.trim(), emoji: newKnotEmoji })
       .eq('id', activeKnot.id)
       .eq('created_by', user.id)
-    if (error) { setKnotError('Could not rename. Only the founder can rename this Knot.'); return }
+    if (error) { setKnotError('Only the founder can rename this Knot.'); return }
     const updated = { ...activeKnot, name: newKnotName.trim(), emoji: newKnotEmoji }
     setKnots(ks => ks.map(k => k.id === activeKnot.id ? updated : k))
     setActiveKnot(updated)
@@ -170,13 +171,11 @@ export default function Dashboard() {
   async function deleteKnot() {
     if (!activeKnot || !user) return
     if (!confirm(`Delete "${activeKnot.name}"? This cannot be undone.`)) return
-    // Only the founder can delete — enforce in the query by also matching created_by
     const { error } = await supabase
-      .from('knots')
-      .delete()
+      .from('knots').delete()
       .eq('id', activeKnot.id)
       .eq('created_by', user.id)
-    if (error) { setKnotError('Could not delete. Only the founder can delete this Knot.'); return }
+    if (error) { setKnotError('Only the founder can delete this Knot.'); return }
     const remaining = knots.filter(k => k.id !== activeKnot.id)
     setKnots(remaining)
     setActiveKnot(remaining[0] || null)
@@ -200,16 +199,6 @@ export default function Dashboard() {
   const initials = (profile?.name || user?.user_metadata?.name || 'U')
     .split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()
 
-  const s: Record<string, React.CSSProperties> = {
-    app:      { display: 'flex', height: '100vh', background: 'var(--bg)', overflow: 'hidden' },
-    sidebar:  { width: sidebarOpen ? 220 : 0, minWidth: sidebarOpen ? 220 : 0, background: 'var(--bg2)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', transition: 'all 0.2s ease', overflow: 'hidden' },
-    main:     { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
-    topbar:   { padding: '0 16px', height: 52, display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border)', gap: 12, flexShrink: 0, background: 'var(--bg2)' },
-    content:  { flex: 1, overflowY: 'auto', padding: 24 },
-    navItem:  { display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 500, color: 'var(--text2)', transition: 'all 0.15s' },
-    knotItem: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 8, cursor: 'pointer', fontSize: 13 },
-  }
-
   if (!user) return (
     <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', color: 'var(--text2)', fontSize: 14 }}>
       Loading...
@@ -217,85 +206,313 @@ export default function Dashboard() {
   )
 
   return (
-    <div style={s.app}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', fontFamily: 'Manrope, sans-serif' }}>
 
-      {/* SIDEBAR — hidden on mobile */}
-      <aside className="desktop-only" style={s.sidebar}>
-        <div style={{ padding: '16px 14px 12px', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <svg width="26" height="26" viewBox="0 0 44 44" fill="none">
-              <circle cx="17" cy="17" r="10" stroke="var(--rust)" strokeWidth="3" fill="none"/>
-              <circle cx="27" cy="27" r="10" stroke="var(--olive)" strokeWidth="3" fill="none"/>
-            </svg>
-            <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.5px', whiteSpace: 'nowrap' }}>
-              kn<span style={{ color: 'var(--rust)' }}>o</span>t
-            </span>
-          </div>
+      {/* TOP GLOBAL NAV */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 100, background: 'var(--bg2)', borderBottom: '1px solid var(--border)', height: 52, display: 'flex', alignItems: 'center', padding: '0 20px', gap: 12 }}>
+
+        {/* Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <svg width="22" height="22" viewBox="0 0 44 44" fill="none">
+            <circle cx="17" cy="17" r="10" stroke="var(--yellow)" strokeWidth="3" fill="none"/>
+            <circle cx="27" cy="27" r="10" stroke="var(--yellow)" strokeWidth="3" fill="none" opacity="0.5"/>
+          </svg>
+          <span style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)' }}>
+            kn<span style={{ color: 'var(--yellow)' }}>o</span>t
+          </span>
         </div>
 
-        <div style={{ padding: '10px 10px 0' }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text3)', letterSpacing: '.08em', textTransform: 'uppercase', padding: '0 4px', marginBottom: 6 }}>Your Knots</div>
-          {knotsLoading ? (
-            <div style={{ padding: '8px 4px', fontSize: 12, color: 'var(--text3)' }}>Loading...</div>
-          ) : knots.length === 0 ? (
-            <div style={{ padding: '8px 4px', fontSize: 12, color: 'var(--text3)', lineHeight: 1.6 }}>No Knots yet.</div>
-          ) : knots.map(k => (
-            <div key={k.id} onClick={() => switchKnot(k)}
-              style={{ ...s.knotItem, background: activeKnot?.id === k.id ? 'var(--rust-soft)' : 'transparent' }}>
-              <span style={{ fontSize: 16 }}>{k.emoji}</span>
-              <span style={{ flex: 1, color: activeKnot?.id === k.id ? 'var(--rust)' : 'var(--text)', fontWeight: activeKnot?.id === k.id ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{k.name}</span>
-              <span style={{ fontSize: 11, color: 'var(--text3)' }}>{k.count}</span>
-            </div>
-          ))}
-          <div onClick={() => setShowNewKnot(true)}
-            style={{ ...s.knotItem, border: '1px dashed var(--border2)', borderRadius: 8, marginTop: 4, color: 'var(--text3)', fontSize: 12 }}>
-            <span style={{ width: 20, height: 20, border: '1px dashed var(--border2)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>+</span>
-            <span>New Knot</span>
-          </div>
-        </div>
+        {/* Home button */}
+        <button onClick={() => { setShowHome(true); setActiveKnot(null) }}
+          style={{ padding: '6px 14px', background: showHome ? 'var(--yellow)' : 'var(--bg3)', border: `1px solid ${showHome ? 'var(--yellow)' : 'var(--border)'}`, borderRadius: 8, color: showHome ? '#111' : 'var(--text2)', fontSize: 13, fontWeight: showHome ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+          Home
+        </button>
 
-        <nav style={{ padding: '12px 10px', flex: 1 }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text3)', letterSpacing: '.08em', textTransform: 'uppercase', padding: '0 4px', marginBottom: 6 }}>Navigate</div>
-          {NAV.map(n => (
-            <div key={n.id} onClick={() => setActive(n.id)}
-              style={{ ...s.navItem, background: active === n.id ? 'var(--rust-soft)' : 'transparent', color: active === n.id ? 'var(--rust)' : 'var(--text2)' }}>
-              <span style={{ whiteSpace: 'nowrap' }}>{n.label}</span>
-            </div>
-          ))}
-        </nav>
-
-        <div style={{ padding: '10px 14px', borderTop: '1px solid var(--border)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div onClick={() => setShowProfile(true)}
-              style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--olive)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0, cursor: 'pointer', overflow: 'hidden' }}>
-              {profile?.avatar_url
-                ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : initials}
-            </div>
-            <div onClick={() => setShowProfile(true)} style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}>
-              <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {profile?.name || user?.user_metadata?.name || 'Loading...'}
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--text3)', textTransform: 'capitalize' }}>
-                {profile?.budget_tier || 'mid'}-range · Edit profile
+        {/* Knot switcher */}
+        <div style={{ position: 'relative', flex: 1 }}>
+          <button onClick={() => setShowKnotList(!showKnotList)}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--text)', fontSize: 13, fontWeight: 500 }}>
+            <span>{activeKnot ? `${activeKnot.emoji} ${activeKnot.name}` : 'Select a Knot'}</span>
+            <span style={{ color: 'var(--text3)', fontSize: 10 }}>▾</span>
+          </button>
+          {showKnotList && (
+            <div style={{ position: 'absolute', top: '110%', left: 0, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 8, minWidth: 220, zIndex: 200, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '4px 8px', marginBottom: 4 }}>Your Knots</div>
+              {knots.map(k => (
+                <div key={k.id} onClick={() => switchKnot(k)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, cursor: 'pointer', background: activeKnot?.id === k.id ? 'var(--yellow-soft)' : 'transparent' }}>
+                  <span style={{ fontSize: 16 }}>{k.emoji}</span>
+                  <span style={{ flex: 1, fontSize: 13, fontWeight: activeKnot?.id === k.id ? 600 : 400, color: activeKnot?.id === k.id ? 'var(--yellow)' : 'var(--text)' }}>{k.name}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text3)' }}>{k.count}</span>
+                </div>
+              ))}
+              <div style={{ borderTop: '1px solid var(--border)', marginTop: 6, paddingTop: 6 }}>
+                <div onClick={() => { setShowKnotList(false); setShowNewKnot(true) }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--yellow)', fontWeight: 600 }}>
+                  + New Knot
+                </div>
               </div>
             </div>
-            <span style={{ fontSize: 16, cursor: 'pointer', color: 'var(--text3)' }} onClick={signOut} title="Sign out">↪</span>
+          )}
+        </div>
+
+        {/* Profile avatar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <button onClick={() => setShowProfile(true)}
+            style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#111', border: 'none', cursor: 'pointer', overflow: 'hidden', flexShrink: 0 }}>
+            {profile?.avatar_url
+              ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : initials}
+          </button>
+        </div>
+      </div>
+
+      {/* MAIN VIEWS */}
+      {activeKnot && !showHome ? (
+        <>
+          {/* COVER BANNER */}
+          <div style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ height: 180, background: 'linear-gradient(135deg, #1A1A1A 0%, #2A2A2A 50%, #111111 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 30% 50%, rgba(248,189,3,0.15) 0%, transparent 60%)' }} />
+              <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 70% 50%, rgba(248,189,3,0.08) 0%, transparent 60%)' }} />
+              <span style={{ fontSize: 64 }}>{activeKnot.emoji}</span>
+            </div>
+
+            {/* Group info */}
+            <div style={{ maxWidth: 1100, margin: '0 auto', padding: '16px 20px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+              <div>
+                <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)', marginBottom: 4, letterSpacing: '-0.5px' }}>{activeKnot.name}</h1>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, color: 'var(--text3)' }}>
+                  <span>Private group</span>
+                  <span>·</span>
+                  <span>{activeKnot.count} member{activeKnot.count !== 1 ? 's' : ''}</span>
+                  <span>·</span>
+                  <div style={{ display: 'flex' }}>
+                    {knotMembers.slice(0, 4).map((m, i) => (
+                      <div key={m.id} style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 8, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg2)', marginLeft: i > 0 ? -6 : 0 }}>
+                        {m.initials}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setActive('members')}
+                  style={{ padding: '8px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Invite
+                </button>
+                <div style={{ position: 'relative' }}>
+                  <button onClick={() => setShowKnotMenu(!showKnotMenu)}
+                    style={{ padding: '8px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    ⋯
+                  </button>
+                  {showKnotMenu && (
+                    <div style={{ position: 'absolute', right: 0, top: '110%', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 6, minWidth: 180, zIndex: 50, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+                      <div onClick={() => { setShowKnotMenu(false); setShowRenameKnot(true); setNewKnotName(activeKnot.name); setNewKnotEmoji(activeKnot.emoji) }}
+                        style={{ padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text)' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg3)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                        Rename Knot
+                      </div>
+                      <div onClick={() => { setShowKnotMenu(false); deleteKnot() }}
+                        style={{ padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--yellow)' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg3)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                        Delete Knot
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* TABS */}
+            <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 20px', display: 'flex', gap: 4, borderTop: '1px solid var(--border)' }} className="desktop-only">
+              {TABS.map(t => (
+                <button key={t.id} onClick={() => setActive(t.id)}
+                  style={{ padding: '12px 16px', background: 'none', border: 'none', borderBottom: `3px solid ${active === t.id ? 'var(--yellow)' : 'transparent'}`, color: active === t.id ? 'var(--yellow)' : 'var(--text2)', fontSize: 14, fontWeight: active === t.id ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', marginBottom: -1 }}>
+                  {t.label}
+                </button>
+              ))}
+              <button onClick={() => setActive('split')}
+                style={{ padding: '12px 16px', background: 'none', border: 'none', borderBottom: `3px solid ${active === 'split' ? 'var(--yellow)' : 'transparent'}`, color: active === 'split' ? 'var(--yellow)' : 'var(--text2)', fontSize: 14, fontWeight: active === 'split' ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', marginBottom: -1 }}>
+                Bills
+              </button>
+              <button onClick={() => setActive('games')}
+                style={{ padding: '12px 16px', background: 'none', border: 'none', borderBottom: `3px solid ${active === 'games' ? 'var(--yellow)' : 'transparent'}`, color: active === 'games' ? 'var(--yellow)' : 'var(--text2)', fontSize: 14, fontWeight: active === 'games' ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', marginBottom: -1 }}>
+                Games
+              </button>
+            </div>
+          </div>
+
+          {/* TWO COLUMN CONTENT */}
+          <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px', display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, alignItems: 'start' }} className="desktop-layout">
+            <div>
+              {active === 'discover'  && <Discover  members={knotMembers} />}
+              {active === 'feed'      && <Feed      members={knotMembers} knotName={activeKnot.name} knotId={activeKnot?.id} currentUser={profile} />}
+              {active === 'hangout'   && <Hangout   members={knotMembers} knotId={activeKnot?.id} />}
+              {active === 'split'     && <BillSplit members={knotMembers} knotId={activeKnot?.id} />}
+              {active === 'members'   && <Members   members={knotMembers} knotId={activeKnot?.id} />}
+              {active === 'memories'  && <Memories  members={knotMembers} knotId={activeKnot?.id} />}
+              {active === 'games'     && <Games     members={knotMembers} knotId={activeKnot?.id} currentUser={profile} />}
+            </div>
+
+            {/* RIGHT SIDEBAR */}
+            <div className="desktop-only" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
+                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: 'var(--text)' }}>About</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13, color: 'var(--text2)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ color: 'var(--yellow)' }}>⊕</span>
+                    <span>Private · Invite only</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ color: 'var(--yellow)' }}>⊕</span>
+                    <span>No algorithm · Chronological</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ color: 'var(--yellow)' }}>⊕</span>
+                    <span>No ads · Ever</span>
+                  </div>
+                </div>
+                <button onClick={() => setActive('members')}
+                  style={{ width: '100%', marginTop: 14, padding: '9px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Invite someone
+                </button>
+              </div>
+
+              <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>Members</div>
+                  <span style={{ fontSize: 13, color: 'var(--text3)' }}>{activeKnot.count}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {knotMembers.slice(0, 5).map(m => (
+                    <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {m.initials}
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{m.name}{m.you ? ' (you)' : ''}</div>
+                    </div>
+                  ))}
+                </div>
+                {knotMembers.length > 5 && (
+                  <button onClick={() => setActive('members')}
+                    style={{ width: '100%', marginTop: 12, padding: '8px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    See all members
+                  </button>
+                )}
+              </div>
+
+              <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>Recent media</div>
+                  <button onClick={() => setActive('memories')} style={{ background: 'none', border: 'none', color: 'var(--yellow)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>See all</button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
+                  {[1,2,3,4,5,6].map(i => (
+                    <div key={i} onClick={() => setActive('memories')} style={{ aspectRatio: '1', borderRadius: 6, background: 'var(--bg3)', cursor: 'pointer', border: '1px solid var(--border)' }} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+
+      ) : showHome ? (
+        /* HOME FEED */
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px', display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, alignItems: 'start' }} className="desktop-layout">
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 16, color: 'var(--text)' }}>Home</div>
+            <HomeFeed knots={knots} onSelectKnot={(k) => switchKnot(k)} />
+          </div>
+          <div className="desktop-only" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: 'var(--text)' }}>Your Knots</div>
+              {knots.map(k => (
+                <div key={k.id} onClick={() => switchKnot(k)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, cursor: 'pointer', marginBottom: 4 }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg3)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                  <span style={{ fontSize: 18 }}>{k.emoji}</span>
+                  <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{k.name}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text3)' }}>{k.count}</span>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setShowNewKnot(true)}
+              style={{ width: '100%', padding: '10px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              + New Knot
+            </button>
           </div>
         </div>
-      </aside>
+
+      ) : (
+        /* NO KNOTS */
+        <div style={{ maxWidth: 480, margin: '80px auto', padding: 24, textAlign: 'center' }}>
+          <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: 28 }}>+</div>
+          <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8, color: 'var(--text)' }}>No Knots yet</div>
+          <div style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 24, lineHeight: 1.6 }}>
+            Create your first Knot — a private group for the people you actually hang out with.
+          </div>
+          <button onClick={() => setShowNewKnot(true)}
+            style={{ padding: '12px 28px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            Create a Knot
+          </button>
+        </div>
+      )}
+
+      {/* BOTTOM NAV — mobile only */}
+      <nav className="bottom-nav" style={{ display: 'none', position: 'fixed', bottom: 0, left: 0, right: 0, height: 60, background: 'var(--bg2)', borderTop: '1px solid var(--border)', zIndex: 100, alignItems: 'center', justifyContent: 'space-around', padding: '0 8px' }}>
+        {BOTTOM_NAV.map(n => {
+          const isActive = n.id === 'more' ? showMore : active === n.id
+          return (
+            <button key={n.id}
+              onClick={() => {
+                if (n.id === 'more') { setShowMore(!showMore) }
+                else { setActive(n.id); setShowMore(false) }
+              }}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '6px 10px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', flex: 1 }}>
+              <div style={{ width: 20, height: 3, borderRadius: 2, background: isActive ? 'var(--yellow)' : 'transparent', transition: 'all 0.15s' }} />
+              <span style={{ fontSize: 11, fontWeight: isActive ? 700 : 400, color: isActive ? 'var(--yellow)' : 'var(--text3)' }}>{n.label}</span>
+            </button>
+          )
+        })}
+      </nav>
+
+      {/* MORE DRAWER — mobile */}
+      {showMore && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 90 }} onClick={() => setShowMore(false)}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ position: 'absolute', bottom: 60, left: 0, right: 0, background: 'var(--bg2)', borderTop: '1px solid var(--border)', borderRadius: '16px 16px 0 0', padding: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>Navigate</div>
+            {[{ id: 'split', label: 'Bills' }, { id: 'games', label: 'Games' }, { id: 'discover', label: 'Discover' }].map(n => (
+              <button key={n.id} onClick={() => { setActive(n.id); setShowMore(false) }}
+                style={{ width: '100%', padding: '11px 12px', background: active === n.id ? 'var(--yellow-soft)' : 'transparent', border: 'none', borderRadius: 8, color: active === n.id ? 'var(--yellow)' : 'var(--text)', fontSize: 14, fontWeight: active === n.id ? 700 : 400, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', marginBottom: 4 }}>
+                {n.label}
+              </button>
+            ))}
+            <div style={{ borderTop: '1px solid var(--border)', marginTop: 12, paddingTop: 12 }}>
+              <button onClick={() => { setShowMore(false); setShowProfile(true) }}
+                style={{ width: '100%', padding: '11px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                Edit profile
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* NEW KNOT MODAL */}
       {showNewKnot && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 360 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Create a new Knot</div>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 360 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, color: 'var(--text)' }}>Create a new Knot</div>
             <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20 }}>Invite only. Your friends need a vote to join.</div>
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Choose an emoji</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
               {['🍻','🏀','💼','🎮','🎵','🌍','🏕️','🎉','❤️','🔗'].map(e => (
                 <span key={e} onClick={() => setNewKnotEmoji(e)}
-                  style={{ fontSize: 20, padding: '6px 8px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${newKnotEmoji === e ? 'var(--rust)' : 'var(--border)'}`, background: newKnotEmoji === e ? 'var(--rust-soft)' : 'transparent' }}>
+                  style={{ fontSize: 20, padding: '6px 8px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${newKnotEmoji === e ? 'var(--yellow)' : 'var(--border)'}`, background: newKnotEmoji === e ? 'var(--yellow-soft)' : 'transparent' }}>
                   {e}
                 </span>
               ))}
@@ -305,13 +522,13 @@ export default function Dashboard() {
               onKeyDown={e => e.key === 'Enter' && createKnot()}
               placeholder="e.g. The Brampton Crew"
               style={{ width: '100%', padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', marginBottom: 16 }} />
-            {knotError && <div style={{ padding: '8px 12px', background: 'var(--rust-soft)', border: '1px solid var(--rust-dim)', borderRadius: 8, fontSize: 12, color: 'var(--rust)', marginBottom: 12 }}>{knotError}</div>}
+            {knotError && <div style={{ padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)', marginBottom: 12 }}>{knotError}</div>}
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={createKnot}
-                style={{ flex: 1, padding: '10px', background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                style={{ flex: 1, padding: '10px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
                 Create Knot
               </button>
-              <button onClick={() => { setShowNewKnot(false); setNewKnotName('') }}
+              <button onClick={() => { setShowNewKnot(false); setNewKnotName(''); setKnotError('') }}
                 style={{ padding: '10px 16px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
                 Cancel
               </button>
@@ -322,14 +539,14 @@ export default function Dashboard() {
 
       {/* RENAME KNOT MODAL */}
       {showRenameKnot && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 360 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Rename Knot</div>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 360 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, color: 'var(--text)' }}>Rename Knot</div>
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Choose an emoji</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
               {['🍻','🏀','💼','🎮','🎵','🌍','🏕️','🎉','❤️','🔗'].map(e => (
                 <span key={e} onClick={() => setNewKnotEmoji(e)}
-                  style={{ fontSize: 20, padding: '6px 8px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${newKnotEmoji === e ? 'var(--rust)' : 'var(--border)'}`, background: newKnotEmoji === e ? 'var(--rust-soft)' : 'transparent' }}>
+                  style={{ fontSize: 20, padding: '6px 8px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${newKnotEmoji === e ? 'var(--yellow)' : 'var(--border)'}`, background: newKnotEmoji === e ? 'var(--yellow-soft)' : 'transparent' }}>
                   {e}
                 </span>
               ))}
@@ -338,12 +555,13 @@ export default function Dashboard() {
             <input value={newKnotName} onChange={e => setNewKnotName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && renameKnot()}
               style={{ width: '100%', padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', marginBottom: 16 }} />
+            {knotError && <div style={{ padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)', marginBottom: 12 }}>{knotError}</div>}
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={renameKnot}
-                style={{ flex: 1, padding: '10px', background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                style={{ flex: 1, padding: '10px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
                 Save changes
               </button>
-              <button onClick={() => { setShowRenameKnot(false); setNewKnotName('') }}
+              <button onClick={() => { setShowRenameKnot(false); setNewKnotName(''); setKnotError('') }}
                 style={{ padding: '10px 16px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
                 Cancel
               </button>
@@ -354,22 +572,21 @@ export default function Dashboard() {
 
       {/* PROFILE MODAL */}
       {showProfile && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 380, maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Your profile</div>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 380, maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, color: 'var(--text)' }}>Your profile</div>
             <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20 }}>Visible to members of your Knots.</div>
 
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
               <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => document.getElementById('avatar-upload')?.click()}>
                 {profile?.avatar_url ? (
-                  <img src={profile.avatar_url} alt="avatar"
-                    style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--rust)' }} />
+                  <img src={profile.avatar_url} alt="avatar" style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--yellow)' }} />
                 ) : (
-                  <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--olive)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, color: '#fff' }}>
+                  <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, color: '#111' }}>
                     {editName ? editName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase() : initials}
                   </div>
                 )}
-                <div style={{ position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, borderRadius: '50%', background: 'var(--rust)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#fff', border: '2px solid var(--bg2)' }}>+</div>
+                <div style={{ position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, borderRadius: '50%', background: 'var(--yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#111', fontWeight: 700, border: '2px solid var(--bg2)' }}>+</div>
                 <input id="avatar-upload" type="file" accept="image/jpeg,image/png,image/webp,image/gif" style={{ display: 'none' }}
                   onChange={async (e) => {
                     const file = e.target.files?.[0]
@@ -377,10 +594,7 @@ export default function Dashboard() {
                     const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
                     const allowedExts = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif'])
                     const ext = (file.name.split('.').pop() || '').toLowerCase()
-                    if (!allowed.has(file.type) || !allowedExts.has(ext)) {
-                      setAvatarError('Only JPEG, PNG, WebP, or GIF images are allowed.')
-                      return
-                    }
+                    if (!allowed.has(file.type) || !allowedExts.has(ext)) { setAvatarError('Only JPEG, PNG, WebP, or GIF images are allowed.'); return }
                     if (file.size > 2 * 1024 * 1024) { setAvatarError('Max 2 MB for avatar.'); return }
                     setAvatarError('')
                     const safeType = file.type === 'image/png' ? 'image/png' : file.type === 'image/gif' ? 'image/gif' : file.type === 'image/webp' ? 'image/webp' : 'image/jpeg'
@@ -395,9 +609,7 @@ export default function Dashboard() {
             </div>
 
             {avatarError && (
-              <div style={{ padding: '8px 12px', background: 'var(--rust-soft)', border: '1px solid var(--rust-dim)', borderRadius: 8, fontSize: 12, color: 'var(--rust)', marginBottom: 12 }}>
-                {avatarError}
-              </div>
+              <div style={{ padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)', marginBottom: 12 }}>{avatarError}</div>
             )}
 
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Your name</div>
@@ -406,21 +618,19 @@ export default function Dashboard() {
               style={{ width: '100%', padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', marginBottom: 16 }} />
 
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Email</div>
-            <div style={{ padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, fontSize: 13, color: 'var(--text3)', marginBottom: 16 }}>
-              {user?.email}
-            </div>
+            <div style={{ padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, fontSize: 13, color: 'var(--text3)', marginBottom: 16 }}>{user?.email}</div>
 
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8 }}>Budget comfort for a night out</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 6 }}>
               {[
-                { id: 'casual',  symbol: '$',    label: 'Casual' },
-                { id: 'mid',     symbol: '$$',   label: 'Mid' },
-                { id: 'nice',    symbol: '$$$',  label: 'Nice' },
+                { id: 'casual', symbol: '$', label: 'Casual' },
+                { id: 'mid', symbol: '$$', label: 'Mid' },
+                { id: 'nice', symbol: '$$$', label: 'Nice' },
                 { id: 'splurge', symbol: '$$$$', label: 'Splurge' },
               ].map(b => (
                 <div key={b.id} onClick={() => setEditBudget(b.id)}
-                  style={{ padding: '10px 6px', border: `1px solid ${editBudget === b.id ? 'var(--rust)' : 'var(--border2)'}`, borderRadius: 8, textAlign: 'center', cursor: 'pointer', background: editBudget === b.id ? 'var(--rust-soft)' : 'transparent' }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: editBudget === b.id ? 'var(--rust)' : 'var(--text)' }}>{b.symbol}</div>
+                  style={{ padding: '10px 6px', border: `1px solid ${editBudget === b.id ? 'var(--yellow)' : 'var(--border2)'}`, borderRadius: 8, textAlign: 'center', cursor: 'pointer', background: editBudget === b.id ? 'var(--yellow-soft)' : 'transparent' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: editBudget === b.id ? 'var(--yellow)' : 'var(--text)' }}>{b.symbol}</div>
                   <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{b.label}</div>
                 </div>
               ))}
@@ -429,7 +639,7 @@ export default function Dashboard() {
 
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={saveProfile} disabled={savingProfile || !editName.trim()}
-                style={{ flex: 1, padding: '10px', background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: savingProfile ? 0.7 : 1 }}>
+                style={{ flex: 1, padding: '10px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: savingProfile ? 0.7 : 1 }}>
                 {savingProfile ? 'Saving...' : 'Save profile'}
               </button>
               <button onClick={() => setShowProfile(false)}
@@ -440,134 +650,13 @@ export default function Dashboard() {
 
             <div style={{ borderTop: '1px solid var(--border)', marginTop: 16, paddingTop: 14 }}>
               <button onClick={() => { setShowProfile(false); signOut() }}
-                style={{ width: '100%', padding: '9px', background: 'var(--rust-soft)', border: '1px solid var(--rust-dim)', borderRadius: 8, color: 'var(--rust)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                style={{ width: '100%', padding: '9px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
                 Sign out
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* MORE DRAWER — mobile only */}
-      {showMore && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 50 }} onClick={() => setShowMore(false)}>
-          <div onClick={e => e.stopPropagation()}
-            style={{ position: 'absolute', bottom: 64, left: 0, right: 0, background: 'var(--bg2)', borderTop: '1px solid var(--border)', borderRadius: '16px 16px 0 0', padding: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>Your Knots</div>
-            {knots.map(k => (
-              <div key={k.id} onClick={() => switchKnot(k)}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 8px', borderRadius: 8, cursor: 'pointer', background: activeKnot?.id === k.id ? 'var(--rust-soft)' : 'transparent', marginBottom: 4 }}>
-                <span style={{ fontSize: 18 }}>{k.emoji}</span>
-                <span style={{ flex: 1, fontSize: 13, fontWeight: activeKnot?.id === k.id ? 600 : 400, color: activeKnot?.id === k.id ? 'var(--rust)' : 'var(--text)' }}>{k.name}</span>
-                <span style={{ fontSize: 11, color: 'var(--text3)' }}>{k.count}</span>
-              </div>
-            ))}
-            <div onClick={() => { setShowMore(false); setShowNewKnot(true) }}
-              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 8px', borderRadius: 8, cursor: 'pointer', color: 'var(--text3)', fontSize: 13, marginBottom: 4 }}>
-              + New Knot
-            </div>
-            <div style={{ borderTop: '1px solid var(--border)', marginTop: 12, paddingTop: 12, display: 'flex', gap: 8 }}>
-              {['Bills', 'Members', 'Games'].map(label => (
-                <button key={label} onClick={() => { setActive(label.toLowerCase() === 'bills' ? 'split' : label.toLowerCase()); setShowMore(false) }}
-                  style={{ flex: 1, padding: '9px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, fontSize: 13, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div style={{ marginTop: 10 }}>
-              <button onClick={() => { setShowMore(false); setShowProfile(true) }}
-                style={{ width: '100%', padding: '10px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, fontSize: 13, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
-                Edit profile
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MAIN */}
-      <div style={s.main}>
-        <div style={s.topbar}>
-          <button className="desktop-only" onClick={() => setSidebarOpen(!sidebarOpen)}
-            style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', fontSize: 18, padding: '4px', borderRadius: 6 }}>☰</button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-            <svg className="mobile-only" width="22" height="22" viewBox="0 0 44 44" fill="none">
-              <circle cx="17" cy="17" r="10" stroke="var(--rust)" strokeWidth="3" fill="none"/>
-              <circle cx="27" cy="27" r="10" stroke="var(--olive)" strokeWidth="3" fill="none"/>
-            </svg>
-            <span style={{ fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {activeKnot ? `${activeKnot.emoji} ${activeKnot.name}` : 'Select a Knot'}
-            </span>
-          </div>
-          <span style={{ fontSize: 12, color: 'var(--text3)', marginRight: 4, flexShrink: 0 }}>
-            {activeKnot ? `${activeKnot.count} members` : ''}
-          </span>
-          {activeKnot && (
-            <div style={{ position: 'relative' }}>
-              <button onClick={() => setShowKnotMenu(!showKnotMenu)}
-                style={{ background: 'none', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', cursor: 'pointer', fontSize: 16, padding: '4px 10px', fontFamily: 'inherit' }}>
-                ⋯
-              </button>
-              {showKnotMenu && (
-                <div style={{ position: 'absolute', right: 0, top: '110%', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '6px', minWidth: 180, zIndex: 50, boxShadow: '0 4px 20px rgba(0,0,0,0.12)' }}>
-                  <div onClick={() => { setShowKnotMenu(false); setShowRenameKnot(true); setNewKnotName(activeKnot.name); setNewKnotEmoji(activeKnot.emoji) }}
-                    style={{ padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text)' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg3)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                    Rename Knot
-                  </div>
-                  <div onClick={() => { setShowKnotMenu(false); deleteKnot() }}
-                    style={{ padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--rust)' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--rust-soft)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                    Delete Knot
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="content-pad" style={s.content}>
-          {!activeKnot ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: 16 }}>
-              <div style={{ fontSize: 18, fontWeight: 700 }}>No Knots yet</div>
-              <div style={{ fontSize: 14, color: 'var(--text2)' }}>Create your first Knot to get started.</div>
-              <button onClick={() => setShowNewKnot(true)}
-                style={{ padding: '10px 24px', background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-                Create a Knot
-              </button>
-            </div>
-          ) : (
-            <>
-              {active === 'discover'  && <Discover  members={knotMembers} />}
-              {active === 'feed'      && <Feed      members={knotMembers} knotName={activeKnot.name} knotId={activeKnot?.id} currentUser={profile} />}
-              {active === 'hangout'   && <Hangout   members={knotMembers} knotId={activeKnot?.id} />}
-              {active === 'split'     && <BillSplit members={knotMembers} knotId={activeKnot?.id} />}
-              {active === 'members'   && <Members   members={knotMembers} knotId={activeKnot?.id} />}
-              {active === 'memories'  && <Memories  members={knotMembers} knotId={activeKnot?.id} />}
-              {active === 'games'     && <Games     members={knotMembers} knotId={activeKnot?.id} currentUser={profile} />}
-            </>
-          )}
-        </div>
-
-        {/* BOTTOM NAV — mobile only */}
-        <nav className="bottom-nav" style={{ display: 'none', position: 'fixed', bottom: 0, left: 0, right: 0, height: 64, background: 'var(--bg2)', borderTop: '1px solid var(--border)', zIndex: 40, alignItems: 'center', justifyContent: 'space-around', padding: '0 8px' }}>
-          {BOTTOM_NAV.map(n => {
-            const isActive = n.id === 'more' ? showMore : active === n.id
-            return (
-              <button key={n.id}
-                onClick={() => {
-                  if (n.id === 'more') { setShowMore(!showMore) }
-                  else { setActive(n.id); setShowMore(false) }
-                }}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '6px 12px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', flex: 1 }}>
-                <div style={{ width: 24, height: 3, borderRadius: 2, background: isActive ? 'var(--rust)' : 'transparent', marginBottom: 2, transition: 'all 0.15s' }} />
-                <span style={{ fontSize: 12, fontWeight: isActive ? 600 : 400, color: isActive ? 'var(--rust)' : 'var(--text3)' }}>{n.label}</span>
-              </button>
-            )
-          })}
-        </nav>
-      </div>
     </div>
   )
 }

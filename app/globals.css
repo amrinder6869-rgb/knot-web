@@ -2,35 +2,37 @@
 @import "tailwindcss";
 
 :root {
-  --bg:          #111111;
-  --bg2:         #1A1A1A;
-  --bg3:         #222222;
-  --bg4:         #2A2A2A;
-  --border:      #2E2E2E;
-  --border2:     #3A3A3A;
-  --text:        #F5F5F5;
-  --text2:       #A0A0A0;
-  --text3:       #666666;
+  --bg:          #FFFFFF;
+  --bg2:         #F9F9F9;
+  --bg3:         #F2F2F2;
+  --bg4:         #E8E8E8;
+  --border:      #E0E0E0;
+  --border2:     #D0D0D0;
+  --text:        #111111;
+  --text2:       #444444;
+  --text3:       #888888;
 
   --yellow:      #F8BD03;
-  --yellow-dim:  rgba(248,189,3,0.12);
-  --yellow-soft: rgba(248,189,3,0.08);
+  --yellow-dim:  rgba(248,189,3,0.15);
+  --yellow-soft: rgba(248,189,3,0.10);
 
   --rust:        #F8BD03;
-  --rust-dim:    rgba(248,189,3,0.12);
-  --rust-soft:   rgba(248,189,3,0.08);
+  --rust-dim:    rgba(248,189,3,0.15);
+  --rust-soft:   rgba(248,189,3,0.10);
 
   --olive:       #F8BD03;
-  --olive-dim:   rgba(248,189,3,0.12);
-  --olive-soft:  rgba(248,189,3,0.08);
+  --olive-dim:   rgba(248,189,3,0.15);
+  --olive-soft:  rgba(248,189,3,0.10);
 
-  --sage:        #4A7C5F;
-  --sage-dim:    rgba(74,124,95,0.15);
-  --sage-soft:   rgba(74,124,95,0.12);
+  --sage:        #2E7D5E;
+  --sage-dim:    rgba(46,125,94,0.15);
+  --sage-soft:   rgba(46,125,94,0.10);
 
   --amber:       #C07A10;
   --amber-soft:  rgba(192,122,16,0.12);
 }
+
+:root { color-scheme: light; }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -52,6 +54,8 @@ body {
   .mobile-only { display: block !important; }
   .grid-2col { grid-template-columns: 1fr !important; }
   .content-pad { padding: 16px !important; }
+  .desktop-layout { grid-template-columns: 1fr !important; }
+  .desktop-layout > div:last-child { display: none !important; }
 }
 
 @media (min-width: 769px) {
