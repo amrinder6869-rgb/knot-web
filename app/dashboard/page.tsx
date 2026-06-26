@@ -256,6 +256,7 @@ export default function Dashboard() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <Notifications userId={user?.id || ''} knots={knots} onSelectKnot={(k) => switchKnot(k)} />
           <button onClick={() => setShowProfile(true)}
             style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#111', border: 'none', cursor: 'pointer', overflow: 'hidden', flexShrink: 0 }}>
             {profile?.avatar_url
@@ -660,4 +661,6 @@ export default function Dashboard() {
     </div>
   )
 }
+
+
 
