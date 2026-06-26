@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 const CATEGORIES = [
-  { id: '13000', label: 'Restaurants', emoji: String.fromCodePoint(0x1F37D,0xFE0F) },
+  { id: '13000', label: 'Restaurants', emoji: String.fromCodePoint(0x1F374) },
   { id: '13003', label: 'Bars', emoji: String.fromCodePoint(0x1F37B) },
   { id: '10000', label: 'Arts & Culture', emoji: String.fromCodePoint(0x1F3AD) },
   { id: '18000', label: 'Outdoors', emoji: String.fromCodePoint(0x1F33F) },
@@ -300,5 +300,7 @@ export default function Discover({ members: _members }: { members: any[] }) {
     </div>
   )
 }
+
+
 
 
