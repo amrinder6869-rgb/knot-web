@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -21,18 +21,18 @@ export default function BillSplit({ members, knotId }: { members: any[], knotId?
   const [knotMembers, setKnotMembers] = useState<any[]>([])
 
   useEffect(() => {
-  async function init() {
-    const { data: { user: u } } = await supabase.auth.getUser()
-    if (u) setUser(u)
-    if (knotId) {
-      setBills([])
-      setLoading(true)
-      await loadKnotMembers()
-      await loadBills()
+    async function init() {
+      const { data: { user: u } } = await supabase.auth.getUser()
+      if (u) setUser(u)
+      if (knotId) {
+        setBills([])
+        setLoading(true)
+        await loadKnotMembers()
+        await loadBills()
+      }
     }
-  }
-  init()
-}, [knotId])
+    init()
+  }, [knotId])
 
   async function loadKnotMembers() {
     const { data } = await supabase
@@ -89,7 +89,7 @@ export default function BillSplit({ members, knotId }: { members: any[], knotId?
       await supabase.from('posts').insert({
         knot_id:   knotId,
         author_id: user.id,
-        content:   `added a bill â€” $${total.toFixed(2)} for ${description || 'tonight'}, split ${knotMembers.length} ways`,
+        content:   `added a bill — $${total.toFixed(2)} for ${description || 'tonight'}, split ${knotMembers.length} ways`,
         post_type: 'moment'
       })
       setAmount('')
@@ -102,12 +102,27 @@ export default function BillSplit({ members, knotId }: { members: any[], knotId?
 
   async function settleUp(splitId: string) {
     if (!user) return
-    // Enforce that only the current user can settle their own split
     await supabase
       .from('bill_splits')
       .update({ settled: true, settled_at: new Date().toISOString() })
       .eq('id', splitId)
       .eq('user_id', user.id)
+    await loadBills()
+  }
+
+  async function markAsTreat(splitId: string, billDescription: string, amount: number) {
+    if (!user) return
+    await supabase
+      .from('bill_splits')
+      .update({ is_treat: true, settled: true, settled_at: new Date().toISOString() })
+      .eq('id', splitId)
+      .eq('user_id', user.id)
+    await supabase.from('posts').insert({
+      knot_id:   knotId,
+      author_id: user.id,
+      content:   `treated the group 🎁 — covered $${amount.toFixed(2)} for ${billDescription}`,
+      post_type: 'treat',
+    })
     await loadBills()
   }
 
@@ -154,7 +169,7 @@ export default function BillSplit({ members, knotId }: { members: any[], knotId?
               style={{ flex: 2, padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit' }} />
           </div>
           <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 12 }}>
-            Split equally between {knotMembers.length} members Â· ${knotMembers.length > 0 && amount ? (parseFloat(amount) / knotMembers.length).toFixed(2) : '0.00'} each
+            Split equally between {knotMembers.length} members · ${knotMembers.length > 0 && amount ? (parseFloat(amount) / knotMembers.length).toFixed(2) : '0.00'} each
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={addBill} disabled={adding || !amount}
@@ -186,7 +201,7 @@ export default function BillSplit({ members, knotId }: { members: any[], knotId?
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                   <div>
                     <div style={{ fontSize: 16, fontWeight: 700 }}>${bill.total_amount.toFixed(2)}</div>
-                    <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>{bill.description} Â· {timeAgo(bill.created_at)}</div>
+                    <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>{bill.description} · {timeAgo(bill.created_at)}</div>
                     <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Added by {bill.profiles?.name || 'someone'}</div>
                   </div>
                   <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 20, background: progress === 100 ? 'var(--sage-soft)' : 'var(--amber-soft)', color: progress === 100 ? 'var(--sage)' : 'var(--amber)' }}>
@@ -208,12 +223,20 @@ export default function BillSplit({ members, knotId }: { members: any[], knotId?
                         ${split.amount.toFixed(2)}
                       </span>
                       {split.settled ? (
-                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--sage-soft)', color: 'var(--sage)' }}>Paid</span>
+                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: split.is_treat ? 'var(--yellow-soft)' : 'var(--sage-soft)', color: split.is_treat ? 'var(--yellow)' : 'var(--sage)' }}>
+                          {split.is_treat ? 'Treated 🎁' : 'Paid'}
+                        </span>
                       ) : isMe ? (
-                        <button onClick={() => settleUp(split.id)}
-                          style={{ fontSize: 12, padding: '4px 12px', borderRadius: 8, background: 'var(--sage-soft)', border: '1px solid var(--sage-dim)', color: 'var(--sage)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>
-                          Settle up
-                        </button>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button onClick={() => settleUp(split.id)}
+                            style={{ fontSize: 12, padding: '4px 12px', borderRadius: 8, background: 'var(--sage-soft)', border: '1px solid var(--sage-dim)', color: 'var(--sage)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>
+                            Settle up
+                          </button>
+                          <button onClick={() => markAsTreat(split.id, bill.description, split.amount)}
+                            style={{ fontSize: 12, padding: '4px 12px', borderRadius: 8, background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', color: 'var(--yellow)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>
+                            Treat 🎁
+                          </button>
+                        </div>
                       ) : (
                         <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--amber-soft)', color: 'var(--amber)' }}>Pending</span>
                       )}
@@ -233,4 +256,3 @@ export default function BillSplit({ members, knotId }: { members: any[], knotId?
     </div>
   )
 }
-
