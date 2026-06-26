@@ -28,7 +28,7 @@ function StarRating({ rating }: { rating: number }) {
   const empty = 5 - full - half
   return (
     <span style={{ fontSize: 13, letterSpacing: 1 }}>
-      <span style={{ color: 'var(--amber)' }}>{'?'.repeat(full)}{'½'.repeat(half)}</span>
+      <span style={{ color: 'var(--amber)' }}>{'?'.repeat(full)}{'Â½'.repeat(half)}</span>
       <span style={{ color: 'var(--border2)' }}>{'?'.repeat(empty)}</span>
       <span style={{ color: 'var(--text3)', fontSize: 12, marginLeft: 5 }}>{rating.toFixed(1)}</span>
     </span>
