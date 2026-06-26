@@ -470,7 +470,7 @@ export default function Dashboard() {
                 <button key={n.id}
                   onClick={() => {
                     if (n.id === 'more') { setShowMore(!showMore) }
-                    else { setActive(n.id); setShowMore(false) }
+                    else { setActive(n.id); setShowMore(false); setShowHome(false) }
                   }}
                   style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '6px 10px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', flex: 1 }}>
                   <div style={{ width: 20, height: 3, borderRadius: 2, background: isActive ? 'var(--yellow)' : 'transparent', transition: 'all 0.15s' }} />
@@ -661,6 +661,7 @@ export default function Dashboard() {
     </div>
   )
 }
+
 
 
 
