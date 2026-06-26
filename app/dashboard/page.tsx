@@ -89,8 +89,17 @@ export default function Dashboard() {
           })
         )
         setKnots(knotList)
-        setActiveKnot(knotList[0])
-        await loadKnotMembers(knotList[0].id, data.user.id)
+const savedKnotId = localStorage.getItem('active_knot_id')
+const savedKnot = savedKnotId ? knotList.find(k => k.id === savedKnotId) : null
+const startKnot = savedKnot || knotList[0]
+const savedShowHome = localStorage.getItem('show_home')
+if (savedShowHome === 'false' && savedKnot) {
+  setShowHome(false)
+  setActiveKnot(startKnot)
+} else {
+  setActiveKnot(startKnot)
+}
+await loadKnotMembers(startKnot.id, data.user.id)
       } else {
         setShowHome(false)
       }
@@ -116,9 +125,11 @@ export default function Dashboard() {
     }
   }
 
-  async function switchKnot(k: any) {
-    setShowHome(false)
-    setActiveKnot(k)
+async function switchKnot(k: any) {
+  setShowHome(false)
+  setActiveKnot(k)
+  localStorage.setItem('active_knot_id', k.id)
+  localStorage.setItem('show_home', 'false')
     setShowKnotMenu(false)
     setShowMore(false)
     setShowKnotList(false)
@@ -223,7 +234,7 @@ export default function Dashboard() {
           </span>
         </div>
 
-        <button onClick={() => { setShowHome(true); setActiveKnot(null) }}
+        onClick={() => { setShowHome(true); setActiveKnot(null); localStorage.setItem('show_home', 'true') }}
           style={{ padding: '6px 14px', background: showHome ? 'var(--yellow)' : 'var(--bg3)', border: `1px solid ${showHome ? 'var(--yellow)' : 'var(--border)'}`, borderRadius: 8, color: showHome ? '#111' : 'var(--text2)', fontSize: 13, fontWeight: showHome ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
           Home
         </button>
