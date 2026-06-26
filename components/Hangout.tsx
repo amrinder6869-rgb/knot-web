@@ -464,8 +464,8 @@ export default function Hangout({ members, knotId }: { members: any[], knotId?: 
 
       {/* WIZARD */}
       {showWizard && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-          <div style={{ background: 'var(--bg)', borderRadius: '20px 20px 0 0', width: '100%', maxWidth: 640, maxHeight: '95vh', overflowY: 'auto' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 16px' }}>
+          <div style={{ background: 'var(--bg)', borderRadius: 20, width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto' }}>
 
             {/* Wizard header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 0' }}>
@@ -710,3 +710,4 @@ function Row({ label, value }: { label: string, value: string }) {
     </div>
   )
 }
+
