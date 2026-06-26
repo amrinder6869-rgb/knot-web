@@ -421,7 +421,7 @@ export default function Dashboard() {
         /* HOME FEED */
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px', display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, alignItems: 'start' }} className="desktop-layout">
           <div>
-            <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 16, color: 'var(--text)' }}>Home</div>
+            
             <HomeFeed knots={knots} onSelectKnot={(k) => switchKnot(k)} />
           </div>
           <div className="desktop-only" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -661,6 +661,8 @@ export default function Dashboard() {
     </div>
   )
 }
+
+
 
 
 
