@@ -34,13 +34,9 @@ const CATEGORY_TO_TYPE: Record<string, string> = {
 const ALLOWED_CATEGORIES = new Set(Object.keys(CATEGORY_TO_TYPE))
 
 export async function GET(request: Request) {
-  // Require authentication — extract the Supabase JWT from the Authorization header
   const authHeader = request.headers.get('authorization')
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
-
-  if (!token) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -48,38 +44,26 @@ export async function GET(request: Request) {
     { global: { headers: { Authorization: `Bearer ${token}` } } }
   )
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
   const ll       = searchParams.get('ll')
   const category = searchParams.get('categories')
 
-  if (!ll || !category) {
-    return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
-  }
+  if (!ll || !category) return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
 
-  // Validate coordinate format
   const parts = ll.split(',')
-  if (parts.length !== 2) {
-    return NextResponse.json({ error: 'Invalid ll format' }, { status: 400 })
-  }
+  if (parts.length !== 2) return NextResponse.json({ error: 'Invalid ll format' }, { status: 400 })
   const lat = parseFloat(parts[0])
   const lng = parseFloat(parts[1])
-  if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+  if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180)
     return NextResponse.json({ error: 'Invalid coordinates' }, { status: 400 })
-  }
 
-  // Validate category against known allowlist
-  if (!ALLOWED_CATEGORIES.has(category)) {
+  if (!ALLOWED_CATEGORIES.has(category))
     return NextResponse.json({ error: 'Invalid category' }, { status: 400 })
-  }
 
   const apiKey = process.env.GOOGLE_PLACES_API_KEY
-  if (!apiKey) {
-    return NextResponse.json({ error: 'API key not configured' }, { status: 500 })
-  }
+  if (!apiKey) return NextResponse.json({ error: 'API key not configured' }, { status: 500 })
 
   const type = CATEGORY_TO_TYPE[category]
 
@@ -96,26 +80,30 @@ export async function GET(request: Request) {
     )
     const data = JSON.parse(body)
 
-    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS')
       return NextResponse.json({ error: 'Places API error' }, { status: 400 })
-    }
 
-    const results = (data.results || []).slice(0, 10).map((p: any) => ({
-      fsq_id: p.place_id,
-      name: p.name,
-      location: {
-        formatted_address: p.vicinity,
-        address: p.vicinity,
-      },
-      categories: [{ id: p.place_id, name: p.types?.[0]?.replace(/_/g, ' ') || type }],
-      price: p.price_level,
-      distance: null,
-      closed_bucket: p.opening_hours?.open_now ? 'VeryLikelyOpen' : null,
-      rating: p.rating,
-      rating_count: p.user_ratings_total,
-      photo_ref: p.photos?.[0]?.photo_reference || null,
-      google_maps_url: `https://www.google.com/maps/place/?q=place_id:${p.place_id}`,
-    }))
+    const results = (data.results || [])
+      .slice(0, 10)
+      .sort((a: any, b: any) => (b.rating || 0) - (a.rating || 0))
+      .map((p: any) => ({
+        fsq_id:   p.place_id,
+        name:     p.name,
+        location: {
+          formatted_address: p.vicinity,
+          address:           p.vicinity,
+        },
+        categories:   [{ id: p.place_id, name: p.types?.[0]?.replace(/_/g, ' ') || type }],
+        price:        p.price_level,
+        distance:     null,
+        closed_bucket: p.opening_hours?.open_now ? 'VeryLikelyOpen' : null,
+        rating:        p.rating,
+        rating_count:  p.user_ratings_total,
+        photo_url:     p.photos?.[0]?.photo_reference
+          ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${p.photos[0].photo_reference}&key=${apiKey}`
+          : null,
+        google_maps_url: `https://www.google.com/maps/place/?q=place_id:${p.place_id}`,
+      }))
 
     return NextResponse.json({ results })
   } catch {
