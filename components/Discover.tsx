@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -25,13 +25,13 @@ const PRICE_MAP: Record<number, string> = { 1:'$', 2:'$$', 3:'$$$', 4:'$$$$' }
 function Stars({ rating }: { rating: number }) {
   return (
     <span style={{ color: 'var(--amber)', fontSize: 12 }}>
-      {'★'.repeat(Math.floor(rating))}{rating % 1 >= 0.5 ? '½' : ''}{'☆'.repeat(5 - Math.floor(rating) - (rating % 1 >= 0.5 ? 1 : 0))}
+      {'â˜…'.repeat(Math.floor(rating))}{rating % 1 >= 0.5 ? 'Â½' : ''}{'â˜†'.repeat(5 - Math.floor(rating) - (rating % 1 >= 0.5 ? 1 : 0))}
       <span style={{ color: 'var(--text3)', marginLeft: 4 }}>{rating.toFixed(1)}</span>
     </span>
   )
 }
 
-export default function Discover({ members }: { members: any[] }) {
+export default function Discover({ members: _members }: { members: any[] }) {
   const [category, setCategory] = useState<string|null>(null)
   const [budget, setBudget]     = useState<number|null>(2)
   const [venues, setVenues]     = useState<any[]>([])
@@ -97,7 +97,7 @@ export default function Discover({ members }: { members: any[] }) {
 
       <div style={{ marginBottom: 24 }}>
         <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Discover</div>
-        <div style={{ fontSize: 13, color: 'var(--text2)' }}>Find somewhere to go — filtered to your group's budget, near you.</div>
+        <div style={{ fontSize: 13, color: 'var(--text2)' }}>Find somewhere to go â€” filtered to your group's budget, near you.</div>
       </div>
 
       {locked && selected ? (
@@ -205,7 +205,7 @@ export default function Discover({ members }: { members: any[] }) {
                     {/* Category label block */}
                     <div style={{ width: 52, height: 52, borderRadius: 10, background: 'var(--bg3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textAlign: 'center', padding: '0 4px' }}>
-                        {CATEGORIES.find(c => c.id === category)?.label?.split(' ')[0] || '—'}
+                        {CATEGORIES.find(c => c.id === category)?.label?.split(' ')[0] || 'â€”'}
                       </span>
                     </div>
 
@@ -230,7 +230,7 @@ export default function Discover({ members }: { members: any[] }) {
                       </button>
                       <a href={v.google_maps_url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
                         style={{ fontSize: 11, color: 'var(--rust)', textDecoration: 'none' }}>
-                        Maps →
+                        Maps â†’
                       </a>
                     </div>
                   </div>

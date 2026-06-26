@@ -90,6 +90,8 @@ export default function Dashboard() {
         setKnots(knotList)
         setActiveKnot(knotList[0])
         await loadKnotMembers(knotList[0].id, data.user.id)
+      } else {
+        setShowHome(false)
       }
       setKnotsLoading(false)
     })
@@ -236,7 +238,7 @@ export default function Dashboard() {
             <span style={{ color: 'var(--text3)', fontSize: 10 }}>▾</span>
           </button>
           {showKnotList && (
-            <div style={{ position: 'absolute', top: '110%', left: 0, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 8, minWidth: 220, zIndex: 200, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+            <div style={{ position: 'absolute', top: '110%', left: 0, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 8, minWidth: 220, zIndex: 200, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
               <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '4px 8px', marginBottom: 4 }}>Your Knots</div>
               {knots.map(k => (
                 <div key={k.id} onClick={() => switchKnot(k)}
@@ -272,9 +274,9 @@ export default function Dashboard() {
         <>
           {/* COVER BANNER */}
           <div style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--border)' }}>
-            <div style={{ height: 180, background: 'linear-gradient(135deg, #1A1A1A 0%, #2A2A2A 50%, #111111 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 30% 50%, rgba(248,189,3,0.15) 0%, transparent 60%)' }} />
-              <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 70% 50%, rgba(248,189,3,0.08) 0%, transparent 60%)' }} />
+            <div style={{ height: 180, background: 'linear-gradient(135deg, #F9F9F9 0%, #F2F2F2 50%, #E8E8E8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 30% 50%, rgba(248,189,3,0.2) 0%, transparent 60%)' }} />
+              <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 70% 50%, rgba(248,189,3,0.1) 0%, transparent 60%)' }} />
               <span style={{ fontSize: 64 }}>{activeKnot.emoji}</span>
             </div>
 
@@ -307,7 +309,7 @@ export default function Dashboard() {
                     ⋯
                   </button>
                   {showKnotMenu && (
-                    <div style={{ position: 'absolute', right: 0, top: '110%', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 6, minWidth: 180, zIndex: 50, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+                    <div style={{ position: 'absolute', right: 0, top: '110%', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 6, minWidth: 180, zIndex: 50, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
                       <div onClick={() => { setShowKnotMenu(false); setShowRenameKnot(true); setNewKnotName(activeKnot.name); setNewKnotEmoji(activeKnot.emoji) }}
                         style={{ padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text)' }}
                         onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg3)')}
@@ -315,8 +317,8 @@ export default function Dashboard() {
                         Rename Knot
                       </div>
                       <div onClick={() => { setShowKnotMenu(false); deleteKnot() }}
-                        style={{ padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--yellow)' }}
-                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg3)')}
+                        style={{ padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--danger)' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--danger-soft)')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                         Delete Knot
                       </div>
@@ -470,7 +472,7 @@ export default function Dashboard() {
             <button key={n.id}
               onClick={() => {
                 if (n.id === 'more') { setShowMore(!showMore) }
-                else { setActive(n.id); setShowMore(false) }
+                else { setActive(n.id); setShowMore(false); setShowHome(false) }
               }}
               style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '6px 10px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', flex: 1 }}>
               <div style={{ width: 20, height: 3, borderRadius: 2, background: isActive ? 'var(--yellow)' : 'transparent', transition: 'all 0.15s' }} />
@@ -482,12 +484,12 @@ export default function Dashboard() {
 
       {/* MORE DRAWER — mobile */}
       {showMore && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 90 }} onClick={() => setShowMore(false)}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 90 }} onClick={() => setShowMore(false)}>
           <div onClick={e => e.stopPropagation()}
             style={{ position: 'absolute', bottom: 60, left: 0, right: 0, background: 'var(--bg2)', borderTop: '1px solid var(--border)', borderRadius: '16px 16px 0 0', padding: 20 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>Navigate</div>
             {[{ id: 'split', label: 'Bills' }, { id: 'games', label: 'Games' }, { id: 'discover', label: 'Discover' }].map(n => (
-              <button key={n.id} onClick={() => { setActive(n.id); setShowMore(false) }}
+              <button key={n.id} onClick={() => { setActive(n.id); setShowMore(false); setShowHome(false) }}
                 style={{ width: '100%', padding: '11px 12px', background: active === n.id ? 'var(--yellow-soft)' : 'transparent', border: 'none', borderRadius: 8, color: active === n.id ? 'var(--yellow)' : 'var(--text)', fontSize: 14, fontWeight: active === n.id ? 700 : 400, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', marginBottom: 4 }}>
                 {n.label}
               </button>
@@ -504,7 +506,7 @@ export default function Dashboard() {
 
       {/* NEW KNOT MODAL */}
       {showNewKnot && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 360 }}>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, color: 'var(--text)' }}>Create a new Knot</div>
             <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20 }}>Invite only. Your friends need a vote to join.</div>
@@ -522,7 +524,7 @@ export default function Dashboard() {
               onKeyDown={e => e.key === 'Enter' && createKnot()}
               placeholder="e.g. The Brampton Crew"
               style={{ width: '100%', padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', marginBottom: 16 }} />
-            {knotError && <div style={{ padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)', marginBottom: 12 }}>{knotError}</div>}
+            {knotError && <div style={{ padding: '8px 12px', background: 'var(--danger-soft)', border: '1px solid var(--danger-dim)', borderRadius: 8, fontSize: 12, color: 'var(--danger)', marginBottom: 12 }}>{knotError}</div>}
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={createKnot}
                 style={{ flex: 1, padding: '10px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -539,7 +541,7 @@ export default function Dashboard() {
 
       {/* RENAME KNOT MODAL */}
       {showRenameKnot && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 360 }}>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, color: 'var(--text)' }}>Rename Knot</div>
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Choose an emoji</div>
@@ -555,7 +557,7 @@ export default function Dashboard() {
             <input value={newKnotName} onChange={e => setNewKnotName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && renameKnot()}
               style={{ width: '100%', padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', marginBottom: 16 }} />
-            {knotError && <div style={{ padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)', marginBottom: 12 }}>{knotError}</div>}
+            {knotError && <div style={{ padding: '8px 12px', background: 'var(--danger-soft)', border: '1px solid var(--danger-dim)', borderRadius: 8, fontSize: 12, color: 'var(--danger)', marginBottom: 12 }}>{knotError}</div>}
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={renameKnot}
                 style={{ flex: 1, padding: '10px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -572,7 +574,7 @@ export default function Dashboard() {
 
       {/* PROFILE MODAL */}
       {showProfile && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 380, maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, color: 'var(--text)' }}>Your profile</div>
             <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20 }}>Visible to members of your Knots.</div>
@@ -609,7 +611,7 @@ export default function Dashboard() {
             </div>
 
             {avatarError && (
-              <div style={{ padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)', marginBottom: 12 }}>{avatarError}</div>
+              <div style={{ padding: '8px 12px', background: 'var(--danger-soft)', border: '1px solid var(--danger-dim)', borderRadius: 8, fontSize: 12, color: 'var(--danger)', marginBottom: 12 }}>{avatarError}</div>
             )}
 
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Your name</div>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -66,6 +66,7 @@ export default function BillSplit({ members, knotId }: { members: any[], knotId?
 
   async function addBill() {
     if (!knotId || !user || !amount || adding) return
+    if (knotMembers.length === 0) { alert('Cannot split — no members loaded'); return }
     const total = parseFloat(amount)
     if (isNaN(total) || total <= 0) { alert('Enter a valid amount'); return }
     setAdding(true)
@@ -88,7 +89,7 @@ export default function BillSplit({ members, knotId }: { members: any[], knotId?
       await supabase.from('posts').insert({
         knot_id:   knotId,
         author_id: user.id,
-        content:   `added a bill — $${total.toFixed(2)} for ${description || 'tonight'}, split ${knotMembers.length} ways`,
+        content:   `added a bill â€” $${total.toFixed(2)} for ${description || 'tonight'}, split ${knotMembers.length} ways`,
         post_type: 'moment'
       })
       setAmount('')
@@ -153,7 +154,7 @@ export default function BillSplit({ members, knotId }: { members: any[], knotId?
               style={{ flex: 2, padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit' }} />
           </div>
           <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 12 }}>
-            Split equally between {knotMembers.length} members · ${knotMembers.length > 0 && amount ? (parseFloat(amount) / knotMembers.length).toFixed(2) : '0.00'} each
+            Split equally between {knotMembers.length} members Â· ${knotMembers.length > 0 && amount ? (parseFloat(amount) / knotMembers.length).toFixed(2) : '0.00'} each
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={addBill} disabled={adding || !amount}
@@ -185,7 +186,7 @@ export default function BillSplit({ members, knotId }: { members: any[], knotId?
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                   <div>
                     <div style={{ fontSize: 16, fontWeight: 700 }}>${bill.total_amount.toFixed(2)}</div>
-                    <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>{bill.description} · {timeAgo(bill.created_at)}</div>
+                    <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>{bill.description} Â· {timeAgo(bill.created_at)}</div>
                     <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Added by {bill.profiles?.name || 'someone'}</div>
                   </div>
                   <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 20, background: progress === 100 ? 'var(--sage-soft)' : 'var(--amber-soft)', color: progress === 100 ? 'var(--sage)' : 'var(--amber)' }}>

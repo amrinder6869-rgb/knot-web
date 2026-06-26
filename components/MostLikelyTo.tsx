@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -20,7 +20,7 @@ const QUESTIONS = [
   "Most likely to forget the plan?",
 ]
 
-export default function MostLikelyTo({ game, members, currentUser, knotId, onEnd }: any) {
+export default function MostLikelyTo({ game, members, currentUser, knotId: _knotId, onEnd }: any) {
   const [questions, setQuestions]   = useState<string[]>([])
   const [currentQ, setCurrentQ]     = useState(0)
   const [votes, setVotes]           = useState<any[]>([])
@@ -121,26 +121,26 @@ export default function MostLikelyTo({ game, members, currentUser, knotId, onEnd
   if (phase === 'lobby') return (
     <div style={{ maxWidth: 500 }}>
       <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 24, textAlign: 'center' }}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>🤔</div>
+        <div style={{ fontSize: 48, marginBottom: 12 }}>ðŸ¤”</div>
         <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>Most Likely To</div>
         <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20 }}>Waiting for players to join...</div>
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 20 }}>
           {players.map((p: any) => (
             <div key={p.user_id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'var(--sage-soft)', borderRadius: 20, fontSize: 13, color: 'var(--sage)' }}>
-              ✓ {p.profiles?.name || 'Player'}
+              âœ“ {p.profiles?.name || 'Player'}
             </div>
           ))}
         </div>
 
         <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 20 }}>
-          {players.length} player{players.length !== 1 ? 's' : ''} joined · Share this Knot to invite more
+          {players.length} player{players.length !== 1 ? 's' : ''} joined Â· Share this Knot to invite more
         </div>
 
         {currentUser?.id === game.created_by && (
           <button onClick={startGame} disabled={players.length < 2}
             style={{ padding: '11px 28px', background: players.length >= 2 ? 'var(--indigo)' : 'var(--bg3)', border: 'none', borderRadius: 10, color: players.length >= 2 ? '#fff' : 'var(--text3)', fontSize: 14, fontWeight: 600, cursor: players.length >= 2 ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
-            {players.length < 2 ? 'Need at least 2 players' : 'Start game →'}
+            {players.length < 2 ? 'Need at least 2 players' : 'Start game â†’'}
           </button>
         )}
         {currentUser?.id !== game.created_by && (
@@ -153,7 +153,7 @@ export default function MostLikelyTo({ game, members, currentUser, knotId, onEnd
   // RESULTS
   if (phase === 'results') return (
     <div style={{ maxWidth: 600 }}>
-      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 20, textAlign: 'center' }}>🏆 Game Results</div>
+      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 20, textAlign: 'center' }}>ðŸ† Game Results</div>
       {questions.map((q, i) => {
         const tally = getTallies(i)
         const sorted = Object.entries(tally).sort((a, b) => b[1] - a[1])
@@ -164,7 +164,7 @@ export default function MostLikelyTo({ game, members, currentUser, knotId, onEnd
             {winner ? (
               <>
                 <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--indigo)', marginBottom: 8 }}>
-                  🏆 {getMemberName(winner[0])} ({winner[1]} vote{winner[1] !== 1 ? 's' : ''})
+                  ðŸ† {getMemberName(winner[0])} ({winner[1]} vote{winner[1] !== 1 ? 's' : ''})
                 </div>
                 {sorted.map(([id, count]) => (
                   <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
@@ -206,7 +206,7 @@ export default function MostLikelyTo({ game, members, currentUser, knotId, onEnd
       <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>Question {currentQ + 1} of {questions.length}</div>
 
       <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 20, marginBottom: 16 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 20, lineHeight: 1.4 }}>🤔 {q}</div>
+        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 20, lineHeight: 1.4 }}>ðŸ¤” {q}</div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {members.map((m: any) => {
@@ -219,7 +219,7 @@ export default function MostLikelyTo({ game, members, currentUser, knotId, onEnd
                   {m.initials}
                 </div>
                 <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{m.name}</span>
-                {isVoted && <span style={{ fontSize: 12, color: 'var(--indigo)' }}>✓ Your pick</span>}
+                {isVoted && <span style={{ fontSize: 12, color: 'var(--indigo)' }}>âœ“ Your pick</span>}
                 {revealed && voteCount > 0 && (
                   <span style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 700 }}>{voteCount} vote{voteCount !== 1 ? 's' : ''}</span>
                 )}
@@ -233,7 +233,7 @@ export default function MostLikelyTo({ game, members, currentUser, knotId, onEnd
         )}
         {myVoteThisQ && !revealed && (
           <div style={{ fontSize: 12, color: 'var(--sage)', marginTop: 12, textAlign: 'center' }}>
-            ✓ Voted! Waiting for others... ({votes.filter((v: any) => v.move_data.question_index === currentQ).length}/{players.length})
+            âœ“ Voted! Waiting for others... ({votes.filter((v: any) => v.move_data.question_index === currentQ).length}/{players.length})
           </div>
         )}
       </div>
@@ -243,19 +243,19 @@ export default function MostLikelyTo({ game, members, currentUser, knotId, onEnd
         {myVoteThisQ && !revealed && allVotedCurrent && (
           <button onClick={() => setRevealed(true)}
             style={{ flex: 1, padding: '10px', background: 'var(--sage)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-            Reveal results 👀
+            Reveal results ðŸ‘€
           </button>
         )}
         {revealed && currentQ < questions.length - 1 && (
           <button onClick={() => { setCurrentQ(q => q + 1); setRevealed(false) }}
             style={{ flex: 1, padding: '10px', background: 'var(--indigo)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-            Next question →
+            Next question â†’
           </button>
         )}
         {revealed && currentQ === questions.length - 1 && (
           <button onClick={endGame}
             style={{ flex: 1, padding: '10px', background: 'var(--sage)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-            See final results 🏆
+            See final results ðŸ†
           </button>
         )}
         {myVoteThisQ && !revealed && !allVotedCurrent && (

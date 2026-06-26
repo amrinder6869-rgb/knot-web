@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -44,7 +44,7 @@ function timeAgo(date: string) {
   return `${Math.floor(seconds / 86400)}d ago`
 }
 
-export default function Feed({ members, knotName, knotId, currentUser }: {
+export default function Feed({ members, knotName: _knotName, knotId, currentUser }: {
   members: any[], knotName: string, knotId?: string, currentUser?: any
 }) {
   const [posts, setPosts]     = useState<Post[]>([])
@@ -205,7 +205,7 @@ export default function Feed({ members, knotName, knotId, currentUser }: {
             )}
 
             <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-              {['🔥', '😂', '❤️', '🏆'].map(e => {
+              {['ðŸ”¥', 'ðŸ˜‚', 'â¤ï¸', 'ðŸ†'].map(e => {
                 const r = p.reactions.find(r => r.e === e)
                 return r ? (
                   <button key={e} onClick={() => toggleReaction(p.id, e)}
@@ -215,8 +215,8 @@ export default function Feed({ members, knotName, knotId, currentUser }: {
                 ) : null
               })}
               <button onClick={() => {
-                const emojis = ['🔥', '😂', '❤️', '🏆']
-                const next = emojis.find(e => !p.reactions.find(r => r.e === e)) || '🔥'
+                const emojis = ['ðŸ”¥', 'ðŸ˜‚', 'â¤ï¸', 'ðŸ†']
+                const next = emojis.find(e => !p.reactions.find(r => r.e === e)) || 'ðŸ”¥'
                 toggleReaction(p.id, next)
               }}
                 style={{ padding: '4px 10px', borderRadius: 20, background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>

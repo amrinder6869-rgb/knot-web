@@ -2,6 +2,7 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: light;
   --bg:          #FFFFFF;
   --bg2:         #F9F9F9;
   --bg3:         #F2F2F2;
@@ -16,13 +17,21 @@
   --yellow-dim:  rgba(248,189,3,0.15);
   --yellow-soft: rgba(248,189,3,0.10);
 
-  --rust:        #F8BD03;
-  --rust-dim:    rgba(248,189,3,0.15);
-  --rust-soft:   rgba(248,189,3,0.10);
+  --rust:        #C0392B;
+  --rust-dim:    rgba(192,57,43,0.15);
+  --rust-soft:   rgba(192,57,43,0.10);
 
-  --olive:       #F8BD03;
-  --olive-dim:   rgba(248,189,3,0.15);
-  --olive-soft:  rgba(248,189,3,0.10);
+  --olive:       #5A6B2A;
+  --olive-dim:   rgba(90,107,42,0.15);
+  --olive-soft:  rgba(90,107,42,0.10);
+
+  --danger:      #C0392B;
+  --danger-dim:  rgba(192,57,43,0.15);
+  --danger-soft: rgba(192,57,43,0.10);
+
+  --indigo:      #F8BD03;
+  --indigo-dim:  rgba(248,189,3,0.15);
+  --indigo-soft: rgba(248,189,3,0.10);
 
   --sage:        #2E7D5E;
   --sage-dim:    rgba(46,125,94,0.15);
@@ -31,8 +40,6 @@
   --amber:       #C07A10;
   --amber-soft:  rgba(192,122,16,0.12);
 }
-
-:root { color-scheme: light; }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -46,6 +53,11 @@ body {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
 
 @media (max-width: 768px) {
   .sidebar-hidden { display: none !important; }

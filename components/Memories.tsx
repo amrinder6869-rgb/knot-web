@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -7,7 +7,7 @@ const MAX_FILES     = 20
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif'])
 const ALLOWED_EXTS  = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif'])
 
-export default function Memories({ members, knotId }: { members: any[], knotId?: string }) {
+export default function Memories({ members: _members, knotId }: { members: any[], knotId?: string }) {
   const [photos, setPhotos]         = useState<any[]>([])
   const [hangouts, setHangouts]     = useState<any[]>([])
   const [stats, setStats]           = useState({ hangs: 0, photos: 0, members: 0 })
@@ -141,7 +141,7 @@ export default function Memories({ members, knotId }: { members: any[], knotId?:
 
   async function deletePhoto(photo: any) {
     if (!user) return
-    // Only the uploader can delete — enforce in both the query and the UI
+    // Only the uploader can delete â€” enforce in both the query and the UI
     if (photo.uploaded_by !== user.id) return
     if (!confirm('Delete this photo?')) return
     await supabase.storage.from('knot-photos').remove([photo.storage_path])
@@ -183,7 +183,7 @@ export default function Memories({ members, knotId }: { members: any[], knotId?:
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: selectedHangout !== undefined ? 10 : 0 }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>Add photos</div>
-            <div style={{ fontSize: 12, color: 'var(--text2)' }}>Max 5MB per photo · stays private to this Knot forever</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)' }}>Max 5MB per photo Â· stays private to this Knot forever</div>
           </div>
           <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleUpload}
             style={{ display: 'none' }} id="photo-upload" />
@@ -204,7 +204,7 @@ export default function Memories({ members, knotId }: { members: any[], knotId?:
               {hangouts.slice(0, 5).map(h => (
                 <div key={h.id} onClick={() => setSelectedHangout(h.id)}
                   style={{ padding: '4px 10px', borderRadius: 20, border: `1px solid ${selectedHangout === h.id ? 'var(--rust)' : 'var(--border2)'}`, background: selectedHangout === h.id ? 'var(--rust-soft)' : 'transparent', fontSize: 12, cursor: 'pointer', color: selectedHangout === h.id ? 'var(--rust)' : 'var(--text2)' }}>
-                  {h.title || 'Hangout'} · {formatDate(h.created_at)}
+                  {h.title || 'Hangout'} Â· {formatDate(h.created_at)}
                 </div>
               ))}
             </div>
@@ -239,7 +239,7 @@ export default function Memories({ members, knotId }: { members: any[], knotId?:
             <img src={viewPhoto.url} alt="" style={{ width: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: 12 }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
               <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>
-                Added by {viewPhoto.profiles?.name || 'someone'} · {formatDate(viewPhoto.created_at)}
+                Added by {viewPhoto.profiles?.name || 'someone'} Â· {formatDate(viewPhoto.created_at)}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 {viewPhoto.uploaded_by === user?.id && (
@@ -275,7 +275,7 @@ export default function Memories({ members, knotId }: { members: any[], knotId?:
         <div key={h.id} style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
             {h.title || 'Hangout'}
-            <span style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 400 }}>· {formatDate(h.created_at)} · {h.photos.length} photo{h.photos.length !== 1 ? 's' : ''}</span>
+            <span style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 400 }}>Â· {formatDate(h.created_at)} Â· {h.photos.length} photo{h.photos.length !== 1 ? 's' : ''}</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
             {h.photos.map((p: any) => (
@@ -292,7 +292,7 @@ export default function Memories({ members, knotId }: { members: any[], knotId?:
       {ungrouped.length > 0 && (
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: 'var(--text2)' }}>
-            General · {ungrouped.length} photo{ungrouped.length !== 1 ? 's' : ''}
+            General Â· {ungrouped.length} photo{ungrouped.length !== 1 ? 's' : ''}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
             {ungrouped.map((p: any) => (

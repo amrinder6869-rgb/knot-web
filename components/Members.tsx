@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -21,7 +21,7 @@ function getColor(str: string) {
   return COLORS[Math.abs(hash) % COLORS.length]
 }
 
-export default function Members({ members, knotId }: { members: any[], knotId?: string }) {
+export default function Members({ members: _members, knotId }: { members: any[], knotId?: string }) {
   const [knotMembers, setKnotMembers]   = useState<any[]>([])
   const [nominations, setNominations]   = useState<any[]>([])
   const [myVote, setMyVote]             = useState<Record<string, string>>({})
@@ -50,7 +50,7 @@ export default function Members({ members, knotId }: { members: any[], knotId?: 
   async function loadMembers() {
     const { data } = await supabase
       .from('knot_members')
-      // budget_tier is intentionally excluded — it is private per-user data
+      // budget_tier is intentionally excluded â€” it is private per-user data
       .select('user_id, role, joined_at, profiles:user_id(id, name)')
       .eq('knot_id', knotId)
     if (data) setKnotMembers(data)
@@ -156,7 +156,7 @@ export default function Members({ members, knotId }: { members: any[], knotId?: 
     <div style={{ maxWidth: 720 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
 
-        {/* Left — Members */}
+        {/* Left â€” Members */}
         <div>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Members</div>
           {knotMembers.length === 0 ? (
@@ -186,7 +186,7 @@ export default function Members({ members, knotId }: { members: any[], knotId?: 
           })}
         </div>
 
-        {/* Right — Invite + Votes */}
+        {/* Right â€” Invite + Votes */}
         <div>
           {/* Invite */}
           <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, marginBottom: 14 }}>
@@ -232,7 +232,7 @@ export default function Members({ members, knotId }: { members: any[], knotId?: 
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, fontWeight: 700 }}>{nom.nominee_name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text2)' }}>Nominated · pending vote</div>
+                    <div style={{ fontSize: 12, color: 'var(--text2)' }}>Nominated Â· pending vote</div>
                   </div>
                   <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 20, background: 'var(--amber-soft)', color: 'var(--amber)' }}>Open</span>
                 </div>
@@ -262,7 +262,7 @@ export default function Members({ members, knotId }: { members: any[], knotId?: 
 
                     {showNote[nom.id] && (
                       <div style={{ background: 'var(--rust-soft)', border: '1px solid var(--rust-dim)', borderRadius: 8, padding: '10px 12px', marginBottom: 10 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--rust)', marginBottom: 6 }}>Private note (optional · not shown to the nominee)</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--rust)', marginBottom: 6 }}>Private note (optional Â· not shown to the nominee)</div>
                         <textarea value={anonNote[nom.id] || ''} onChange={e => setAnonNote(prev => ({ ...prev, [nom.id]: e.target.value }))}
                           placeholder="Share why privately..."
                           style={{ width: '100%', background: 'transparent', border: 'none', color: 'var(--text2)', fontFamily: 'inherit', fontSize: 12, resize: 'none', outline: 'none', minHeight: 56, lineHeight: 1.5 }} />
