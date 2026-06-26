@@ -175,7 +175,7 @@ export default function Hangout({ members, knotId }: { members: any[], knotId?: 
       is_live: createType === 'spontaneous',
     }
 
-    const { data: h } = await supabase.from('hangouts').insert(insertData).select().single()
+    const { data: h, error: hErr } = await supabase.from('hangouts').insert(insertData).select().single(); if (hErr) { console.error('HANGOUT INSERT ERROR:', JSON.stringify(hErr)); setCreating(false); return }
     if (h) {
       if (hasPoll && pollOptions.length > 0) {
         await supabase.from('hangout_options').insert(
@@ -590,3 +590,4 @@ function Row({ label, value }: { label: string, value: string }) {
     </div>
   )
 }
+
