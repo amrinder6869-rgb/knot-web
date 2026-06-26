@@ -82,11 +82,11 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
       <div style={card}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 28 }}>
           <svg width="28" height="28" viewBox="0 0 44 44" fill="none">
-            <circle cx="17" cy="17" r="10" stroke="#6C63FF" strokeWidth="3" fill="none"/>
-            <circle cx="27" cy="27" r="10" stroke="#4CAF87" strokeWidth="3" fill="none"/>
+            <circle cx="17" cy="17" r="10" stroke="var(--yellow)" strokeWidth="3" fill="none"/>
+            <circle cx="27" cy="27" r="10" stroke="var(--sage)" strokeWidth="3" fill="none"/>
           </svg>
           <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.5px' }}>
-            kn<span style={{ color: '#6C63FF' }}>o</span>t
+            kn<span style={{ color: 'var(--yellow)' }}>o</span>t
           </span>
         </div>
 
@@ -96,7 +96,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
 
         {status === 'error' && (
           <>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>❌</div>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>Ã¢ÂÅ’</div>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Invalid invite</div>
             <div style={{ fontSize: 13, color: 'var(--text2)' }}>This link doesn't exist or has been removed.</div>
           </>
@@ -104,7 +104,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
 
         {status === 'expired' && (
           <>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>⏱️</div>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>Ã¢ÂÂ±Ã¯Â¸Â</div>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Invite expired</div>
             <div style={{ fontSize: 13, color: 'var(--text2)' }}>This invite link expired. Ask your friend to send a new one.</div>
           </>
@@ -112,7 +112,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
 
         {status === 'used' && (
           <>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>🔒</div>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>Ã°Å¸â€â€™</div>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Already used</div>
             <div style={{ fontSize: 13, color: 'var(--text2)' }}>This one-time link has already been claimed.</div>
           </>
@@ -123,7 +123,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
             <div style={{ fontSize: 48, marginBottom: 12 }}>{knot.emoji}</div>
             <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>You're invited!</div>
             <div style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 24, lineHeight: 1.6 }}>
-              Join <strong style={{ color: 'var(--text)' }}>{knot.name}</strong> on Knot — a private circle for people who actually know each other.
+              Join <strong style={{ color: 'var(--text)' }}>{knot.name}</strong> on Knot Ã¢â‚¬â€ a private circle for people who actually know each other.
             </div>
 
             {!user ? (
@@ -132,7 +132,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
                   Sign up or log in to join this Knot.
                 </div>
                 <button onClick={joinKnot}
-                  style={{ width: '100%', padding: '11px', background: '#6C63FF', border: 'none', borderRadius: 8, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 8 }}>
+                  style={{ width: '100%', padding: '11px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 8 }}>
                   Sign up to join
                 </button>
                 <button onClick={() => { localStorage.setItem('pending_invite', token); window.location.href = '/' }}
@@ -142,21 +142,21 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
               </>
             ) : (
               <button onClick={joinKnot} disabled={joining}
-                style={{ width: '100%', padding: '11px', background: '#6C63FF', border: 'none', borderRadius: 8, color: '#fff', fontSize: 14, fontWeight: 600, cursor: joining ? 'not-allowed' : 'pointer', opacity: joining ? 0.7 : 1, fontFamily: 'inherit' }}>
+                style={{ width: '100%', padding: '11px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 14, fontWeight: 600, cursor: joining ? 'not-allowed' : 'pointer', opacity: joining ? 0.7 : 1, fontFamily: 'inherit' }}>
                 {joining ? 'Joining...' : `Join ${knot.name}`}
               </button>
             )}
 
             <div style={{ marginTop: 16, fontSize: 12, color: 'var(--text3)' }}>
-              🔐 Invite-only · one-time link · expires in 48hrs
+              Ã°Å¸â€Â Invite-only Ã‚Â· one-time link Ã‚Â· expires in 48hrs
             </div>
           </>
         )}
 
         {status === 'joined' && (
           <>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
-            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: '#4CAF87' }}>You're in!</div>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>Ã°Å¸Å½â€°</div>
+            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: 'var(--sage)' }}>You're in!</div>
             <div style={{ fontSize: 13, color: 'var(--text2)' }}>Taking you to your dashboard...</div>
           </>
         )}
