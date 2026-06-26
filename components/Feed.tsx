@@ -142,8 +142,8 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
 
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
-        <div style={{ background: 'var(--bg2)', border: '1px solid var(--rust)', borderRadius: 12, padding: '14px 16px' }}>
-          <div style={{ fontSize: 11, color: 'var(--rust)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Tonight's Plan</div>
+        <div style={{ background: 'var(--bg2)', border: '1px solid var(--yellow)', borderRadius: 12, padding: '14px 16px' }}>
+          <div style={{ fontSize: 11, color: 'var(--yellow)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Tonight's Plan</div>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Start a hangout poll</div>
           <div style={{ fontSize: 12, color: 'var(--text2)' }}>Go to Tonight to plan</div>
         </div>
@@ -165,7 +165,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
             placeholder="Share a moment with the group..."
             style={{ flex: 1, background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit' }} />
           <button onClick={addPost} disabled={posting || !newPost.trim()}
-            style={{ background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: posting ? 0.7 : 1 }}>
+            style={{ background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', padding: '9px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: posting ? 0.7 : 1 }}>
             {posting ? '...' : 'Post'}
           </button>
         </div>
@@ -196,7 +196,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
             <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{p.time}</div>
 
             {p.type === 'treat' && (
-              <div style={{ marginTop: 8, padding: '10px 12px', background: 'var(--rust-soft)', border: '1px solid var(--rust-dim)', borderRadius: 8, fontSize: 13, fontWeight: 500, color: 'var(--rust)' }}>
+              <div style={{ marginTop: 8, padding: '10px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 13, fontWeight: 500, color: 'var(--yellow)' }}>
                 {p.action}
               </div>
             )}
@@ -209,7 +209,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
                 const r = p.reactions.find(r => r.e === e)
                 return r ? (
                   <button key={e} onClick={() => toggleReaction(p.id, e)}
-                    style={{ padding: '4px 10px', borderRadius: 20, background: r.mine ? 'var(--rust-dim)' : 'var(--bg3)', border: `1px solid ${r.mine ? 'var(--rust)' : 'var(--border2)'}`, color: 'var(--text)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    style={{ padding: '4px 10px', borderRadius: 20, background: r.mine ? 'var(--yellow-dim)' : 'var(--bg3)', border: `1px solid ${r.mine ? 'var(--yellow)' : 'var(--border2)'}`, color: 'var(--text)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
                     {e} {r.n}
                   </button>
                 ) : null
@@ -229,3 +229,4 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
     </div>
   )
 }
+

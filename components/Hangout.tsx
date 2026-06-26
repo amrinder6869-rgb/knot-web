@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -104,7 +104,7 @@ useEffect(() => {
       await supabase.from('hangout_options').insert(opts)
       await supabase.from('posts').insert({
         knot_id: knotId, author_id: u.id,
-        content: `started a hangout poll — vote on what to do tonight`,
+        content: `started a hangout poll â€” vote on what to do tonight`,
         post_type: 'moment'
       })
       setHangout(h)
@@ -127,7 +127,7 @@ useEffect(() => {
 
     if (error) { setVoting(false); return }
 
-    // Vote counts are now computed from hangout_votes on each load — no manual increment needed
+    // Vote counts are now computed from hangout_votes on each load â€” no manual increment needed
     setMyVote(optionId)
     await loadOptions(hangout.id)
     setVoting(false)
@@ -146,7 +146,7 @@ useEffect(() => {
       .eq('created_by', u.id)
     await supabase.from('posts').insert({
       knot_id: knotId, author_id: u.id,
-      content: `locked in tonight's plan — ${winner.label}`,
+      content: `locked in tonight's plan â€” ${winner.label}`,
       post_type: 'moment'
     })
     setHangout({ ...hangout, status: 'locked', title: winner.label })
@@ -162,7 +162,7 @@ useEffect(() => {
     <div style={{ maxWidth: 720 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
 
-        {/* Left — Poll */}
+        {/* Left â€” Poll */}
         <div>
           {hangout && hangout.status === 'locked' ? (
             <div style={{ background: 'var(--bg2)', border: '1px solid var(--sage)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
@@ -178,7 +178,7 @@ useEffect(() => {
               <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
                 Tonight's vote
                 <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 400 }}>
-                  · {options.reduce((a, o) => a + o.vote_count, 0)} votes
+                  Â· {options.reduce((a, o) => a + o.vote_count, 0)} votes
                 </span>
               </div>
 
@@ -189,10 +189,10 @@ useEffect(() => {
                   <button key={o.id}
                     onClick={() => castVote(o.id)}
                     disabled={!!myVote || voting}
-                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', border: `1px solid ${isWinner ? 'var(--sage)' : isMyVote ? 'var(--rust)' : 'var(--border2)'}`, borderRadius: 8, marginBottom: 8, cursor: myVote || voting ? 'default' : 'pointer', background: isWinner ? 'var(--sage-dim)' : isMyVote ? 'var(--rust-dim)' : 'transparent', transition: 'all 0.15s', width: '100%', fontFamily: 'inherit', textAlign: 'left' }}>
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', border: `1px solid ${isWinner ? 'var(--sage)' : isMyVote ? 'var(--yellow)' : 'var(--border2)'}`, borderRadius: 8, marginBottom: 8, cursor: myVote || voting ? 'default' : 'pointer', background: isWinner ? 'var(--sage-dim)' : isMyVote ? 'var(--yellow-dim)' : 'transparent', transition: 'all 0.15s', width: '100%', fontFamily: 'inherit', textAlign: 'left' }}>
                     <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{o.label}</span>
                     <div style={{ width: 80, height: 4, background: 'var(--bg4)', borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', borderRadius: 2, background: isWinner ? 'var(--sage)' : 'var(--rust)', width: `${Math.round(o.vote_count / maxVotes * 100)}%`, transition: 'width 0.4s' }} />
+                      <div style={{ height: '100%', borderRadius: 2, background: isWinner ? 'var(--sage)' : 'var(--yellow)', width: `${Math.round(o.vote_count / maxVotes * 100)}%`, transition: 'width 0.4s' }} />
                     </div>
                     <span style={{ fontSize: 12, color: 'var(--text3)', width: 52, textAlign: 'right' }}>
                       {o.vote_count} vote{o.vote_count !== 1 ? 's' : ''}
@@ -229,27 +229,27 @@ useEffect(() => {
                 Start a poll to decide what to do tonight.
               </div>
               <button onClick={() => setShowCreate(true)}
-                style={{ background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', padding: '10px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                style={{ background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', padding: '10px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                 Start a poll
               </button>
             </div>
           )}
 
           {showCreate && (
-            <div style={{ background: 'var(--bg2)', border: '1px solid var(--rust)', borderRadius: 12, padding: 16, marginTop: 12 }}>
+            <div style={{ background: 'var(--bg2)', border: '1px solid var(--yellow)', borderRadius: 12, padding: 16, marginTop: 12 }}>
               <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Pick activities to vote on</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 14 }}>
                 {ACTIVITY_OPTIONS.map(o => (
                   <div key={o.label}
                     onClick={() => setSelected(s => s.includes(o.label) ? s.filter(x => x !== o.label) : s.length < 5 ? [...s, o.label] : s)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', border: `1px solid ${selected.includes(o.label) ? 'var(--rust)' : 'var(--border2)'}`, borderRadius: 8, cursor: 'pointer', background: selected.includes(o.label) ? 'var(--rust-soft)' : 'transparent' }}>
-                    <span style={{ fontSize: 12, fontWeight: 500, color: selected.includes(o.label) ? 'var(--rust)' : 'var(--text2)' }}>{o.label}</span>
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', border: `1px solid ${selected.includes(o.label) ? 'var(--yellow)' : 'var(--border2)'}`, borderRadius: 8, cursor: 'pointer', background: selected.includes(o.label) ? 'var(--yellow-soft)' : 'transparent' }}>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: selected.includes(o.label) ? 'var(--yellow)' : 'var(--text2)' }}>{o.label}</span>
                   </div>
                 ))}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={createPoll} disabled={creating || selected.length === 0}
-                  style={{ flex: 1, padding: '9px', background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: creating || selected.length === 0 ? 0.7 : 1 }}>
+                  style={{ flex: 1, padding: '9px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: creating || selected.length === 0 ? 0.7 : 1 }}>
                   {creating ? 'Creating...' : `Start poll (${selected.length} options)`}
                 </button>
                 <button onClick={() => setShowCreate(false)}
@@ -261,14 +261,14 @@ useEffect(() => {
           )}
         </div>
 
-        {/* Right — Budget + Members */}
+        {/* Right â€” Budget + Members */}
         <div>
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Budget tonight</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 16 }}>
             {BUDGETS.map(b => (
               <div key={b.id} onClick={() => setBudget(b.id)}
-                style={{ padding: '10px 8px', border: `${budget === b.id ? '1.5px solid var(--rust)' : '1px solid var(--border2)'}`, borderRadius: 8, textAlign: 'center', cursor: 'pointer', background: budget === b.id ? 'var(--rust-soft)' : 'transparent' }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: budget === b.id ? 'var(--rust)' : 'var(--text)' }}>{b.symbol}</div>
+                style={{ padding: '10px 8px', border: `${budget === b.id ? '1.5px solid var(--yellow)' : '1px solid var(--border2)'}`, borderRadius: 8, textAlign: 'center', cursor: 'pointer', background: budget === b.id ? 'var(--yellow-soft)' : 'transparent' }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: budget === b.id ? 'var(--yellow)' : 'var(--text)' }}>{b.symbol}</div>
                 <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{b.label}</div>
               </div>
             ))}
@@ -289,7 +289,7 @@ useEffect(() => {
           {!hangout && (
             <div style={{ marginTop: 20 }}>
               <button onClick={() => setShowCreate(true)}
-                style={{ width: '100%', padding: '12px', background: 'var(--rust)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                style={{ width: '100%', padding: '12px', background: 'var(--yellow)', border: 'none', borderRadius: 10, color: '#111', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                 Start tonight's poll
               </button>
             </div>

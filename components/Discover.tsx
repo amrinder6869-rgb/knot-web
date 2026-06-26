@@ -119,7 +119,7 @@ export default function Discover({ members: _members }: { members: any[] }) {
               Change plan
             </button>
             <a href={selected.google_maps_url} target="_blank" rel="noreferrer"
-              style={{ padding: '9px 20px', background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none' }}>
+              style={{ padding: '9px 20px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none' }}>
               Open in Maps
             </a>
           </div>
@@ -134,7 +134,7 @@ export default function Discover({ members: _members }: { members: any[] }) {
                 {location ? `${location.name} (${location.lat.toFixed(3)}, ${location.lng.toFixed(3)})` : 'Click to detect your location'}
               </div>
               <button onClick={() => getLocation()} disabled={locating}
-                style={{ padding: '7px 14px', background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: locating ? 0.7 : 1, whiteSpace: 'nowrap' }}>
+                style={{ padding: '7px 14px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: locating ? 0.7 : 1, whiteSpace: 'nowrap' }}>
                 {locating ? 'Locating...' : location ? 'Update' : 'Use my location'}
               </button>
             </div>
@@ -146,8 +146,8 @@ export default function Discover({ members: _members }: { members: any[] }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
               {CATEGORIES.map(c => (
                 <div key={c.id} onClick={() => setCategory(c.id)}
-                  style={{ padding: '10px 8px', border: `1px solid ${category === c.id ? 'var(--rust)' : 'var(--border2)'}`, borderRadius: 10, textAlign: 'center', cursor: 'pointer', background: category === c.id ? 'var(--rust-soft)' : 'transparent', transition: 'all 0.15s' }}>
-                  <div style={{ fontSize: 12, fontWeight: 500, color: category === c.id ? 'var(--rust)' : 'var(--text2)' }}>{c.label}</div>
+                  style={{ padding: '10px 8px', border: `1px solid ${category === c.id ? 'var(--yellow)' : 'var(--border2)'}`, borderRadius: 10, textAlign: 'center', cursor: 'pointer', background: category === c.id ? 'var(--yellow-soft)' : 'transparent', transition: 'all 0.15s' }}>
+                  <div style={{ fontSize: 12, fontWeight: 500, color: category === c.id ? 'var(--yellow)' : 'var(--text2)' }}>{c.label}</div>
                 </div>
               ))}
             </div>
@@ -159,8 +159,8 @@ export default function Discover({ members: _members }: { members: any[] }) {
             <div style={{ display: 'flex', gap: 8 }}>
               {BUDGETS.map(b => (
                 <div key={b.id} onClick={() => setBudget(b.id)}
-                  style={{ flex: 1, padding: '10px 6px', border: `1px solid ${budget === b.id ? 'var(--rust)' : 'var(--border2)'}`, borderRadius: 8, textAlign: 'center', cursor: 'pointer', background: budget === b.id ? 'var(--rust-soft)' : 'transparent', transition: 'all 0.15s' }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: budget === b.id ? 'var(--rust)' : 'var(--text)' }}>{b.symbol}</div>
+                  style={{ flex: 1, padding: '10px 6px', border: `1px solid ${budget === b.id ? 'var(--yellow)' : 'var(--border2)'}`, borderRadius: 8, textAlign: 'center', cursor: 'pointer', background: budget === b.id ? 'var(--yellow-soft)' : 'transparent', transition: 'all 0.15s' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: budget === b.id ? 'var(--yellow)' : 'var(--text)' }}>{b.symbol}</div>
                   <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{b.label}</div>
                 </div>
               ))}
@@ -170,14 +170,14 @@ export default function Discover({ members: _members }: { members: any[] }) {
 
           {/* Error */}
           {error && (
-            <div style={{ padding: '10px 14px', background: 'var(--rust-soft)', border: '1px solid var(--rust-dim)', borderRadius: 8, fontSize: 13, color: 'var(--rust)', marginBottom: 14 }}>
+            <div style={{ padding: '10px 14px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 13, color: 'var(--yellow)', marginBottom: 14 }}>
               {error}
             </div>
           )}
 
           {/* Search */}
           <button onClick={searchVenues} disabled={loading || !category}
-            style={{ width: '100%', padding: '13px', background: category ? 'var(--rust)' : 'var(--bg3)', border: `1px solid ${category ? 'var(--rust)' : 'var(--border2)'}`, borderRadius: 10, color: category ? '#fff' : 'var(--text3)', fontSize: 14, fontWeight: 600, cursor: category ? 'pointer' : 'not-allowed', fontFamily: 'inherit', marginBottom: 20, opacity: loading ? 0.7 : 1 }}>
+            style={{ width: '100%', padding: '13px', background: category ? 'var(--yellow)' : 'var(--bg3)', border: `1px solid ${category ? 'var(--yellow)' : 'var(--border2)'}`, borderRadius: 10, color: category ? '#fff' : 'var(--text3)', fontSize: 14, fontWeight: 600, cursor: category ? 'pointer' : 'not-allowed', fontFamily: 'inherit', marginBottom: 20, opacity: loading ? 0.7 : 1 }}>
             {loading ? 'Finding places...' : 'Find places nearby'}
           </button>
 
@@ -199,7 +199,7 @@ export default function Discover({ members: _members }: { members: any[] }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {venues.map(v => (
                   <div key={v.fsq_id}
-                    style={{ display: 'flex', gap: 14, padding: 14, background: 'var(--bg2)', border: `1px solid ${selected?.fsq_id === v.fsq_id ? 'var(--rust)' : 'var(--border)'}`, borderRadius: 12, cursor: 'pointer', transition: 'all 0.15s' }}
+                    style={{ display: 'flex', gap: 14, padding: 14, background: 'var(--bg2)', border: `1px solid ${selected?.fsq_id === v.fsq_id ? 'var(--yellow)' : 'var(--border)'}`, borderRadius: 12, cursor: 'pointer', transition: 'all 0.15s' }}
                     onClick={() => setSelected(selected?.fsq_id === v.fsq_id ? null : v)}>
 
                     {/* Category label block */}
@@ -229,7 +229,7 @@ export default function Discover({ members: _members }: { members: any[] }) {
                         Lock in
                       </button>
                       <a href={v.google_maps_url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
-                        style={{ fontSize: 11, color: 'var(--rust)', textDecoration: 'none' }}>
+                        style={{ fontSize: 11, color: 'var(--yellow)', textDecoration: 'none' }}>
                         Maps â†’
                       </a>
                     </div>
@@ -249,3 +249,4 @@ export default function Discover({ members: _members }: { members: any[] }) {
     </div>
   )
 }
+

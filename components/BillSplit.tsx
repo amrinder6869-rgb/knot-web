@@ -130,19 +130,19 @@ export default function BillSplit({ members, knotId }: { members: any[], knotId?
           <div style={{ fontSize: 20, fontWeight: 700 }}>Bills</div>
           <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>
             {myOpenBalance > 0
-              ? <span style={{ color: 'var(--rust)' }}>You owe ${myOpenBalance.toFixed(2)} total</span>
+              ? <span style={{ color: 'var(--yellow)' }}>You owe ${myOpenBalance.toFixed(2)} total</span>
               : <span style={{ color: 'var(--sage)' }}>All settled up</span>}
           </div>
         </div>
         <button onClick={() => setShowAdd(true)}
-          style={{ background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+          style={{ background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
           Add bill
         </button>
       </div>
 
       {/* Add Bill */}
       {showAdd && (
-        <div style={{ background: 'var(--bg2)', border: '1px solid var(--rust)', borderRadius: 12, padding: 16, marginBottom: 20 }}>
+        <div style={{ background: 'var(--bg2)', border: '1px solid var(--yellow)', borderRadius: 12, padding: 16, marginBottom: 20 }}>
           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Add a bill</div>
           <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
             <input value={amount} onChange={e => setAmount(e.target.value)}
@@ -158,7 +158,7 @@ export default function BillSplit({ members, knotId }: { members: any[], knotId?
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={addBill} disabled={adding || !amount}
-              style={{ flex: 1, padding: '9px', background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: adding ? 0.7 : 1 }}>
+              style={{ flex: 1, padding: '9px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: adding ? 0.7 : 1 }}>
               {adding ? 'Adding...' : 'Add & split'}
             </button>
             <button onClick={() => { setShowAdd(false); setAmount(''); setDescription('') }}
@@ -204,7 +204,7 @@ export default function BillSplit({ members, knotId }: { members: any[], knotId?
                       <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>
                         {split.profiles?.name || 'Unknown'}{isMe ? ' (you)' : ''}
                       </span>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: split.settled ? 'var(--text3)' : 'var(--rust)', textDecoration: split.settled ? 'line-through' : 'none' }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: split.settled ? 'var(--text3)' : 'var(--yellow)', textDecoration: split.settled ? 'line-through' : 'none' }}>
                         ${split.amount.toFixed(2)}
                       </span>
                       {split.settled ? (
@@ -233,3 +233,4 @@ export default function BillSplit({ members, knotId }: { members: any[], knotId?
     </div>
   )
 }
+

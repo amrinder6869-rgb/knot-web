@@ -178,7 +178,7 @@ export default function Members({ members: _members, knotId }: { members: any[],
                     {m.role}
                   </div>
                 </div>
-                <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 20, background: m.role === 'founder' ? 'var(--rust-soft)' : 'var(--olive-soft)', color: m.role === 'founder' ? 'var(--rust)' : 'var(--olive)' }}>
+                <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 20, background: m.role === 'founder' ? 'var(--yellow-soft)' : 'var(--olive-soft)', color: m.role === 'founder' ? 'var(--yellow)' : 'var(--olive)' }}>
                   {m.role === 'founder' ? 'Founder' : 'Member'}
                 </span>
               </div>
@@ -207,7 +207,7 @@ export default function Members({ members: _members, knotId }: { members: any[],
               </div>
             ) : (
               <button onClick={generateInvite} disabled={generating}
-                style={{ padding: '8px 16px', background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: generating ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: generating ? 0.7 : 1 }}>
+                style={{ padding: '8px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 600, cursor: generating ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: generating ? 0.7 : 1 }}>
                 {generating ? 'Generating...' : 'Generate invite link'}
               </button>
             )}
@@ -251,7 +251,7 @@ export default function Members({ members: _members, knotId }: { members: any[],
                         Yes
                       </button>
                       <button onClick={() => castVote(nom.id, 'no')}
-                        style={{ flex: 1, padding: '8px', borderRadius: 8, border: `1px solid ${myV === 'no' ? 'var(--rust)' : 'var(--rust-dim)'}`, background: myV === 'no' ? 'var(--rust)' : 'var(--rust-soft)', color: myV === 'no' ? '#fff' : 'var(--rust)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        style={{ flex: 1, padding: '8px', borderRadius: 8, border: `1px solid ${myV === 'no' ? 'var(--yellow)' : 'var(--yellow-dim)'}`, background: myV === 'no' ? 'var(--yellow)' : 'var(--yellow-soft)', color: myV === 'no' ? '#fff' : 'var(--yellow)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                         No
                       </button>
                       <button onClick={() => submitVote(nom.id)}
@@ -261,8 +261,8 @@ export default function Members({ members: _members, knotId }: { members: any[],
                     </div>
 
                     {showNote[nom.id] && (
-                      <div style={{ background: 'var(--rust-soft)', border: '1px solid var(--rust-dim)', borderRadius: 8, padding: '10px 12px', marginBottom: 10 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--rust)', marginBottom: 6 }}>Private note (optional Â· not shown to the nominee)</div>
+                      <div style={{ background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, padding: '10px 12px', marginBottom: 10 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--yellow)', marginBottom: 6 }}>Private note (optional Â· not shown to the nominee)</div>
                         <textarea value={anonNote[nom.id] || ''} onChange={e => setAnonNote(prev => ({ ...prev, [nom.id]: e.target.value }))}
                           placeholder="Share why privately..."
                           style={{ width: '100%', background: 'transparent', border: 'none', color: 'var(--text2)', fontFamily: 'inherit', fontSize: 12, resize: 'none', outline: 'none', minHeight: 56, lineHeight: 1.5 }} />
@@ -271,7 +271,7 @@ export default function Members({ members: _members, knotId }: { members: any[],
 
                     {myV && (
                       <button onClick={() => submitVote(nom.id)}
-                        style={{ width: '100%', padding: '9px', borderRadius: 8, border: 'none', background: 'var(--rust)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        style={{ width: '100%', padding: '9px', borderRadius: 8, border: 'none', background: 'var(--yellow)', color: '#111', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                         Submit vote
                       </button>
                     )}
@@ -283,14 +283,14 @@ export default function Members({ members: _members, knotId }: { members: any[],
                 )}
 
                 {showSplinter[nom.id] && (
-                  <div style={{ background: 'var(--bg2)', border: '1px solid var(--rust)', borderRadius: 12, padding: 14, marginTop: 10 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--rust)', marginBottom: 6 }}>Start a new Knot?</div>
+                  <div style={{ background: 'var(--bg2)', border: '1px solid var(--yellow)', borderRadius: 12, padding: 14, marginTop: 10 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--yellow)', marginBottom: 6 }}>Start a new Knot?</div>
                     <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.6, marginBottom: 10 }}>
                       {nom.nominee_name} didn't pass. Want to start a new Knot with them? The original Knot stays unchanged.
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button onClick={() => startSplinter(nom.id)}
-                        style={{ flex: 1, padding: '8px', background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        style={{ flex: 1, padding: '8px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                         Start new Knot
                       </button>
                       <button onClick={() => setShowSplinter(prev => ({ ...prev, [nom.id]: false }))}
@@ -312,3 +312,4 @@ export default function Members({ members: _members, knotId }: { members: any[],
     </div>
   )
 }
+

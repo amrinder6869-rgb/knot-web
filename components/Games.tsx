@@ -30,7 +30,7 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
       .insert({ knot_id: knotId, created_by: currentUser.id, game_type: type, status: 'waiting' })
       .select().single()
     if (data) {
-      await supabase.from('game_players').insert({ game_id: data.id, user_id: currentUser.id, color: 'var(--rust)' })
+      await supabase.from('game_players').insert({ game_id: data.id, user_id: currentUser.id, color: 'var(--yellow)' })
       setActiveGame(data)
       loadGames()
     }
@@ -76,14 +76,14 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 28 }}>
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 20, cursor: 'pointer', transition: 'border-color 0.15s' }}
           onClick={() => createGame('most_likely')}
-          onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--rust)')}
+          onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--yellow)')}
           onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Most Likely To</div>
           <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5, marginBottom: 14 }}>
             Vote on who in the group is most likely to... Results revealed after everyone votes.
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--rust-soft)', color: 'var(--rust)' }}>2â€“10 players</span>
+            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--yellow-soft)', color: 'var(--yellow)' }}>2â€“10 players</span>
             <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--olive-soft)', color: 'var(--olive)' }}>Async</span>
           </div>
         </div>
@@ -96,7 +96,7 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
             Classic board game. Roll dice, race your pieces home, knock opponents back to start.
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--rust-soft)', color: 'var(--rust)' }}>2â€“4 players</span>
+            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--yellow-soft)', color: 'var(--yellow)' }}>2â€“4 players</span>
             <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--amber-soft)', color: 'var(--amber)' }}>Real-time</span>
           </div>
         </div>
@@ -122,7 +122,7 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
               </span>
               {g.status !== 'finished' && (
                 <button onClick={() => joinGame(g)}
-                  style={{ padding: '6px 14px', background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  style={{ padding: '6px 14px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                   {g.status === 'waiting' ? 'Join' : 'Rejoin'}
                 </button>
               )}
@@ -138,3 +138,4 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
     </div>
   )
 }
+

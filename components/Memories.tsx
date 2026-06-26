@@ -164,8 +164,8 @@ export default function Memories({ members: _members, knotId }: { members: any[]
 
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
-        <div style={{ background: 'var(--bg2)', border: '1px solid var(--rust)', borderRadius: 12, padding: '14px', textAlign: 'center' }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--rust)' }}>{stats.hangs}</div>
+        <div style={{ background: 'var(--bg2)', border: '1px solid var(--yellow)', borderRadius: 12, padding: '14px', textAlign: 'center' }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--yellow)' }}>{stats.hangs}</div>
           <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>Hangs together</div>
         </div>
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--olive)', borderRadius: 12, padding: '14px', textAlign: 'center' }}>
@@ -188,7 +188,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
           <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleUpload}
             style={{ display: 'none' }} id="photo-upload" />
           <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
-            style={{ padding: '8px 16px', background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: uploading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: uploading ? 0.7 : 1, whiteSpace: 'nowrap' }}>
+            style={{ padding: '8px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 600, cursor: uploading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: uploading ? 0.7 : 1, whiteSpace: 'nowrap' }}>
             {uploading ? `Uploading ${uploadProgress}%` : 'Add photos'}
           </button>
         </div>
@@ -198,12 +198,12 @@ export default function Memories({ members: _members, knotId }: { members: any[]
             <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>Link to a hangout (optional)</div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               <div onClick={() => setSelectedHangout(null)}
-                style={{ padding: '4px 10px', borderRadius: 20, border: `1px solid ${!selectedHangout ? 'var(--rust)' : 'var(--border2)'}`, background: !selectedHangout ? 'var(--rust-soft)' : 'transparent', fontSize: 12, cursor: 'pointer', color: !selectedHangout ? 'var(--rust)' : 'var(--text2)' }}>
+                style={{ padding: '4px 10px', borderRadius: 20, border: `1px solid ${!selectedHangout ? 'var(--yellow)' : 'var(--border2)'}`, background: !selectedHangout ? 'var(--yellow-soft)' : 'transparent', fontSize: 12, cursor: 'pointer', color: !selectedHangout ? 'var(--yellow)' : 'var(--text2)' }}>
                 General
               </div>
               {hangouts.slice(0, 5).map(h => (
                 <div key={h.id} onClick={() => setSelectedHangout(h.id)}
-                  style={{ padding: '4px 10px', borderRadius: 20, border: `1px solid ${selectedHangout === h.id ? 'var(--rust)' : 'var(--border2)'}`, background: selectedHangout === h.id ? 'var(--rust-soft)' : 'transparent', fontSize: 12, cursor: 'pointer', color: selectedHangout === h.id ? 'var(--rust)' : 'var(--text2)' }}>
+                  style={{ padding: '4px 10px', borderRadius: 20, border: `1px solid ${selectedHangout === h.id ? 'var(--yellow)' : 'var(--border2)'}`, background: selectedHangout === h.id ? 'var(--yellow-soft)' : 'transparent', fontSize: 12, cursor: 'pointer', color: selectedHangout === h.id ? 'var(--yellow)' : 'var(--text2)' }}>
                   {h.title || 'Hangout'} Â· {formatDate(h.created_at)}
                 </div>
               ))}
@@ -212,7 +212,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
         )}
 
         {uploadError && (
-          <div style={{ marginTop: 10, padding: '8px 12px', background: 'var(--rust-soft)', border: '1px solid var(--rust-dim)', borderRadius: 8, fontSize: 12, color: 'var(--rust)' }}>
+          <div style={{ marginTop: 10, padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)' }}>
             {uploadError}
           </div>
         )}
@@ -220,7 +220,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
         {uploading && (
           <div style={{ marginTop: 10 }}>
             <div style={{ height: 4, background: 'var(--bg4)', borderRadius: 2, overflow: 'hidden' }}>
-              <div style={{ height: '100%', background: 'var(--rust)', width: `${uploadProgress}%`, transition: 'width 0.3s', borderRadius: 2 }} />
+              <div style={{ height: '100%', background: 'var(--yellow)', width: `${uploadProgress}%`, transition: 'width 0.3s', borderRadius: 2 }} />
             </div>
           </div>
         )}
@@ -244,12 +244,12 @@ export default function Memories({ members: _members, knotId }: { members: any[]
               <div style={{ display: 'flex', gap: 8 }}>
                 {viewPhoto.uploaded_by === user?.id && (
                   <button onClick={() => { deletePhoto(viewPhoto); setViewPhoto(null) }}
-                    style={{ padding: '6px 14px', background: 'var(--rust-soft)', border: '1px solid var(--rust-dim)', borderRadius: 8, color: 'var(--rust)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    style={{ padding: '6px 14px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, color: 'var(--yellow)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
                     Delete
                   </button>
                 )}
                 <button onClick={() => setViewPhoto(null)}
-                  style={{ padding: '6px 14px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, color: '#fff', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  style={{ padding: '6px 14px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, color: '#111', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
                   Close
                 </button>
               </div>
@@ -264,7 +264,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
           <div style={{ fontWeight: 600, marginBottom: 6 }}>No photos yet</div>
           <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 16 }}>Add your first photo from a night out.</div>
           <button onClick={() => fileInputRef.current?.click()}
-            style={{ padding: '10px 20px', background: 'var(--rust)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+            style={{ padding: '10px 20px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
             Add photos
           </button>
         </div>
@@ -307,3 +307,4 @@ export default function Memories({ members: _members, knotId }: { members: any[]
     </div>
   )
 }
+
