@@ -91,7 +91,7 @@ export default function Dashboard() {
         setKnots(knotList)
 const savedKnotId = localStorage.getItem('active_knot_id')
 const savedKnot = savedKnotId ? knotList.find(k => k.id === savedKnotId) : null
-const startKnot = savedKnot || knotList[0]
+const startKnot = savedKnot || knotList[0]; console.log('startKnot cover_url:', startKnot.cover_url)
 const savedShowHome = localStorage.getItem('show_home')
 if (savedShowHome === 'false' && savedKnot) {
   setShowHome(false)
@@ -672,6 +672,7 @@ async function switchKnot(k: any) {
     </div>
   )
 }
+
 
 
 
