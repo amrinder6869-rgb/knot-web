@@ -3,14 +3,14 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 const CATEGORIES = [
-  { id: '13000', label: 'Restaurants', emoji: '???' },
-  { id: '13003', label: 'Bars',         emoji: '??' },
-  { id: '10000', label: 'Arts & Culture', emoji: '??' },
-  { id: '18000', label: 'Outdoors',     emoji: '??' },
-  { id: '13059', label: 'Cafes',        emoji: '?' },
-  { id: '10032', label: 'Activities',   emoji: '??' },
-  { id: '13049', label: 'Fast & Casual', emoji: '??' },
-  { id: '13029', label: 'Asian',        emoji: '??' },
+  { id: '13000', label: 'Restaurants', emoji: String.fromCodePoint(0x1F37D,0xFE0F) },
+  { id: '13003', label: 'Bars', emoji: String.fromCodePoint(0x1F37B) },
+  { id: '10000', label: 'Arts & Culture', emoji: String.fromCodePoint(0x1F3AD) },
+  { id: '18000', label: 'Outdoors', emoji: String.fromCodePoint(0x1F33F) },
+  { id: '13059', label: 'Cafes', emoji: String.fromCodePoint(0x2615) },
+  { id: '10032', label: 'Activities', emoji: String.fromCodePoint(0x1F3B3) },
+  { id: '13049', label: 'Fast & Casual', emoji: String.fromCodePoint(0x1F32E) },
+  { id: '13029', label: 'Asian', emoji: String.fromCodePoint(0x1F35C) },
 ]
 
 const BUDGETS = [
@@ -246,7 +246,7 @@ export default function Discover({ members: _members }: { members: any[] }) {
                       <img src={v.photo_url} alt={v.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', minHeight: 110 }} />
                     ) : (
                       <div style={{ width: '100%', minHeight: 110, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>
-                        {catObj?.emoji || '??'}
+                        {catObj?.emoji || String.fromCodePoint(0x1F4CD)}
                       </div>
                     )}
                     {idx === 0 && (
@@ -300,3 +300,5 @@ export default function Discover({ members: _members }: { members: any[] }) {
     </div>
   )
 }
+
+
