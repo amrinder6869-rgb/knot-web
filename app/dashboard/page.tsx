@@ -74,7 +74,7 @@ export default function Dashboard() {
 
       const { data: memberships } = await supabase
         .from('knot_members')
-        .select('knot_id, knots(id, name, emoji)')
+        .select('knot_id, knots(id, name, emoji, created_by, cover_url)')
         .eq('user_id', data.user.id)
 
       if (memberships && memberships.length > 0) {
@@ -85,7 +85,7 @@ export default function Dashboard() {
               .from('knot_members')
               .select('*', { count: 'exact', head: true })
               .eq('knot_id', k.id)
-            return { id: k.id, name: k.name, emoji: k.emoji, count: count || 1 }
+            return { id: k.id, name: k.name, emoji: k.emoji, count: count || 1, created_by: k.created_by, cover_url: k.cover_url || null }
           })
         )
         setKnots(knotList)
@@ -672,6 +672,8 @@ async function switchKnot(k: any) {
     </div>
   )
 }
+
+
 
 
 
