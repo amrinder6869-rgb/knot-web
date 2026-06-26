@@ -1,6 +1,7 @@
-﻿'use client'
+'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { notifyKnotMembers } from '@/lib/notifications'
 
 const ACTIVITY_OPTIONS = [
   { label: 'Drinks & bar' },
@@ -31,15 +32,15 @@ export default function Hangout({ members, knotId }: { members: any[], knotId?: 
   const [showCreate, setShowCreate] = useState(false)
   const [selected, setSelected]     = useState<string[]>([])
 
-useEffect(() => {
-  if (knotId) {
-    setHangout(null)
-    setOptions([])
-    setMyVote(null)
-    setLoading(true)
-    loadHangout()
-  }
-}, [knotId])
+  useEffect(() => {
+    if (knotId) {
+      setHangout(null)
+      setOptions([])
+      setMyVote(null)
+      setLoading(true)
+      loadHangout()
+    }
+  }, [knotId])
 
   async function loadHangout() {
     if (!knotId) return
@@ -60,7 +61,6 @@ useEffect(() => {
   }
 
   async function loadOptions(hangoutId: string) {
-    // Compute vote counts from hangout_votes directly to avoid race conditions
     const [{ data: opts }, { data: allVotes }] = await Promise.all([
       supabase.from('hangout_options').select('*').eq('hangout_id', hangoutId),
       supabase.from('hangout_votes').select('option_id').eq('hangout_id', hangoutId),
@@ -104,9 +104,20 @@ useEffect(() => {
       await supabase.from('hangout_options').insert(opts)
       await supabase.from('posts').insert({
         knot_id: knotId, author_id: u.id,
-        content: `started a hangout poll â€” vote on what to do tonight`,
+        content: `started a hangout poll � vote on what to do tonight`,
         post_type: 'moment'
       })
+
+      const actor = members.find(m => m.id === u.id)
+      const actorName = actor?.name || 'Someone'
+      await notifyKnotMembers({
+        knotId,
+        actorId:  u.id,
+        type:     'new_poll',
+        message:  `${actorName} started a hangout poll � cast your vote!`,
+        entityId: h.id,
+      })
+
       setHangout(h)
       await loadOptions(h.id)
       setShowCreate(false)
@@ -126,8 +137,6 @@ useEffect(() => {
     })
 
     if (error) { setVoting(false); return }
-
-    // Vote counts are now computed from hangout_votes on each load â€” no manual increment needed
     setMyVote(optionId)
     await loadOptions(hangout.id)
     setVoting(false)
@@ -137,7 +146,6 @@ useEffect(() => {
     if (!hangout) return
     const { data: { user: u } } = await supabase.auth.getUser()
     if (!u) return
-    // Only the poll creator can lock the plan
     if (u.id !== hangout.created_by) return
     const winner = options[0]
     await supabase.from('hangouts')
@@ -146,7 +154,7 @@ useEffect(() => {
       .eq('created_by', u.id)
     await supabase.from('posts').insert({
       knot_id: knotId, author_id: u.id,
-      content: `locked in tonight's plan â€” ${winner.label}`,
+      content: `locked in tonight's plan � ${winner.label}`,
       post_type: 'moment'
     })
     setHangout({ ...hangout, status: 'locked', title: winner.label })
@@ -162,7 +170,6 @@ useEffect(() => {
     <div style={{ maxWidth: 720 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
 
-        {/* Left â€” Poll */}
         <div>
           {hangout && hangout.status === 'locked' ? (
             <div style={{ background: 'var(--bg2)', border: '1px solid var(--sage)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
@@ -178,7 +185,7 @@ useEffect(() => {
               <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
                 Tonight's vote
                 <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 400 }}>
-                  Â· {options.reduce((a, o) => a + o.vote_count, 0)} votes
+                  � {options.reduce((a, o) => a + o.vote_count, 0)} votes
                 </span>
               </div>
 
@@ -204,9 +211,7 @@ useEffect(() => {
 
               {myVote && options.length > 0 && options[0].vote_count > 0 && (
                 <div style={{ background: 'var(--bg2)', border: '1px solid var(--sage)', borderRadius: 10, padding: 14, marginTop: 8 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--sage)', marginBottom: 6 }}>
-                    Leading: {options[0].label}
-                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--sage)', marginBottom: 6 }}>Leading: {options[0].label}</div>
                   <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 10 }}>Lock in tonight's plan?</div>
                   <button onClick={lockPlan}
                     style={{ background: 'var(--sage-soft)', border: '1px solid var(--sage-dim)', borderRadius: 8, color: 'var(--sage)', padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -225,9 +230,7 @@ useEffect(() => {
           ) : (
             <div style={{ textAlign: 'center', padding: '40px 20px' }}>
               <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>No active poll</div>
-              <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 16 }}>
-                Start a poll to decide what to do tonight.
-              </div>
+              <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 16 }}>Start a poll to decide what to do tonight.</div>
               <button onClick={() => setShowCreate(true)}
                 style={{ background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', padding: '10px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                 Start a poll
@@ -261,7 +264,6 @@ useEffect(() => {
           )}
         </div>
 
-        {/* Right â€” Budget + Members */}
         <div>
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Budget tonight</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 16 }}>
@@ -273,9 +275,7 @@ useEffect(() => {
               </div>
             ))}
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 20 }}>
-            Your budget is never shown to others
-          </div>
+          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 20 }}>Your budget is never shown to others</div>
 
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Who's voted</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

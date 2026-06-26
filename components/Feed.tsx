@@ -1,6 +1,7 @@
-﻿'use client'
+'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { notifyKnotMembers } from '@/lib/notifications'
 
 type Reaction = { e: string; n: number; mine: boolean }
 type Post = {
@@ -108,6 +109,15 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
       post_type: 'moment',
     })
     if (error) { console.error('Post error:', error); setPosting(false); return }
+
+    const authorName = currentUser?.name || 'Someone'
+    await notifyKnotMembers({
+      knotId,
+      actorId:  user.id,
+      type:     'new_post',
+      message:  `${authorName} posted: "${newPost.trim().substring(0, 60)}${newPost.length > 60 ? '...' : ''}"`,
+    })
+
     setNewPost('')
     setPosting(false)
     loadPosts()
@@ -123,6 +133,18 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
         .eq('post_id', postId).eq('user_id', user.id).eq('emoji', emoji)
     } else {
       await supabase.from('reactions').insert({ post_id: postId, user_id: user.id, emoji })
+      if (post && post.author_id !== user.id && knotId) {
+        const actorName = currentUser?.name || 'Someone'
+        await supabase.from('notifications').insert({
+          user_id:  post.author_id,
+          knot_id:  knotId,
+          actor_id: user.id,
+          type:     'reaction',
+          message:  `${actorName} reacted ${emoji} to your post`,
+          entity_id: postId,
+          read:     false,
+        })
+      }
     }
     setPosts(ps => ps.map(p => {
       if (p.id !== postId) return p
@@ -139,8 +161,6 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
 
   return (
     <div style={{ maxWidth: 640 }}>
-
-      {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--yellow)', borderRadius: 12, padding: '14px 16px' }}>
           <div style={{ fontSize: 11, color: 'var(--yellow)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Tonight's Plan</div>
@@ -154,7 +174,6 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
         </div>
       </div>
 
-      {/* Post box */}
       <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 14, marginBottom: 20 }}>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <div style={{ width: 32, height: 32, borderRadius: '50%', background: userColor.bg, color: userColor.text, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -171,11 +190,8 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
         </div>
       </div>
 
-      {/* Feed */}
       {loading && (
-        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text3)', fontSize: 13 }}>
-          Loading...
-        </div>
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text3)', fontSize: 13 }}>Loading...</div>
       )}
 
       {!loading && posts.length === 0 && (
@@ -194,18 +210,13 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
               <span style={{ color: 'var(--text2)', marginLeft: 6 }}>{p.action}</span>
             </div>
             <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{p.time}</div>
-
             {p.type === 'treat' && (
               <div style={{ marginTop: 8, padding: '10px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 13, fontWeight: 500, color: 'var(--yellow)' }}>
                 {p.action}
               </div>
             )}
-            {p.type === 'settled' && (
-              <div style={{ marginTop: 6, fontSize: 13, color: 'var(--sage)' }}>{p.sub}</div>
-            )}
-
             <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-              {['ðŸ”¥', 'ðŸ˜‚', 'â¤ï¸', 'ðŸ†'].map(e => {
+              {['??', '??', '??', '??'].map(e => {
                 const r = p.reactions.find(r => r.e === e)
                 return r ? (
                   <button key={e} onClick={() => toggleReaction(p.id, e)}
@@ -215,8 +226,8 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
                 ) : null
               })}
               <button onClick={() => {
-                const emojis = ['ðŸ”¥', 'ðŸ˜‚', 'â¤ï¸', 'ðŸ†']
-                const next = emojis.find(e => !p.reactions.find(r => r.e === e)) || 'ðŸ”¥'
+                const emojis = ['??', '??', '??', '??']
+                const next = emojis.find(e => !p.reactions.find(r => r.e === e)) || '??'
                 toggleReaction(p.id, next)
               }}
                 style={{ padding: '4px 10px', borderRadius: 20, background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -229,4 +240,3 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
     </div>
   )
 }
-

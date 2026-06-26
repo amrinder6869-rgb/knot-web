@@ -10,6 +10,7 @@ import Members from '@/components/Members'
 import Memories from '@/components/Memories'
 import Discover from '@/components/Discover'
 import Games from '@/components/Games'
+import Notifications from '@/components/Notifications'
 
 const TABS = [
   { id: 'feed',     label: 'Discussion' },
@@ -659,3 +660,4 @@ export default function Dashboard() {
     </div>
   )
 }
+
