@@ -74,7 +74,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
       .order('created_at', { ascending: false })
       .limit(20)
 
-    if (error) { console.error('Posts error:', error); setLoading(false); return }
+    if (error) { setLoading(false); return }
 
     const mapped: Post[] = (data || []).map((p: any) => {
       const name = p.profiles?.name || 'Unknown'
@@ -108,7 +108,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
       content:   newPost.trim(),
       post_type: 'moment',
     })
-    if (error) { console.error('Post error:', error); setPosting(false); return }
+    if (error) { setPosting(false); return }
 
     const authorName = currentUser?.name || 'Someone'
     await notifyKnotMembers({
@@ -240,3 +240,4 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
     </div>
   )
 }
+

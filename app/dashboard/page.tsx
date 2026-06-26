@@ -78,20 +78,17 @@ export default function Dashboard() {
         .eq('user_id', data.user.id)
 
       if (memberships && memberships.length > 0) {
-        const knotList = await Promise.all(
-          memberships.map(async (m: any) => {
-            const k = m.knots
-            const { count } = await supabase
-              .from('knot_members')
-              .select('*', { count: 'exact', head: true })
-              .eq('knot_id', k.id)
-            return { id: k.id, name: k.name, emoji: k.emoji, count: count || 1, created_by: k.created_by, cover_url: k.cover_url || null }
-          })
-        )
+        const knotIds = memberships.map((m: any) => m.knots.id)
+        const { data: memberCounts } = await supabase.from('knot_members').select('knot_id').in('knot_id', knotIds)
+        const knotList = memberships.map((m: any) => {
+          const k = m.knots
+          const count = (memberCounts || []).filter((mc: any) => mc.knot_id === k.id).length
+          return { id: k.id, name: k.name, emoji: k.emoji, count: count || 1, created_by: k.created_by, cover_url: k.cover_url || null }
+        })
         setKnots(knotList)
 const savedKnotId = localStorage.getItem('active_knot_id')
 const savedKnot = savedKnotId ? knotList.find(k => k.id === savedKnotId) : null
-const startKnot = savedKnot || knotList[0]; console.log('startKnot cover_url:', startKnot.cover_url)
+const startKnot = savedKnot || knotList[0]
 const savedShowHome = localStorage.getItem('show_home')
 if (savedShowHome === 'false' && savedKnot) {
   setShowHome(false)
@@ -672,6 +669,8 @@ async function switchKnot(k: any) {
     </div>
   )
 }
+
+
 
 
 
