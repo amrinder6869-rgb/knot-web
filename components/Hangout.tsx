@@ -104,7 +104,7 @@ export default function Hangout({ members, knotId }: { members: any[], knotId?: 
       await supabase.from('hangout_options').insert(opts)
       await supabase.from('posts').insert({
         knot_id: knotId, author_id: u.id,
-        content: `started a hangout poll — vote on what to do tonight`,
+        content: `started a hangout poll â€” vote on what to do tonight`,
         post_type: 'moment'
       })
 
@@ -114,7 +114,7 @@ export default function Hangout({ members, knotId }: { members: any[], knotId?: 
         knotId,
         actorId:  u.id,
         type:     'new_poll',
-        message:  `${actorName} started a hangout poll — cast your vote!`,
+        message:  `${actorName} started a hangout poll â€” cast your vote!`,
         entityId: h.id,
       })
 
@@ -154,7 +154,7 @@ export default function Hangout({ members, knotId }: { members: any[], knotId?: 
       .eq('created_by', u.id)
     await supabase.from('posts').insert({
       knot_id: knotId, author_id: u.id,
-      content: `locked in tonight's plan — ${winner.label}`,
+      content: `locked in tonight's plan â€” ${winner.label}`,
       post_type: 'moment'
     })
     setHangout({ ...hangout, status: 'locked', title: winner.label })
@@ -185,7 +185,7 @@ export default function Hangout({ members, knotId }: { members: any[], knotId?: 
               <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
                 Tonight's vote
                 <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 400 }}>
-                  · {options.reduce((a, o) => a + o.vote_count, 0)} votes
+                  Â· {options.reduce((a, o) => a + o.vote_count, 0)} votes
                 </span>
               </div>
 
