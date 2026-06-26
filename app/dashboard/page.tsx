@@ -234,7 +234,7 @@ async function switchKnot(k: any) {
           </span>
         </div>
 
-        onClick={() => { setShowHome(true); setActiveKnot(null); localStorage.setItem('show_home', 'true') }}
+        <button onClick={() => { setShowHome(true); setActiveKnot(null); localStorage.setItem('show_home', 'true') }}
           style={{ padding: '6px 14px', background: showHome ? 'var(--yellow)' : 'var(--bg3)', border: `1px solid ${showHome ? 'var(--yellow)' : 'var(--border)'}`, borderRadius: 8, color: showHome ? '#111' : 'var(--text2)', fontSize: 13, fontWeight: showHome ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
           Home
         </button>
@@ -672,6 +672,7 @@ async function switchKnot(k: any) {
     </div>
   )
 }
+
 
 
 
