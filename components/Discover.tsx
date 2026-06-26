@@ -35,7 +35,7 @@ function StarRating({ rating }: { rating: number }) {
   )
 }
 
-export default function Discover({ members: _members }: { members: any[] }) {
+export default function Discover({ members: _members, onVenueSelect }: { members: any[], onVenueSelect?: (venue: any) => void }) {
   const [category, setCategory] = useState<string|null>(null)
   const [budget, setBudget]     = useState<number|null>(2)
   const [venues, setVenues]     = useState<any[]>([])
@@ -105,6 +105,7 @@ export default function Discover({ members: _members }: { members: any[] }) {
   async function lockVenue(venue: any) {
     setSelected(venue)
     setLocked(true)
+    if (onVenueSelect) { onVenueSelect(venue); return }
     // Post to feed
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
@@ -300,6 +301,7 @@ export default function Discover({ members: _members }: { members: any[] }) {
     </div>
   )
 }
+
 
 
 
