@@ -31,7 +31,6 @@ export default function Home() {
     if (data.session) {
       const pendingInvite = localStorage.getItem('pending_invite')
       localStorage.removeItem('pending_invite')
-      // Only follow a pending invite if it looks like a valid UUID token
       const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
       if (pendingInvite && UUID_RE.test(pendingInvite)) {
         window.location.href = `/invite/${pendingInvite}`
@@ -51,9 +50,9 @@ export default function Home() {
 
   const btnPrimary: React.CSSProperties = {
     width: '100%', padding: '11px',
-    background: 'var(--rust)', color: '#fff',
+    background: 'var(--yellow)', color: '#111',
     border: 'none', borderRadius: 8,
-    fontSize: 14, fontWeight: 600,
+    fontSize: 14, fontWeight: 700,
     cursor: loading ? 'not-allowed' : 'pointer',
     opacity: loading ? 0.7 : 1,
     fontFamily: 'inherit',
@@ -61,22 +60,23 @@ export default function Home() {
 
   if (mode === 'landing') return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'var(--bg)' }}>
+
       {/* Logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 48 }}>
         <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
-          <circle cx="17" cy="17" r="10" stroke="var(--rust)" strokeWidth="3" fill="none"/>
-          <circle cx="27" cy="27" r="10" stroke="var(--olive)" strokeWidth="3" fill="none"/>
+          <circle cx="17" cy="17" r="10" stroke="var(--yellow)" strokeWidth="3" fill="none"/>
+          <circle cx="27" cy="27" r="10" stroke="var(--yellow)" strokeWidth="3" fill="none" opacity="0.5"/>
         </svg>
         <span style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-1px', color: 'var(--text)' }}>
-          kn<span style={{ color: 'var(--rust)' }}>o</span>t
+          kn<span style={{ color: 'var(--yellow)' }}>o</span>t
         </span>
       </div>
 
       {/* Hero */}
-      <div style={{ textAlign: 'center', maxWidth: 480, marginBottom: 48 }}>
-        <h1 style={{ fontSize: 'clamp(28px,5vw,42px)', fontWeight: 800, letterSpacing: '-1px', lineHeight: 1.15, marginBottom: 16 }}>
+      <div style={{ textAlign: 'center', maxWidth: 520, marginBottom: 48 }}>
+        <h1 style={{ fontSize: 'clamp(28px,5vw,48px)', fontWeight: 800, letterSpacing: '-1.5px', lineHeight: 1.1, marginBottom: 20, color: 'var(--text)' }}>
           Your private circle.<br />
-          <span style={{ color: 'var(--rust)' }}>No noise. No strangers.</span>
+          <span style={{ color: 'var(--yellow)' }}>No noise. No strangers.</span>
         </h1>
         <p style={{ fontSize: 16, color: 'var(--text2)', lineHeight: 1.7 }}>
           Plan nights out, split bills, vote on new members, and keep memories — all inside a closed group of people you actually know.
@@ -85,17 +85,17 @@ export default function Home() {
 
       {/* Feature pills */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 48 }}>
-        {['🗳️ Hangout polls','💰 Bill splitting','🎉 Treat gestures','🔒 Invite-only','📸 Memories vault','✈️ Trip planning'].map(f => (
-          <span key={f} style={{ padding: '6px 14px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 20, fontSize: 13, color: 'var(--text2)' }}>{f}</span>
+        {['Hangout polls', 'Bill splitting', 'Treat gestures', 'Invite-only', 'Memories vault', 'Trip planning'].map(f => (
+          <span key={f} style={{ padding: '6px 14px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 20, fontSize: 13, color: 'var(--text2)', fontWeight: 500 }}>{f}</span>
         ))}
       </div>
 
       {/* CTA */}
       <div style={{ display: 'flex', gap: 12 }}>
-        <button onClick={() => setMode('signup')} style={{ ...btnPrimary, width: 'auto', padding: '12px 28px', fontSize: 15 }}>
+        <button onClick={() => setMode('signup')} style={{ ...btnPrimary, width: 'auto', padding: '13px 32px', fontSize: 15, borderRadius: 10 }}>
           Create your Knot
         </button>
-        <button onClick={() => setMode('signin')} style={{ padding: '12px 28px', background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 15, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
+        <button onClick={() => setMode('signin')} style={{ padding: '13px 32px', background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 10, color: 'var(--text)', fontSize: 15, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
           Sign in
         </button>
       </div>
@@ -107,16 +107,19 @@ export default function Home() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--bg)' }}>
       <div style={{ width: '100%', maxWidth: 380 }}>
+
         {/* Logo small */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 32 }}>
           <svg width="28" height="28" viewBox="0 0 44 44" fill="none">
-            <circle cx="17" cy="17" r="10" stroke="var(--rust)" strokeWidth="3" fill="none"/>
-            <circle cx="27" cy="27" r="10" stroke="var(--olive)" strokeWidth="3" fill="none"/>
+            <circle cx="17" cy="17" r="10" stroke="var(--yellow)" strokeWidth="3" fill="none"/>
+            <circle cx="27" cy="27" r="10" stroke="var(--yellow)" strokeWidth="3" fill="none" opacity="0.5"/>
           </svg>
-          <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.5px' }}>kn<span style={{ color: 'var(--rust)' }}>o</span>t</span>
+          <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)' }}>
+            kn<span style={{ color: 'var(--yellow)' }}>o</span>t
+          </span>
         </div>
 
-        <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 6 }}>
+        <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 6, color: 'var(--text)' }}>
           {mode === 'signup' ? 'Create your account' : 'Welcome back'}
         </h2>
         <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 24 }}>
@@ -131,7 +134,7 @@ export default function Home() {
           <input style={inputStyle} type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && (mode === 'signup' ? handleSignUp() : handleSignIn())} />
 
-          {error && <p style={{ fontSize: 13, color: 'var(--rust)', padding: '8px 12px', background: 'var(--rust-soft)', borderRadius: 6 }}>{error}</p>}
+          {error && <p style={{ fontSize: 13, color: 'var(--danger)', padding: '8px 12px', background: 'var(--danger-soft)', borderRadius: 6 }}>{error}</p>}
           {message && <p style={{ fontSize: 13, color: 'var(--sage)', padding: '8px 12px', background: 'var(--sage-soft)', borderRadius: 6 }}>{message}</p>}
 
           <button style={btnPrimary} onClick={mode === 'signup' ? handleSignUp : handleSignIn} disabled={loading}>
@@ -141,7 +144,7 @@ export default function Home() {
 
         <p style={{ marginTop: 20, fontSize: 13, color: 'var(--text3)', textAlign: 'center' }}>
           {mode === 'signup' ? 'Already have an account? ' : "Don't have an account? "}
-          <span style={{ color: 'var(--rust)', cursor: 'pointer' }} onClick={() => { setMode(mode === 'signup' ? 'signin' : 'signup'); setError(''); setMessage('') }}>
+          <span style={{ color: 'var(--yellow)', cursor: 'pointer', fontWeight: 600 }} onClick={() => { setMode(mode === 'signup' ? 'signin' : 'signup'); setError(''); setMessage('') }}>
             {mode === 'signup' ? 'Sign in' : 'Sign up'}
           </span>
         </p>
