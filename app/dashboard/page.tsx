@@ -212,8 +212,6 @@ export default function Dashboard() {
 
       {/* TOP GLOBAL NAV */}
       <div style={{ position: 'sticky', top: 0, zIndex: 100, background: 'var(--bg2)', borderBottom: '1px solid var(--border)', height: 52, display: 'flex', alignItems: 'center', padding: '0 20px', gap: 12 }}>
-
-        {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           <svg width="22" height="22" viewBox="0 0 44 44" fill="none">
             <circle cx="17" cy="17" r="10" stroke="var(--yellow)" strokeWidth="3" fill="none"/>
@@ -224,13 +222,11 @@ export default function Dashboard() {
           </span>
         </div>
 
-        {/* Home button */}
         <button onClick={() => { setShowHome(true); setActiveKnot(null) }}
           style={{ padding: '6px 14px', background: showHome ? 'var(--yellow)' : 'var(--bg3)', border: `1px solid ${showHome ? 'var(--yellow)' : 'var(--border)'}`, borderRadius: 8, color: showHome ? '#111' : 'var(--text2)', fontSize: 13, fontWeight: showHome ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
           Home
         </button>
 
-        {/* Knot switcher */}
         <div style={{ position: 'relative', flex: 1 }}>
           <button onClick={() => setShowKnotList(!showKnotList)}
             style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--text)', fontSize: 13, fontWeight: 500 }}>
@@ -258,7 +254,6 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Profile avatar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
           <button onClick={() => setShowProfile(true)}
             style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#111', border: 'none', cursor: 'pointer', overflow: 'hidden', flexShrink: 0 }}>
@@ -280,7 +275,6 @@ export default function Dashboard() {
               <span style={{ fontSize: 64 }}>{activeKnot.emoji}</span>
             </div>
 
-            {/* Group info */}
             <div style={{ maxWidth: 1100, margin: '0 auto', padding: '16px 20px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
               <div>
                 <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)', marginBottom: 4, letterSpacing: '-0.5px' }}>{activeKnot.name}</h1>
@@ -328,7 +322,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* TABS */}
+            {/* TABS — desktop only */}
             <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 20px', display: 'flex', gap: 4, borderTop: '1px solid var(--border)' }} className="desktop-only">
               {TABS.map(t => (
                 <button key={t.id} onClick={() => setActive(t.id)}
@@ -348,7 +342,7 @@ export default function Dashboard() {
           </div>
 
           {/* TWO COLUMN CONTENT */}
-          <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px', display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, alignItems: 'start' }} className="desktop-layout">
+          <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px', paddingBottom: 80, display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, alignItems: 'start' }} className="desktop-layout">
             <div>
               {active === 'discover'  && <Discover  members={knotMembers} />}
               {active === 'feed'      && <Feed      members={knotMembers} knotName={activeKnot.name} knotId={activeKnot?.id} currentUser={profile} />}
@@ -464,44 +458,47 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* BOTTOM NAV — mobile only */}
-      <nav className="bottom-nav" style={{ display: 'none', position: 'fixed', bottom: 0, left: 0, right: 0, height: 60, background: 'var(--bg2)', borderTop: '1px solid var(--border)', zIndex: 100, alignItems: 'center', justifyContent: 'space-around', padding: '0 8px' }}>
-        {BOTTOM_NAV.map(n => {
-          const isActive = n.id === 'more' ? showMore : active === n.id
-          return (
-            <button key={n.id}
-              onClick={() => {
-                if (n.id === 'more') { setShowMore(!showMore) }
-                else { setActive(n.id); setShowMore(false); setShowHome(false) }
-              }}
-              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '6px 10px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', flex: 1 }}>
-              <div style={{ width: 20, height: 3, borderRadius: 2, background: isActive ? 'var(--yellow)' : 'transparent', transition: 'all 0.15s' }} />
-              <span style={{ fontSize: 11, fontWeight: isActive ? 700 : 400, color: isActive ? 'var(--yellow)' : 'var(--text3)' }}>{n.label}</span>
-            </button>
-          )
-        })}
-      </nav>
+      {/* BOTTOM NAV + MORE DRAWER — only inside a Knot on mobile */}
+      {activeKnot && !showHome && (
+        <>
+          <nav className="bottom-nav" style={{ display: 'none', position: 'fixed', bottom: 0, left: 0, right: 0, height: 60, background: 'var(--bg2)', borderTop: '1px solid var(--border)', zIndex: 100, alignItems: 'center', justifyContent: 'space-around', padding: '0 8px' }}>
+            {BOTTOM_NAV.map(n => {
+              const isActive = n.id === 'more' ? showMore : active === n.id
+              return (
+                <button key={n.id}
+                  onClick={() => {
+                    if (n.id === 'more') { setShowMore(!showMore) }
+                    else { setActive(n.id); setShowMore(false) }
+                  }}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '6px 10px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', flex: 1 }}>
+                  <div style={{ width: 20, height: 3, borderRadius: 2, background: isActive ? 'var(--yellow)' : 'transparent', transition: 'all 0.15s' }} />
+                  <span style={{ fontSize: 11, fontWeight: isActive ? 700 : 400, color: isActive ? 'var(--yellow)' : 'var(--text3)' }}>{n.label}</span>
+                </button>
+              )
+            })}
+          </nav>
 
-      {/* MORE DRAWER — mobile */}
-      {showMore && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 90 }} onClick={() => setShowMore(false)}>
-          <div onClick={e => e.stopPropagation()}
-            style={{ position: 'absolute', bottom: 60, left: 0, right: 0, background: 'var(--bg2)', borderTop: '1px solid var(--border)', borderRadius: '16px 16px 0 0', padding: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>Navigate</div>
-            {[{ id: 'split', label: 'Bills' }, { id: 'games', label: 'Games' }, { id: 'discover', label: 'Discover' }].map(n => (
-              <button key={n.id} onClick={() => { setActive(n.id); setShowMore(false); setShowHome(false) }}
-                style={{ width: '100%', padding: '11px 12px', background: active === n.id ? 'var(--yellow-soft)' : 'transparent', border: 'none', borderRadius: 8, color: active === n.id ? 'var(--yellow)' : 'var(--text)', fontSize: 14, fontWeight: active === n.id ? 700 : 400, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', marginBottom: 4 }}>
-                {n.label}
-              </button>
-            ))}
-            <div style={{ borderTop: '1px solid var(--border)', marginTop: 12, paddingTop: 12 }}>
-              <button onClick={() => { setShowMore(false); setShowProfile(true) }}
-                style={{ width: '100%', padding: '11px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'inherit' }}>
-                Edit profile
-              </button>
+          {showMore && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 90 }} onClick={() => setShowMore(false)}>
+              <div onClick={e => e.stopPropagation()}
+                style={{ position: 'absolute', bottom: 60, left: 0, right: 0, background: 'var(--bg2)', borderTop: '1px solid var(--border)', borderRadius: '16px 16px 0 0', padding: 20 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>Navigate</div>
+                {[{ id: 'split', label: 'Bills' }, { id: 'games', label: 'Games' }, { id: 'discover', label: 'Discover' }].map(n => (
+                  <button key={n.id} onClick={() => { setActive(n.id); setShowMore(false) }}
+                    style={{ width: '100%', padding: '11px 12px', background: active === n.id ? 'var(--yellow-soft)' : 'transparent', border: 'none', borderRadius: 8, color: active === n.id ? 'var(--yellow)' : 'var(--text)', fontSize: 14, fontWeight: active === n.id ? 700 : 400, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', marginBottom: 4 }}>
+                    {n.label}
+                  </button>
+                ))}
+                <div style={{ borderTop: '1px solid var(--border)', marginTop: 12, paddingTop: 12 }}>
+                  <button onClick={() => { setShowMore(false); setShowProfile(true) }}
+                    style={{ width: '100%', padding: '11px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Edit profile
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          )}
+        </>
       )}
 
       {/* NEW KNOT MODAL */}
