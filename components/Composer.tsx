@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { notifyKnotMembers } from '@/lib/notifications'
 import Discover from '@/components/Discover'
+import DateTimePicker from '@/components/DateTimePicker'
 
 type PostType = 'moment' | 'hangout' | 'bill'
 type WhenType = 'now' | 'pick' | 'weekly'
@@ -49,7 +50,7 @@ export default function Composer({
 
   // Hangout state
   const [whenType, setWhenType]           = useState<WhenType>('pick')
-  const [scheduledFor, setScheduledFor]   = useState('')
+  const [scheduledFor, setScheduledFor]   = useState<Date | null>(null)
   const [recurrenceDay, setRecurrenceDay] = useState(5)
   const [recurrenceTime, setRecurrenceTime] = useState('19:00')
   const [whereMode, setWhereMode]         = useState<'none' | 'tbd' | 'discover' | 'manual' | 'home'>('none')
@@ -68,7 +69,7 @@ export default function Composer({
     setActiveType(null)
     setMomentText('')
     setWhenType('pick')
-    setScheduledFor('')
+    setScheduledFor(null)
     setRecurrenceDay(5)
     setRecurrenceTime('19:00')
     setWhereMode('none')
@@ -143,7 +144,7 @@ export default function Composer({
       startTime   = new Date().toISOString()
       hangoutType = 'spontaneous'
     } else if (whenType === 'pick') {
-      startTime = scheduledFor ? new Date(scheduledFor).toISOString() : null
+      startTime = scheduledFor ? scheduledFor.toISOString() : null
     } else if (whenType === 'weekly') {
       startTime        = getNextWeekday(recurrenceDay, recurrenceTime)
       hangoutType      = 'recurring'
@@ -341,8 +342,13 @@ export default function Composer({
               ))}
             </div>
             {whenType === 'pick' && (
-              <input type="datetime-local" value={scheduledFor} onChange={e => setScheduledFor(e.target.value)}
-                style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginTop: 8 }} />
+              <div style={{ marginTop: 8 }}>
+                <DateTimePicker
+                  value={scheduledFor}
+                  onChange={date => setScheduledFor(date)}
+                  minDate={new Date()}
+                />
+              </div>
             )}
             {whenType === 'weekly' && (
               <div style={{ marginTop: 8 }}>
