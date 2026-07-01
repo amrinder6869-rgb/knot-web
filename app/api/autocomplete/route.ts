@@ -65,7 +65,7 @@ export async function GET(request: Request) {
   // Autocomplete — get suggestions from input text
   if (!input || input.trim().length < 2) return NextResponse.json({ suggestions: [] })
 
-  const params = new URLSearchParams({ input: input.trim(), types: '(regions)', key: apiKey })
+  const params = new URLSearchParams({ input: input.trim(), key: apiKey })
   try {
     const body = await httpsGet(`https://maps.googleapis.com/maps/api/place/autocomplete/json?${params}`)
     const data = JSON.parse(body)
