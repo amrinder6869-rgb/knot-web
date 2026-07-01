@@ -83,7 +83,8 @@ export default function Discover({ members: _members, onVenueSelect }: { members
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
-      const res = await fetch('/api/autocomplete?input=' + encodeURIComponent(value), {
+      const ll = location ? `&lat=${location.lat}&lng=${location.lng}` : ''
+      const res = await fetch('/api/autocomplete?input=' + encodeURIComponent(value) + ll, {
         headers: { Authorization: 'Bearer ' + session.access_token }
       })
       const data = await res.json()
