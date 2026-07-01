@@ -185,16 +185,22 @@ export default function Composer({
         content = `${actorName} planned a hangout${venueName ? ' at ' + venueName : ''}${startTime ? ' \u2014 ' + formatDate(startTime) : ''}`
       }
 
-      const { error: postError } = await supabase.from('posts').insert({
+      const { data: newPost, error: postError } = await supabase.from('posts').insert({
         knot_id:    knotId,
         author_id:  authUser.id,
         hangout_id: h.id,
         content,
         post_type:  'hangout',
-      })
-      if (postError) console.error('Post insert error:', postError)
-
-      await supabase.from('hangouts').update({ post_id: h.id }).eq('id', h.id)
+      }).select('id').single()
+      if (postError) {
+        console.error('Post insert error:', JSON.stringify(postError))
+      } else if (newPost) {
+        const { error: updateError } = await supabase
+          .from('hangouts')
+          .update({ post_id: newPost.id })
+          .eq('id', h.id)
+        if (updateError) console.error('Hangout update error:', JSON.stringify(updateError))
+      }
 
       await notifyKnotMembers({
         knotId,
