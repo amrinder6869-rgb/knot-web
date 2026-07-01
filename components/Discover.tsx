@@ -46,6 +46,7 @@ export default function Discover({ members: _members, onVenueSelect }: { members
   const [selected, setSelected] = useState<any|null>(null)
   const [locked, setLocked]     = useState(false)
   const [searched, setSearched] = useState(false)
+  const [locationText, setLocationText] = useState('')
 
   async function getLocation(): Promise<{lat:number,lng:number,name:string}|null> {
     setLocating(true)
@@ -71,6 +72,33 @@ export default function Discover({ members: _members, onVenueSelect }: { members
         }
       )
     })
+  }
+
+  async function geocodeLocation() {
+    if (!locationText.trim()) return
+    setLocating(true)
+    setError('')
+    try {
+      const res = await fetch(
+        'https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' +
+        encodeURIComponent(locationText.trim())
+      )
+      const data = await res.json()
+      if (data && data.length > 0) {
+        const loc = {
+          lat: parseFloat(data[0].lat),
+          lng: parseFloat(data[0].lon),
+          name: data[0].display_name.split(',').slice(0, 2).join(', '),
+        }
+        setLocation(loc)
+        setLocationText('')
+      } else {
+        setError('Location not found. Try a city name or postal code.')
+      }
+    } catch {
+      setError('Could not search location. Try using GPS instead.')
+    }
+    setLocating(false)
   }
 
   async function searchVenues() {
@@ -159,17 +187,32 @@ export default function Discover({ members: _members, onVenueSelect }: { members
       </div>
 
       {/* Location bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, marginBottom: 16 }}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--sage)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
-        </svg>
-        <span style={{ flex: 1, fontSize: 13, color: location ? 'var(--text)' : 'var(--text3)' }}>
-          {location ? location.name : 'Tap to detect your location'}
-        </span>
-        <button onClick={() => getLocation()} disabled={locating}
-          style={{ padding: '5px 12px', background: locating ? 'var(--bg3)' : 'var(--yellow)', border: 'none', borderRadius: 8, color: locating ? 'var(--text3)' : '#111', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
-          {locating ? 'Locating...' : location ? 'Update' : 'Use location'}
-        </button>
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, marginBottom: 16, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--sage)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+          </svg>
+          <span style={{ flex: 1, fontSize: 13, color: location ? 'var(--text)' : 'var(--text3)', fontWeight: location ? 500 : 400 }}>
+            {location ? location.name : 'No location set'}
+          </span>
+          <button onClick={() => getLocation()} disabled={locating}
+            style={{ padding: '5px 12px', background: locating ? 'var(--bg3)' : 'var(--yellow)', border: 'none', borderRadius: 8, color: locating ? 'var(--text3)' : '#111', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+            {locating ? 'Detecting...' : 'Use my location'}
+          </button>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px' }}>
+          <input
+            value={locationText}
+            onChange={e => setLocationText(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && geocodeLocation()}
+            placeholder="Or enter a city, address, or postal code..."
+            style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 13, color: 'var(--text)', fontFamily: 'inherit' }}
+          />
+          <button onClick={geocodeLocation} disabled={!locationText.trim() || locating}
+            style={{ padding: '5px 12px', background: locationText.trim() ? 'var(--yellow)' : 'var(--bg3)', border: 'none', borderRadius: 8, color: locationText.trim() ? '#111' : 'var(--text3)', fontSize: 12, fontWeight: 600, cursor: locationText.trim() ? 'pointer' : 'default', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+            Search
+          </button>
+        </div>
       </div>
 
       {/* Categories */}
@@ -179,7 +222,7 @@ export default function Discover({ members: _members, onVenueSelect }: { members
           {CATEGORIES.map(c => (
             <div key={c.id} onClick={() => setCategory(c.id)}
               style={{ padding: '12px 8px', border: `1.5px solid ${category === c.id ? 'var(--yellow)' : 'var(--border)'}`, borderRadius: 12, textAlign: 'center', cursor: 'pointer', background: category === c.id ? 'var(--yellow-soft)' : 'var(--bg2)', transition: 'all 0.15s' }}>
-              <div style={{ fontSize: 22, marginBottom: 4 }}>{c.emoji}</div>
+
               <div style={{ fontSize: 11, fontWeight: 600, color: category === c.id ? 'var(--yellow)' : 'var(--text2)' }}>{c.label}</div>
             </div>
           ))}
@@ -210,7 +253,7 @@ export default function Discover({ members: _members, onVenueSelect }: { members
       {/* Search button */}
       <button onClick={searchVenues} disabled={loading || !category}
         style={{ width: '100%', padding: '14px', background: category ? 'var(--yellow)' : 'var(--bg3)', border: 'none', borderRadius: 12, color: category ? '#111' : 'var(--text3)', fontSize: 15, fontWeight: 700, cursor: category ? 'pointer' : 'not-allowed', fontFamily: 'inherit', marginBottom: 24, opacity: loading ? 0.7 : 1, transition: 'all 0.15s' }}>
-        {loading ? 'Finding places...' : `Find ${catObj ? catObj.emoji + ' ' + catObj.label : 'places'} nearby`}
+        {loading ? 'Finding places...' : `Find ${catObj ? catObj.label : 'places'} nearby`}
       </button>
 
       {/* Skeletons */}
@@ -293,7 +336,7 @@ export default function Discover({ members: _members, onVenueSelect }: { members
 
       {!loading && searched && venues.length === 0 && !error && (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text2)', fontSize: 14 }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>??</div>
+  
           <div style={{ fontWeight: 600, marginBottom: 6 }}>No venues found</div>
           <div style={{ fontSize: 13, color: 'var(--text3)' }}>Try a different category or expand your search area.</div>
         </div>

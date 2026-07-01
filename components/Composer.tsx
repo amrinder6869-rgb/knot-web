@@ -52,7 +52,7 @@ export default function Composer({
   const [scheduledFor, setScheduledFor]   = useState('')
   const [recurrenceDay, setRecurrenceDay] = useState(5)
   const [recurrenceTime, setRecurrenceTime] = useState('19:00')
-  const [whereMode, setWhereMode]         = useState<'none' | 'discover' | 'manual' | 'home'>('none')
+  const [whereMode, setWhereMode]         = useState<'none' | 'tbd' | 'discover' | 'manual' | 'home'>('none')
   const [selectedVenue, setSelectedVenue] = useState<any>(null)
   const [manualVenue, setManualVenue]     = useState('')
   const [manualAddress, setManualAddress] = useState('')
@@ -266,7 +266,7 @@ export default function Composer({
               border: 'none',
               borderBottom: activeType === type ? '2px solid var(--yellow)' : '2px solid transparent',
               color: activeType === type ? 'var(--yellow)' : 'var(--text2)',
-              fontSize: 13, fontWeight: activeType === type ? 700 : 400,
+              fontSize: 13, fontWeight: activeType === type ? 700 : 500,
               cursor: 'pointer', fontFamily: 'inherit',
               transition: 'all 0.15s',
             }}>
@@ -304,7 +304,7 @@ export default function Composer({
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>What</div>
             <input value={hangoutTitle} onChange={e => setHangoutTitle(e.target.value)}
               placeholder="Birthday dinner, movie night, just vibes..."
-              style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+              style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', fontWeight: 500 }} />
           </div>
 
           {/* When */}
@@ -322,7 +322,7 @@ export default function Composer({
                     border: `1px solid ${whenType === id ? 'var(--yellow)' : 'var(--border2)'}`,
                     background: whenType === id ? 'var(--yellow-soft)' : 'transparent',
                     color: whenType === id ? 'var(--yellow)' : 'var(--text2)',
-                    fontSize: 12, fontWeight: whenType === id ? 700 : 400,
+                    fontSize: 12, fontWeight: whenType === id ? 700 : 500,
                     cursor: 'pointer', fontFamily: 'inherit',
                   }}>
                   {label}
@@ -344,7 +344,7 @@ export default function Composer({
                         borderRadius: 6, cursor: 'pointer',
                         background: recurrenceDay === i ? 'var(--yellow-soft)' : 'transparent',
                         color: recurrenceDay === i ? 'var(--yellow)' : 'var(--text2)',
-                        fontSize: 11, fontWeight: recurrenceDay === i ? 700 : 400,
+                        fontSize: 11, fontWeight: recurrenceDay === i ? 700 : 500,
                         fontFamily: 'inherit',
                       }}>
                       {d}
@@ -352,7 +352,7 @@ export default function Composer({
                   ))}
                 </div>
                 <input type="time" value={recurrenceTime} onChange={e => setRecurrenceTime(e.target.value)}
-                  style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                  style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', fontWeight: 500 }} />
               </div>
             )}
           </div>
@@ -364,13 +364,14 @@ export default function Composer({
             {whereMode === 'none' && (
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {([
-                  { id: 'none-tbd', label: 'Figure it out' },
+                  { id: 'tbd', label: 'Figure it out' },
                   { id: 'home', label: "Someone's place" },
                   { id: 'discover', label: 'Find a spot' },
                 ] as { id: string, label: string }[]).map(({ id, label }) => (
                   <button key={id}
                     onClick={() => {
-                      if (id === 'home') setWhereMode('home')
+                      if (id === 'tbd') setWhereMode('tbd')
+                      else if (id === 'home') setWhereMode('home')
                       else if (id === 'discover') setWhereMode('discover')
                     }}
                     style={{
@@ -383,6 +384,13 @@ export default function Composer({
                     {label}
                   </button>
                 ))}
+              </div>
+            )}
+
+            {whereMode === 'tbd' && (
+              <div style={{ padding: '8px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>No venue set — you will figure it out</span>
+                <button onClick={() => setWhereMode('none')} style={{ background: 'none', border: 'none', color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Change</button>
               </div>
             )}
 
@@ -442,13 +450,13 @@ export default function Composer({
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>What for</div>
             <input value={billDesc} onChange={e => setBillDesc(e.target.value)}
               placeholder="Dinner, drinks, Uber..."
-              style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+              style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', fontWeight: 500 }} />
           </div>
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Total amount</div>
             <input type="number" value={billAmount} onChange={e => setBillAmount(e.target.value)}
               placeholder="0.00"
-              style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+              style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', fontWeight: 500 }} />
             {billAmount && !isNaN(parseFloat(billAmount)) && members.length > 0 && (
               <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>
                 Split equally: ${(parseFloat(billAmount) / members.length).toFixed(2)} per person ({members.length} members)
