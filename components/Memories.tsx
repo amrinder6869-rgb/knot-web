@@ -61,12 +61,44 @@ export default function Memories({ members: _members, knotId }: { members: any[]
       .eq('knot_id', knotId)
       .order('created_at', { ascending: false })
 
-    if (photoData) {
-      const withUrls = await Promise.all(photoData.map(async (p: any) => {
+    const { data: knotPosts } = await supabase
+      .from('posts')
+      .select('id')
+      .eq('knot_id', knotId)
+
+    const postIds = (knotPosts || []).map((p) => p.id)
+    let commentPhotos: any[] = []
+    if (postIds.length > 0) {
+      const { data: commentPhotoData, error: commentPhotoError } = await supabase
+        .from('comments')
+        .select('id, photo_path, created_at, author_id, profiles:author_id(name)')
+        .in('post_id', postIds)
+        .not('photo_path', 'is', null)
+
+      if (commentPhotoError) console.error('Comment photo fetch error:', JSON.stringify(commentPhotoError))
+
+      commentPhotos = (commentPhotoData || []).map((c) => ({
+        id: 'comment-' + c.id,
+        storage_path: c.photo_path,
+        uploaded_by: c.author_id,
+        profiles: c.profiles,
+        created_at: c.created_at,
+        caption: null,
+        hangout_id: null,
+        from_comment: true,
+      }))
+    }
+
+    const allPhotoRecords = [...(photoData || []), ...commentPhotos]
+
+    if (allPhotoRecords.length > 0) {
+      const withUrls = await Promise.all(allPhotoRecords.map(async (p) => {
         const { data: { publicUrl } } = supabase.storage.from('knot-photos').getPublicUrl(p.storage_path)
         return { ...p, url: publicUrl }
       }))
+      withUrls.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       setPhotos(withUrls)
+      setStats(s => ({ ...s, photos: withUrls.length }))
     }
 
     setLoading(false)
