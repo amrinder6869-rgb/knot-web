@@ -357,7 +357,7 @@ async function switchKnot(k: any) {
               {active === 'discover'  && <Discover  members={knotMembers} />}
               {active === 'feed'      && <Feed      members={knotMembers} knotName={activeKnot.name} knotId={activeKnot?.id} currentUser={profile} />}
               {active === 'hangout'   && <Hangout   members={knotMembers} knotId={activeKnot?.id} currentUser={profile} />}
-              {active === 'split'     && <BillSplit members={knotMembers} knotId={activeKnot?.id} />}
+              {active === 'split'     && <BillSplit members={knotMembers} knotId={activeKnot?.id} currentUser={profile} />}
               {active === 'members'   && <Members   members={knotMembers} knotId={activeKnot?.id} />}
               {active === 'memories'  && <Memories  members={knotMembers} knotId={activeKnot?.id} />}
               {active === 'games'     && <Games     members={knotMembers} knotId={activeKnot?.id} currentUser={profile} />}
