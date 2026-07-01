@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
 const CATEGORIES = [
@@ -50,6 +50,27 @@ export default function Discover({ members: _members, onVenueSelect }: { members
   const [suggestions, setSuggestions]           = useState<any[]>([])
   const [showSuggestions, setShowSuggestions]   = useState(false)
   const [fetchingSuggestions, setFetchingSuggestions] = useState(false)
+
+  // Silently attempt GPS on mount for autocomplete bias
+  useEffect(() => {
+    if (!location && typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async pos => {
+          const lat = pos.coords.latitude
+          const lng = pos.coords.longitude
+          let name = 'Your location'
+          try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
+            const geo = await res.json()
+            const addr = geo.address
+            name = addr.city || addr.town || addr.village || addr.county || 'Your location'
+          } catch {}
+          setLocation({ lat, lng, name })
+        },
+        () => {} // silently ignore if denied
+      )
+    }
+  }, [])
 
   async function getLocation(): Promise<{lat:number,lng:number,name:string}|null> {
     setLocating(true)
