@@ -152,9 +152,13 @@ export default function Composer({
       recurrenceTime_  = recurrenceTime
     }
 
-    const { data: h } = await supabase.from('hangouts').insert({
+    // Re-fetch authenticated user to ensure we have a valid session
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+    if (!authUser) { setCreating(false); return }
+
+    const { data: h, error: hangoutError } = await supabase.from('hangouts').insert({
       knot_id:          knotId,
-      created_by:       currentUser.id,
+      created_by:       authUser.id,
       title,
       type:             hangoutType,
       venue_name:       venueName || null,
@@ -181,19 +185,20 @@ export default function Composer({
         content = `${actorName} planned a hangout${venueName ? ' at ' + venueName : ''}${startTime ? ' \u2014 ' + formatDate(startTime) : ''}`
       }
 
-      await supabase.from('posts').insert({
+      const { error: postError } = await supabase.from('posts').insert({
         knot_id:    knotId,
-        author_id:  currentUser.id,
+        author_id:  authUser.id,
         hangout_id: h.id,
         content,
         post_type:  'hangout',
       })
+      if (postError) console.error('Post insert error:', postError)
 
       await supabase.from('hangouts').update({ post_id: h.id }).eq('id', h.id)
 
       await notifyKnotMembers({
         knotId,
-        actorId:  currentUser.id,
+        actorId:  authUser.id,
         type:     'new_poll',
         message:  content,
         entityId: h.id,
