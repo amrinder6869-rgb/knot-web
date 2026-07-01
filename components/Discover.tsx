@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 
 const CATEGORIES = [
@@ -43,6 +43,7 @@ export default function Discover({ members: _members, onVenueSelect }: { members
   const [error, setError]       = useState('')
   const [locating, setLocating] = useState(false)
   const [location, setLocation] = useState<{lat:number,lng:number,name:string}|null>(null)
+  const locationRef = useRef<{lat:number,lng:number,name:string}|null>(null)
   const [selected, setSelected] = useState<any|null>(null)
   const [locked, setLocked]     = useState(false)
   const [searched, setSearched] = useState(false)
@@ -50,6 +51,9 @@ export default function Discover({ members: _members, onVenueSelect }: { members
   const [suggestions, setSuggestions]           = useState<any[]>([])
   const [showSuggestions, setShowSuggestions]   = useState(false)
   const [fetchingSuggestions, setFetchingSuggestions] = useState(false)
+
+  // Keep locationRef in sync with location state
+  useEffect(() => { locationRef.current = location }, [location])
 
   // Silently attempt GPS on mount for autocomplete bias
   useEffect(() => {
@@ -104,7 +108,7 @@ export default function Discover({ members: _members, onVenueSelect }: { members
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
-      const ll = location ? `&lat=${location.lat}&lng=${location.lng}` : ''
+      const ll = locationRef.current ? `&lat=${locationRef.current.lat}&lng=${locationRef.current.lng}` : ''
       const res = await fetch('/api/autocomplete?input=' + encodeURIComponent(value) + ll, {
         headers: { Authorization: 'Bearer ' + session.access_token }
       })
