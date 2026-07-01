@@ -244,9 +244,9 @@ export default function Hangout({ members, knotId }: { members: any[], knotId?: 
     const tomorrow = new Date(now); tomorrow.setDate(now.getDate() + 1)
     const isTomorrow = date.toDateString() === tomorrow.toDateString()
     const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-    if (isToday) return `Tonight Â· ${time}`
-    if (isTomorrow) return `Tomorrow Â· ${time}`
-    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ` Â· ${time}`
+    if (isToday) return `Tonight · ${time}`
+    if (isTomorrow) return `Tomorrow · ${time}`
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ` · ${time}`
   }
 
   const liveHangouts      = hangouts.filter(h => h.is_live)
@@ -387,7 +387,7 @@ export default function Hangout({ members, knotId }: { members: any[], knotId?: 
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 700 }}>{h.venue_name || h.title}</div>
-                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Every {DAYS[h.recurrence_day || 5]} Â· {h.recurrence_time?.slice(0,5) || '19:00'}</div>
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Every {DAYS[h.recurrence_day || 5]} · {h.recurrence_time?.slice(0,5) || '19:00'}</div>
               </div>
             </div>
           ))}
@@ -554,7 +554,7 @@ export default function Hangout({ members, knotId }: { members: any[], knotId?: 
                 <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     <Row label="Type" value={createType === 'spontaneous' ? "I'm out now" : createType === 'planned' ? 'Planned hangout' : 'Recurring'} />
-                    {getVenueName() && <Row label="Where" value={`${getVenueName()}${getVenueAddress() ? ' Â· ' + getVenueAddress() : ''}`} />}
+                    {getVenueName() && <Row label="Where" value={`${getVenueName()}${getVenueAddress() ? ' · ' + getVenueAddress() : ''}`} />}
                     {createType === 'planned' && scheduledFor && <Row label="When" value={formatDate(new Date(scheduledFor).toISOString())} />}
                     {createType === 'recurring' && <Row label="When" value={`Every ${DAYS[recurrenceDay]} at ${recurrenceTime}`} />}
                     <Row label="Duration" value={DURATIONS.find(d => d.minutes === durationMinutes)?.label || '2 hours'} />
