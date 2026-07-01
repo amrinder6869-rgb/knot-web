@@ -1,0 +1,5 @@
+const fs = require('fs')
+const lines = fs.readFileSync('components/Discover.tsx', 'utf8').split('\n')
+const filtered = lines.filter(line => !line.includes('suggestionsRef'))
+fs.writeFileSync('components/Discover.tsx', filtered.join('\n'), 'utf8')
+console.log('Done. Removed suggestionsRef line.')
