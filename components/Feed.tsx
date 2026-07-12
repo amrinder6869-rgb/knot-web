@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import HangoutCard from '@/components/HangoutCard'
 import Composer from '@/components/Composer'
+import { loadHangoutBundle } from '@/lib/hangoutBundle'
 
 type Reaction = { e: string; n: number; mine: boolean }
 type Post = {
@@ -51,7 +52,8 @@ function timeAgo(date: string) {
 export default function Feed({ members, knotName: _knotName, knotId, currentUser }: {
   members: any[], knotName: string, knotId?: string, currentUser?: any
 }) {
-  const [posts, setPosts] = useState<Post[]>([])
+  const [posts, setPosts]     = useState<Post[]>([])
+  const [bundle, setBundle]   = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -97,7 +99,26 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
       }
     })
     setPosts(mapped)
+
+    // Batch-load all hangout data in one round trip instead of per-card
+    const hangoutIds = mapped.filter(p => p.type === 'hangout' && p.hangout_id).map(p => p.hangout_id!) as string[]
+    const postIds = mapped.filter(p => p.type === 'hangout').map(p => p.id)
+    const b = await loadHangoutBundle(hangoutIds, postIds)
+    setBundle(b)
     setLoading(false)
+  }
+
+  function buildCardData(post: Post) {
+    if (!bundle || !post.hangout_id) return null
+    const hangout = bundle.hangoutsById.get(post.hangout_id)
+    const options = (bundle.optionsByHangout.get(post.hangout_id) || []).map((o: any) => ({
+      ...o,
+      _myVote: (bundle.votesByHangout.get(post.hangout_id) || []).some((v: any) => v.option_id === o.id && v.user_id === currentUser?.id),
+    }))
+    const rsvps = bundle.rsvpsByHangout.get(post.hangout_id) || []
+    const comments = bundle.commentsByPost.get(post.id) || []
+    const bills = bundle.billsByHangout.get(post.hangout_id) || []
+    return { hangout, options, rsvps, comments, bills }
   }
 
   async function toggleReaction(postId: string, emoji: string) {
@@ -131,7 +152,6 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
   return (
     <div style={{ maxWidth: 640 }}>
 
-      {/* Summary widgets */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--yellow)', borderRadius: 12, padding: '14px 16px' }}>
           <div style={{ fontSize: 11, color: 'var(--yellow)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Tonight</div>
@@ -145,15 +165,8 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
         </div>
       </div>
 
-      {/* Composer */}
-      <Composer
-        knotId={knotId}
-        currentUser={currentUser}
-        members={members}
-        onPosted={loadPosts}
-      />
+      <Composer knotId={knotId} currentUser={currentUser} members={members} onPosted={loadPosts} />
 
-      {/* Feed */}
       {loading && (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text3)', fontSize: 13 }}>Loading...</div>
       )}
@@ -165,14 +178,16 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
         </div>
       )}
 
-      {posts.map(p => {
+      {!loading && posts.map(p => {
 
-        // Hangout post — render full interactive card
         if (p.type === 'hangout' && p.hangout_id) {
+          const cardData = buildCardData(p)
+          if (!cardData || !cardData.hangout) return null
           return (
             <HangoutCard
               key={p.id}
               post={p}
+              data={cardData}
               currentUser={currentUser}
               knotId={knotId}
               members={members}
@@ -181,7 +196,6 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
           )
         }
 
-        // Bill post
         if (p.type === 'bill') {
           return (
             <div key={p.id} style={{ display: 'flex', gap: 12, padding: '16px 0', borderBottom: '1px solid var(--border)', alignItems: 'flex-start' }}>
@@ -199,7 +213,6 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
           )
         }
 
-        // Moment post — default
         return (
           <div key={p.id} style={{ display: 'flex', gap: 12, padding: '16px 0', borderBottom: '1px solid var(--border)' }}>
             <div style={{ width: 36, height: 36, borderRadius: '50%', background: p.color, color: p.text, fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

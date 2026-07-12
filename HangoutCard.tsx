@@ -25,31 +25,39 @@ function getInitials(name: string) {
   return (name || 'U').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()
 }
 
+type HangoutCardData = {
+  hangout: any
+  options: any[]
+  rsvps: any[]
+  comments: any[]
+  bills: any[]
+}
+
 type HangoutCardProps = {
   post: any
+  data: HangoutCardData
   currentUser: any
   knotId: string
   members: any[]
   onRefresh: () => void
 }
 
-export default function HangoutCard({ post, currentUser, knotId, members, onRefresh }: HangoutCardProps) {
-  const [hangout, setHangout]           = useState<any>(null)
-  const [options, setOptions]           = useState<any[]>([])
-  const [rsvps, setRsvps]               = useState<any[]>([])
-  const [myVote, setMyVote]             = useState<string | null>(null)
-  const [myRsvp, setMyRsvp]             = useState<string | null>(null)
-  const [comments, setComments]         = useState<any[]>([])
+export default function HangoutCard({ post, data, currentUser, knotId, members, onRefresh }: HangoutCardProps) {
+  const [hangout, setHangout]   = useState<any>(data.hangout)
+  const [options, setOptions]   = useState<any[]>(data.options)
+  const [rsvps, setRsvps]       = useState<any[]>(data.rsvps)
+  const [comments, setComments] = useState<any[]>(data.comments)
+  const [bills, setBills]       = useState<any[]>(data.bills)
+
   const [newComment, setNewComment]     = useState('')
   const [showComments, setShowComments] = useState(false)
   const [submitting, setSubmitting]     = useState(false)
-  const [loading, setLoading]           = useState(true)
+  const [actionError, setActionError]   = useState('')
 
-  const [showBill, setShowBill]         = useState(false)
-  const [billDesc, setBillDesc]         = useState('')
-  const [billAmount, setBillAmount]     = useState('')
-  const [billPosting, setBillPosting]   = useState(false)
-  const [bills, setBills]               = useState<any[]>([])
+  const [showBill, setShowBill]       = useState(false)
+  const [billDesc, setBillDesc]       = useState('')
+  const [billAmount, setBillAmount]   = useState('')
+  const [billPosting, setBillPosting] = useState(false)
 
   const [commentPhoto, setCommentPhoto]             = useState<File | null>(null)
   const [commentPhotoPreview, setCommentPhotoPreview] = useState<string | null>(null)
@@ -58,95 +66,70 @@ export default function HangoutCard({ post, currentUser, knotId, members, onRefr
   const [detectingLocation, setDetectingLocation]   = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
 
+  // Re-sync local state whenever fresh bundle data arrives from the parent
   useEffect(() => {
-    if (post.hangout_id) loadHangout()
-  }, [post.hangout_id])
+    setHangout(data.hangout)
+    setOptions(data.options)
+    setRsvps(data.rsvps)
+    setComments(data.comments)
+    setBills(data.bills)
+  }, [data])
 
-  async function loadHangout() {
-    if (!post.hangout_id) return
-    const [
-      { data: h },
-      { data: opts },
-      { data: votes },
-      { data: rsvpData },
-      { data: commentData },
-      { data: billData },
-    ] = await Promise.all([
-      supabase.from('hangouts').select('*, profiles:created_by(name)').eq('id', post.hangout_id).single(),
-      supabase.from('hangout_options').select('*').eq('hangout_id', post.hangout_id),
-      supabase.from('hangout_votes').select('option_id, user_id').eq('hangout_id', post.hangout_id),
-      supabase.from('hangout_rsvps').select('*, profiles:user_id(name)').eq('hangout_id', post.hangout_id),
-      supabase.from('comments').select('*, profiles:author_id(name)').eq('post_id', post.id).order('created_at', { ascending: true }),
-      supabase.from('bills').select('*, bill_splits(*, profiles:user_id(name))').eq('hangout_id', post.hangout_id),
-    ])
-
-    if (h) setHangout(h)
-
-    const counted = (opts || []).map((o: any) => ({
-      ...o,
-      vote_count: (votes || []).filter((v: any) => v.option_id === o.id).length,
-    })).sort((a: any, b: any) => b.vote_count - a.vote_count)
-    setOptions(counted)
-
-    const mine = (votes || []).find((v: any) => v.user_id === currentUser?.id)
-    setMyVote(mine?.option_id || null)
-
-    setRsvps(rsvpData || [])
-    const myR = (rsvpData || []).find((r: any) => r.user_id === currentUser?.id)
-    setMyRsvp(myR?.status || null)
-
-    const commentsWithUrls = await Promise.all((commentData || []).map(async (c: any) => {
-      if (c.photo_path) {
-        const { data: { publicUrl } } = supabase.storage.from('knot-photos').getPublicUrl(c.photo_path)
-        return { ...c, photo_url: publicUrl }
-      }
-      return c
-    }))
-    setComments(commentsWithUrls)
-    setBills(billData || [])
-    setLoading(false)
-  }
+  const myVoteOptionId = options.find(o => o._myVote)?.id || null
+  const myRsvpStatus = rsvps.find(r => r.user_id === currentUser?.id)?.status || null
 
   async function castVote(optionId: string) {
-    if (!currentUser || myVote) return
-    await supabase.from('hangout_votes').insert({ hangout_id: post.hangout_id, option_id: optionId, user_id: currentUser.id })
-    setMyVote(optionId)
-    setOptions(prev => prev.map(o => o.id === optionId ? { ...o, vote_count: o.vote_count + 1 } : o).sort((a, b) => b.vote_count - a.vote_count))
+    if (!currentUser || myVoteOptionId) return
+    setActionError('')
+    const { error } = await supabase.from('hangout_votes').insert({ hangout_id: post.hangout_id, option_id: optionId, user_id: currentUser.id })
+    if (error) { setActionError('Could not cast vote. Try again.'); return }
+    setOptions(prev => prev
+      .map(o => o.id === optionId ? { ...o, vote_count: o.vote_count + 1, _myVote: true } : o)
+      .sort((a, b) => b.vote_count - a.vote_count))
+    onRefresh()
   }
 
   async function lockPlan() {
     if (!currentUser || hangout?.created_by !== currentUser.id) return
     const winner = options[0]
     if (!winner) return
-    await supabase.from('hangouts').update({ status: 'confirmed', title: winner.label }).eq('id', hangout.id)
+    setActionError('')
+    const { error } = await supabase.from('hangouts').update({ status: 'confirmed', title: winner.label }).eq('id', hangout.id)
+    if (error) { setActionError('Could not lock in the plan.'); return }
     await supabase.from('posts').insert({ knot_id: knotId, author_id: currentUser.id, content: `locked in the plan \u2014 ${winner.label}`, post_type: 'moment' })
-    loadHangout()
+    setHangout((prev: any) => ({ ...prev, status: 'confirmed', title: winner.label }))
     onRefresh()
   }
 
   async function rsvp(status: string) {
     if (!currentUser) return
-    await supabase.from('hangout_rsvps').upsert({ hangout_id: post.hangout_id, user_id: currentUser.id, status }, { onConflict: 'hangout_id,user_id' })
-    setMyRsvp(status)
+    setActionError('')
+    const { error } = await supabase.from('hangout_rsvps').upsert({ hangout_id: post.hangout_id, user_id: currentUser.id, status }, { onConflict: 'hangout_id,user_id' })
+    if (error) { setActionError('Could not update RSVP.'); return }
     setRsvps(prev => [...prev.filter(r => r.user_id !== currentUser.id), { user_id: currentUser.id, status, profiles: { name: currentUser.name } }])
+    onRefresh()
   }
 
   async function goLive() {
     if (!currentUser) return
+    setActionError('')
     const actorName = currentUser.name || 'Someone'
-    await supabase.from('hangouts').update({ status: 'live', is_live: true }).eq('id', hangout.id)
+    const { error } = await supabase.from('hangouts').update({ status: 'live', is_live: true }).eq('id', hangout.id)
+    if (error) { setActionError('Could not go live.'); return }
     await supabase.from('posts').insert({ knot_id: knotId, author_id: currentUser.id, content: `${actorName} is at ${hangout.venue_name || hangout.title} \u2014 the night is on!`, post_type: 'moment' })
-    loadHangout()
+    setHangout((prev: any) => ({ ...prev, status: 'live', is_live: true }))
     onRefresh()
   }
 
   async function endHangout() {
     if (!currentUser) return
+    setActionError('')
     const actorName = currentUser.name || 'Someone'
     const yesCount = rsvps.filter(r => r.status === 'yes').length
-    await supabase.from('hangouts').update({ status: 'ended', is_live: false, ended_at: new Date().toISOString() }).eq('id', hangout.id)
+    const { error } = await supabase.from('hangouts').update({ status: 'ended', is_live: false, ended_at: new Date().toISOString() }).eq('id', hangout.id)
+    if (error) { setActionError('Could not end the hangout.'); return }
     await supabase.from('posts').insert({ knot_id: knotId, author_id: currentUser.id, content: `wrapped up a great night at ${hangout.venue_name || hangout.title}${yesCount > 1 ? ` with ${yesCount} people` : ''}. Thanks everyone!`, post_type: 'moment' })
-    loadHangout()
+    setHangout((prev: any) => ({ ...prev, status: 'ended', is_live: false }))
     onRefresh()
   }
 
@@ -155,23 +138,32 @@ export default function HangoutCard({ post, currentUser, knotId, members, onRefr
     const amount = parseFloat(billAmount)
     if (isNaN(amount) || amount <= 0) return
     setBillPosting(true)
+    setActionError('')
     const goingIds = rsvps.filter(r => r.status === 'yes').map(r => r.user_id)
     const splitIds = goingIds.length > 0 ? goingIds : members.map(m => m.id)
     const share = amount / splitIds.length
-    const { data: bill } = await supabase.from('bills').insert({ knot_id: knotId, hangout_id: hangout.id, added_by: currentUser.id, total_amount: amount, description: billDesc.trim(), split_type: 'equal' }).select().single()
-    if (bill) {
-      await supabase.from('bill_splits').insert(splitIds.map((uid: string) => ({ bill_id: bill.id, user_id: uid, amount: parseFloat(share.toFixed(2)), settled: uid === currentUser.id })))
-    }
+    const { data: bill, error } = await supabase.from('bills').insert({ knot_id: knotId, hangout_id: hangout.id, added_by: currentUser.id, total_amount: amount, description: billDesc.trim(), split_type: 'equal' }).select().single()
+    if (error || !bill) { setActionError('Could not post the bill.'); setBillPosting(false); return }
+    const splits = splitIds.map((uid: string) => ({ bill_id: bill.id, user_id: uid, amount: parseFloat(share.toFixed(2)), settled: uid === currentUser.id }))
+    const { error: splitError } = await supabase.from('bill_splits').insert(splits)
+    if (splitError) { setActionError('Bill posted but splits failed to save.') }
+    setBills(prev => [...prev, { ...bill, bill_splits: splits.map(s => ({ ...s, profiles: members.find(m => m.id === s.user_id) })) }])
     setBillDesc('')
     setBillAmount('')
     setBillPosting(false)
     setShowBill(false)
-    loadHangout()
+    onRefresh()
   }
 
   async function markSplitSettled(splitId: string) {
-    await supabase.from('bill_splits').update({ settled: true, settled_at: new Date().toISOString() }).eq('id', splitId)
-    loadHangout()
+    setActionError('')
+    const { error } = await supabase.from('bill_splits').update({ settled: true, settled_at: new Date().toISOString() }).eq('id', splitId)
+    if (error) { setActionError('Could not mark as paid.'); return }
+    setBills(prev => prev.map(b => ({
+      ...b,
+      bill_splits: b.bill_splits?.map((s: any) => s.id === splitId ? { ...s, settled: true } : s),
+    })))
+    onRefresh()
   }
 
   function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -203,25 +195,43 @@ export default function HangoutCard({ post, currentUser, knotId, members, onRefr
   async function addComment() {
     if ((!newComment.trim() && !commentPhoto && !commentLocation) || !currentUser || submitting) return
     setSubmitting(true)
+    setActionError('')
     let photoPath: string | null = null
+    let photoUrl: string | null = null
     if (commentPhoto) {
       const ext = commentPhoto.name.split('.').pop()
       const path = `comments/${post.id}/${Date.now()}.${ext}`
       const { error: uploadError } = await supabase.storage.from('knot-photos').upload(path, commentPhoto)
-      if (!uploadError) photoPath = path
+      if (uploadError) {
+        setActionError('Photo upload failed. Comment not posted.')
+        setSubmitting(false)
+        return
+      }
+      photoPath = path
+      const { data: { publicUrl } } = supabase.storage.from('knot-photos').getPublicUrl(path)
+      photoUrl = publicUrl
     }
     const parts = [newComment.trim(), commentLocation ? `${commentLocation}` : ''].filter(Boolean)
-    await supabase.from('comments').insert({ post_id: post.id, author_id: currentUser.id, content: parts.join(' ') || null, photo_path: photoPath })
+    const { data: newC, error } = await supabase
+      .from('comments')
+      .insert({ post_id: post.id, author_id: currentUser.id, content: parts.join(' ') || null, photo_path: photoPath })
+      .select()
+      .single()
+    if (error) {
+      setActionError('Could not post comment.')
+      setSubmitting(false)
+      return
+    }
+    setComments(prev => [...prev, { ...newC, photo_url: photoUrl, profiles: { name: currentUser.name } }])
     setNewComment('')
     setCommentPhoto(null)
     setCommentPhotoPreview(null)
     setCommentLocation('')
     setShowLocationInput(false)
     setSubmitting(false)
-    loadHangout()
+    onRefresh()
   }
 
-  if (loading) return <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 20, marginBottom: 16, height: 120, opacity: 0.5 }} />
   if (!hangout) return null
 
   const isCreator   = hangout.created_by === currentUser?.id
@@ -261,15 +271,21 @@ export default function HangoutCard({ post, currentUser, knotId, members, onRefr
         <div style={{ fontSize: 11, color: subColor, marginTop: 4 }}>Started by {authorName}</div>
       </div>
 
+      {actionError && (
+        <div style={{ padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)', marginBottom: 12 }}>
+          {actionError}
+        </div>
+      )}
+
       {isVoting && options.length > 0 && (
         <div style={{ marginBottom: 14 }}>
           {options.map((o: any) => {
             const maxVotes = Math.max(...options.map((x: any) => x.vote_count), 1)
             const isLeading = o.id === options[0]?.id && o.vote_count > 0
-            const isMyVote = myVote === o.id
+            const isMyVote = myVoteOptionId === o.id
             return (
-              <button key={o.id} onClick={() => castVote(o.id)} disabled={!!myVote}
-                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', border: `1px solid ${isMyVote ? 'var(--yellow)' : isLeading ? 'var(--sage)' : 'var(--border2)'}`, borderRadius: 8, marginBottom: 6, cursor: myVote ? 'default' : 'pointer', background: isMyVote ? 'var(--yellow-dim)' : isLeading ? 'var(--sage-dim)' : 'transparent', width: '100%', fontFamily: 'inherit', textAlign: 'left' }}>
+              <button key={o.id} onClick={() => castVote(o.id)} disabled={!!myVoteOptionId}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', border: `1px solid ${isMyVote ? 'var(--yellow)' : isLeading ? 'var(--sage)' : 'var(--border2)'}`, borderRadius: 8, marginBottom: 6, cursor: myVoteOptionId ? 'default' : 'pointer', background: isMyVote ? 'var(--yellow-dim)' : isLeading ? 'var(--sage-dim)' : 'transparent', width: '100%', fontFamily: 'inherit', textAlign: 'left' }}>
                 <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{o.label}</span>
                 <div style={{ width: 72, height: 3, background: 'var(--bg4)', borderRadius: 2, overflow: 'hidden' }}>
                   <div style={{ height: '100%', borderRadius: 2, background: isLeading ? 'var(--sage)' : 'var(--yellow)', width: `${Math.round(o.vote_count / maxVotes * 100)}%`, transition: 'width 0.3s' }} />
@@ -302,7 +318,7 @@ export default function HangoutCard({ post, currentUser, knotId, members, onRefr
           )}
           <div style={{ display: 'flex', gap: 6 }}>
             {[{ s: 'yes', l: isLive ? 'On my way' : 'Going' }, { s: 'maybe', l: 'Maybe' }, { s: 'no', l: "Can't go" }].map(({ s, l }) => (
-              <button key={s} onClick={() => rsvp(s)} style={{ padding: '6px 12px', borderRadius: 6, border: `1px solid ${myRsvp === s ? s === 'yes' ? isLive ? '#4ade80' : 'var(--sage)' : 'var(--border2)' : isLive ? 'rgba(255,255,255,0.2)' : 'var(--border2)'}`, background: myRsvp === s ? s === 'yes' ? isLive ? 'rgba(74,222,128,0.15)' : 'var(--sage-soft)' : 'var(--bg3)' : 'transparent', color: myRsvp === s ? s === 'yes' ? isLive ? '#4ade80' : 'var(--sage)' : isLive ? 'rgba(255,255,255,0.7)' : 'var(--text2)' : isLive ? 'rgba(255,255,255,0.6)' : 'var(--text2)', fontSize: 12, fontWeight: myRsvp === s ? 700 : 400, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button key={s} onClick={() => rsvp(s)} style={{ padding: '6px 12px', borderRadius: 6, border: `1px solid ${myRsvpStatus === s ? s === 'yes' ? isLive ? '#4ade80' : 'var(--sage)' : 'var(--border2)' : isLive ? 'rgba(255,255,255,0.2)' : 'var(--border2)'}`, background: myRsvpStatus === s ? s === 'yes' ? isLive ? 'rgba(74,222,128,0.15)' : 'var(--sage-soft)' : 'var(--bg3)' : 'transparent', color: myRsvpStatus === s ? s === 'yes' ? isLive ? '#4ade80' : 'var(--sage)' : isLive ? 'rgba(255,255,255,0.7)' : 'var(--text2)' : isLive ? 'rgba(255,255,255,0.6)' : 'var(--text2)', fontSize: 12, fontWeight: myRsvpStatus === s ? 700 : 400, cursor: 'pointer', fontFamily: 'inherit' }}>
                 {l}
               </button>
             ))}

@@ -3,9 +3,11 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import HangoutCard from '@/components/HangoutCard'
 import Composer from '@/components/Composer'
+import { loadHangoutBundle } from '@/lib/hangoutBundle'
 
 export default function Hangout({ members, knotId, currentUser }: { members: any[], knotId?: string, currentUser?: any }) {
   const [posts, setPosts]     = useState<any[]>([])
+  const [bundle, setBundle]   = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -28,29 +30,22 @@ export default function Hangout({ members, knotId, currentUser }: { members: any
       .eq('post_type', 'hangout')
       .order('created_at', { ascending: false })
 
-    if (!postData || postData.length === 0) { setPosts([]); setLoading(false); return }
+    if (!postData || postData.length === 0) { setPosts([]); setBundle(null); setLoading(false); return }
 
-    // Pull hangout scheduled_for for sorting: live/upcoming first, then by date
     const hangoutIds = postData.map((p: any) => p.hangout_id).filter(Boolean)
-    const { data: hangoutData } = await supabase
-      .from('hangouts')
-      .select('id, status, is_live, scheduled_for')
-      .in('id', hangoutIds)
+    const postIds = postData.map((p: any) => p.id)
 
-    const hangoutMap = new Map((hangoutData || []).map((h: any) => [h.id, h]))
+    const b = await loadHangoutBundle(hangoutIds, postIds)
 
-    const sorted = [...postData].sort((a: any, b: any) => {
-      const ha = hangoutMap.get(a.hangout_id)
-      const hb = hangoutMap.get(b.hangout_id)
-      // Live first
+    const sorted = [...postData].sort((a: any, b2: any) => {
+      const ha = b.hangoutsById.get(a.hangout_id)
+      const hb = b.hangoutsById.get(b2.hangout_id)
       if (ha?.is_live && !hb?.is_live) return -1
       if (!ha?.is_live && hb?.is_live) return 1
-      // Then voting/confirmed (upcoming) before done
       const aDone = ha?.status === 'ended'
       const bDone = hb?.status === 'ended'
       if (!aDone && bDone) return -1
       if (aDone && !bDone) return 1
-      // Then by scheduled date, soonest first for upcoming, most recent first for done
       const aTime = ha?.scheduled_for ? new Date(ha.scheduled_for).getTime() : 0
       const bTime = hb?.scheduled_for ? new Date(hb.scheduled_for).getTime() : 0
       if (!aDone) return aTime - bTime
@@ -58,7 +53,21 @@ export default function Hangout({ members, knotId, currentUser }: { members: any
     })
 
     setPosts(sorted)
+    setBundle(b)
     setLoading(false)
+  }
+
+  function buildCardData(post: any) {
+    if (!bundle || !post.hangout_id) return null
+    const hangout = bundle.hangoutsById.get(post.hangout_id)
+    const options = (bundle.optionsByHangout.get(post.hangout_id) || []).map((o: any) => ({
+      ...o,
+      _myVote: (bundle.votesByHangout.get(post.hangout_id) || []).some((v: any) => v.option_id === o.id && v.user_id === currentUser?.id),
+    }))
+    const rsvps = bundle.rsvpsByHangout.get(post.hangout_id) || []
+    const comments = bundle.commentsByPost.get(post.id) || []
+    const bills = bundle.billsByHangout.get(post.hangout_id) || []
+    return { hangout, options, rsvps, comments, bills }
   }
 
   if (loading) return <div style={{ color: 'var(--text2)', fontSize: 13, padding: '20px 0' }}>Loading...</div>
@@ -81,16 +90,21 @@ export default function Hangout({ members, knotId, currentUser }: { members: any
         </div>
       )}
 
-      {posts.map((post: any) => (
-        <HangoutCard
-          key={post.id}
-          post={post}
-          currentUser={currentUser}
-          knotId={knotId!}
-          members={members}
-          onRefresh={loadHangoutPosts}
-        />
-      ))}
+      {posts.map((post: any) => {
+        const cardData = buildCardData(post)
+        if (!cardData || !cardData.hangout) return null
+        return (
+          <HangoutCard
+            key={post.id}
+            post={post}
+            data={cardData}
+            currentUser={currentUser}
+            knotId={knotId!}
+            members={members}
+            onRefresh={loadHangoutPosts}
+          />
+        )
+      })}
     </div>
   )
 }
