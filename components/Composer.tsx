@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { notifyKnotMembers } from '@/lib/notifications'
 import Discover from '@/components/Discover'
@@ -47,6 +47,9 @@ export default function Composer({
   // Moment state
   const [momentText, setMomentText] = useState('')
   const [posting, setPosting]       = useState(false)
+  const [momentPhoto, setMomentPhoto]               = useState<File | null>(null)
+  const [momentPhotoPreview, setMomentPhotoPreview] = useState<string | null>(null)
+  const momentPhotoInputRef = useRef<HTMLInputElement>(null)
 
   // Hangout state
   const [whenType, setWhenType]           = useState<WhenType>('pick')
@@ -68,6 +71,8 @@ export default function Composer({
   function reset() {
     setActiveType(null)
     setMomentText('')
+    setMomentPhoto(null)
+    setMomentPhotoPreview(null)
     setWhenType('pick')
     setScheduledFor(null)
     setRecurrenceDay(5)
@@ -103,25 +108,54 @@ export default function Composer({
     return selectedVenue?.booking_url || null
   }
 
+  function handleMomentPhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setMomentPhoto(file)
+    setMomentPhotoPreview(URL.createObjectURL(file))
+  }
+
   async function postMoment() {
-    if (!momentText.trim() || posting) return
+    if ((!momentText.trim() && !momentPhoto) || posting) return
     setPosting(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setPosting(false); return }
-    await supabase.from('posts').insert({
+
+    const { data: newPost, error: postError } = await supabase.from('posts').insert({
       knot_id: knotId,
       author_id: user.id,
-      content: momentText.trim(),
+      content: momentText.trim() || null,
       post_type: 'moment',
-    })
+    }).select().single()
+
+    if (postError || !newPost) { setPosting(false); return }
+
+    if (momentPhoto) {
+      const ext = momentPhoto.name.split('.').pop()
+      const path = `${knotId}/${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
+      const { error: uploadError } = await supabase.storage.from('knot-photos').upload(path, momentPhoto)
+      if (!uploadError) {
+        await supabase.from('photos').insert({
+          knot_id:      knotId,
+          post_id:      newPost.id,
+          uploaded_by:  user.id,
+          storage_path: path,
+          file_name:    momentPhoto.name,
+          file_size:    momentPhoto.size,
+        })
+      }
+    }
+
     const actorName = currentUser?.name || 'Someone'
     await notifyKnotMembers({
       knotId,
       actorId: user.id,
       type: 'new_post',
-      message: `${actorName} posted: "${momentText.trim().substring(0, 60)}"`,
+      message: `${actorName} posted${momentText.trim() ? `: "${momentText.trim().substring(0, 60)}"` : ' a photo'}`,
     })
     setPosting(false)
+    setMomentPhoto(null)
+    setMomentPhotoPreview(null)
     reset()
     onPosted()
   }
@@ -290,6 +324,15 @@ export default function Composer({
       {/* Moment form */}
       {activeType === 'moment' && (
         <div style={{ padding: 16 }}>
+          {momentPhotoPreview && (
+            <div style={{ position: 'relative', marginBottom: 10, display: 'inline-block' }}>
+              <img src={momentPhotoPreview} alt="" style={{ height: 100, borderRadius: 8, objectFit: 'cover', display: 'block' }} />
+              <button onClick={() => { setMomentPhoto(null); setMomentPhotoPreview(null) }}
+                style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>
+                x
+              </button>
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               {userInitials}
@@ -299,8 +342,14 @@ export default function Composer({
               placeholder="Share a moment with the group..."
               autoFocus
               style={{ flex: 1, background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit' }} />
-            <button onClick={postMoment} disabled={!momentText.trim() || posting}
-              style={{ background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', padding: '9px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: !momentText.trim() || posting ? 0.5 : 1 }}>
+            <input type="file" accept="image/*" ref={momentPhotoInputRef} onChange={handleMomentPhotoSelect} style={{ display: 'none' }} />
+            <button onClick={() => momentPhotoInputRef.current?.click()}
+              style={{ width: 38, height: 38, borderRadius: 8, background: momentPhoto ? 'var(--yellow-soft)' : 'var(--bg3)', border: `1px solid ${momentPhoto ? 'var(--yellow)' : 'var(--border2)'}`, color: momentPhoto ? 'var(--yellow)' : 'var(--text3)', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'inherit' }}
+              title="Add photo">
+              P
+            </button>
+            <button onClick={postMoment} disabled={(!momentText.trim() && !momentPhoto) || posting}
+              style={{ background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', padding: '9px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (!momentText.trim() && !momentPhoto) || posting ? 0.5 : 1 }}>
               {posting ? '...' : 'Post'}
             </button>
           </div>

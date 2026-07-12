@@ -1,0 +1,7 @@
+const fs = require('fs')
+fs.copyFileSync('PostComments.tsx', 'components/PostComments.tsx')
+console.log('Installed: components/PostComments.tsx')
+fs.copyFileSync('Feed.tsx', 'components/Feed.tsx')
+console.log('Installed: components/Feed.tsx (comments + photos on moment/bill posts)')
+console.log('\nNow run: node fix-moment-photo.js')
+console.log('Then run: npm run build')

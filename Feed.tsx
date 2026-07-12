@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import HangoutCard from '@/components/HangoutCard'
 import Composer from '@/components/Composer'
 import { loadHangoutBundle } from '@/lib/hangoutBundle'
+import PostComments from '@/components/PostComments'
 
 type Reaction = { e: string; n: number; mine: boolean }
 type Post = {
@@ -54,6 +55,8 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
 }) {
   const [posts, setPosts]     = useState<Post[]>([])
   const [bundle, setBundle]   = useState<any>(null)
+  const [momentComments, setMomentComments] = useState<Map<string, any[]>>(new Map())
+  const [momentPhotos, setMomentPhotos] = useState<Map<string, string>>(new Map())
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -102,9 +105,53 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
 
     // Batch-load all hangout data in one round trip instead of per-card
     const hangoutIds = mapped.filter(p => p.type === 'hangout' && p.hangout_id).map(p => p.hangout_id!) as string[]
-    const postIds = mapped.filter(p => p.type === 'hangout').map(p => p.id)
-    const b = await loadHangoutBundle(hangoutIds, postIds)
+    const hangoutPostIds = mapped.filter(p => p.type === 'hangout').map(p => p.id)
+    const b = await loadHangoutBundle(hangoutIds, hangoutPostIds)
     setBundle(b)
+
+    // Batch-load comments for moment and bill posts (hangout posts already covered above)
+    const otherPostIds = mapped.filter(p => p.type !== 'hangout').map(p => p.id)
+
+    // Batch-load photos attached directly to moment posts
+    if (otherPostIds.length > 0) {
+      const { data: postPhotos } = await supabase
+        .from('photos')
+        .select('post_id, storage_path')
+        .in('post_id', otherPostIds)
+
+      const photoMap = new Map<string, string>()
+      for (const p of postPhotos || []) {
+        if (!p.post_id) continue
+        const { data: { publicUrl } } = supabase.storage.from('knot-photos').getPublicUrl(p.storage_path)
+        photoMap.set(p.post_id, publicUrl)
+      }
+      setMomentPhotos(photoMap)
+    }
+
+    if (otherPostIds.length > 0) {
+      const { data: commentData } = await supabase
+        .from('comments')
+        .select('*, profiles:author_id(name)')
+        .in('post_id', otherPostIds)
+        .order('created_at', { ascending: true })
+
+      const withUrls = await Promise.all((commentData || []).map(async (c: any) => {
+        if (c.photo_path) {
+          const { data: { publicUrl } } = supabase.storage.from('knot-photos').getPublicUrl(c.photo_path)
+          return { ...c, photo_url: publicUrl }
+        }
+        return c
+      }))
+
+      const grouped = new Map<string, any[]>()
+      for (const c of withUrls) {
+        const list = grouped.get(c.post_id) || []
+        list.push(c)
+        grouped.set(c.post_id, list)
+      }
+      setMomentComments(grouped)
+    }
+
     setLoading(false)
   }
 
@@ -208,6 +255,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
                   <span style={{ color: 'var(--text2)', marginLeft: 6 }}>{p.action}</span>
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{p.time}</div>
+                <PostComments postId={p.id} currentUser={currentUser} initialComments={momentComments.get(p.id) || []} />
               </div>
             </div>
           )
@@ -224,6 +272,11 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
                 <span style={{ color: 'var(--text2)', marginLeft: 6 }}>{p.action}</span>
               </div>
               <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{p.time}</div>
+              {momentPhotos.get(p.id) && (
+                <div style={{ marginTop: 10 }}>
+                  <img src={momentPhotos.get(p.id)} alt="" style={{ maxWidth: '100%', maxHeight: 360, borderRadius: 10, objectFit: 'cover', display: 'block' }} />
+                </div>
+              )}
               <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
                 {p.reactions.map(r => (
                   <button key={r.e} onClick={() => toggleReaction(p.id, r.e)}
@@ -237,6 +290,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
                   + React
                 </button>
               </div>
+              <PostComments postId={p.id} currentUser={currentUser} initialComments={momentComments.get(p.id) || []} />
             </div>
           </div>
         )
