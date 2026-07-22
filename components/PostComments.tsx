@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { compressImage } from '@/lib/compressImage'
 
@@ -32,6 +32,10 @@ export default function PostComments({ postId, currentUser, initialComments, onC
   const [commentPhoto, setCommentPhoto]               = useState<File | null>(null)
   const [commentPhotoPreview, setCommentPhotoPreview] = useState<string | null>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    setComments(initialComments)
+  }, [initialComments])
 
   function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -134,7 +138,7 @@ export default function PostComments({ postId, currentUser, initialComments, onC
             <button onClick={() => photoInputRef.current?.click()}
               style={{ width: 30, height: 30, borderRadius: 8, background: commentPhoto ? 'var(--yellow-soft)' : 'var(--bg3)', border: `1px solid ${commentPhoto ? 'var(--yellow)' : 'var(--border2)'}`, color: commentPhoto ? 'var(--yellow)' : 'var(--text3)', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'inherit' }}
               title="Add photo">
-              P
+              Photo
             </button>
             <button onClick={addComment} disabled={(!newComment.trim() && !commentPhoto) || submitting}
               style={{ padding: '7px 12px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (!newComment.trim() && !commentPhoto) || submitting ? 0.5 : 1, flexShrink: 0 }}>

@@ -157,7 +157,7 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                   <div>
                     <div style={{ fontSize: 16, fontWeight: 700 }}>${parseFloat(bill.total_amount).toFixed(2)}</div>
-                    <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>{bill.description} \u00B7 {timeAgo(bill.created_at)}</div>
+                    <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>{bill.description} {'\u00B7'} {timeAgo(bill.created_at)}</div>
                     {linkedHangout && <div style={{ fontSize: 12, color: 'var(--yellow)', marginTop: 2 }}>From {linkedHangout}</div>}
                     <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Added by {bill.profiles?.name || 'someone'}</div>
                   </div>

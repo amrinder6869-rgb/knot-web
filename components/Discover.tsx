@@ -95,8 +95,9 @@ export default function Discover({ members: _members, onVenueSelect }: { members
           setLocation(loc); setLocating(false); resolve(loc)
         },
         () => {
-          const loc = { lat: 43.5890, lng: -79.6441, name: 'Mississauga' }
+          const loc = { lat: 43.5890, lng: -79.6441, name: 'Mississauga (default)' }
           setLocation(loc); setLocating(false); resolve(loc)
+          setError('Location access denied — searching near Mississauga. Enter a city above to change.')
         }
       )
     })
@@ -152,6 +153,7 @@ export default function Discover({ members: _members, onVenueSelect }: { members
     if (!session) { setError('Not authenticated'); setLoading(false); return }
 
     const params = new URLSearchParams({ ll: `${loc.lat},${loc.lng}`, categories: category, limit: '10' })
+    if (budget != null) params.set('budget', String(budget))
     try {
       const res  = await fetch(`/api/venues?${params}`, {
         headers: { Authorization: `Bearer ${session.access_token}` },

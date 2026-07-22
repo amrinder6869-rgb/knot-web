@@ -106,6 +106,10 @@ export default function Memories({ members: _members, knotId }: { members: any[]
   }
 
   async function loadComments(photoId: string) {
+    if (!photoId || String(photoId).startsWith('comment-')) {
+      setComments([])
+      return
+    }
     const { data } = await supabase
       .from('photo_comments')
       .select('*, profiles:user_id(name)')
@@ -116,6 +120,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
 
   async function addComment() {
     if (!newComment.trim() || !user || !viewPhoto || postingComment) return
+    if (viewPhoto.from_comment) return
     setPostingComment(true)
     await supabase.from('photo_comments').insert({
       photo_id: viewPhoto.id,
@@ -134,7 +139,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
   }
 
   async function saveCaption() {
-    if (!viewPhoto || !user) return
+    if (!viewPhoto || !user || viewPhoto.from_comment) return
     await supabase.from('photos').update({ caption: captionDraft }).eq('id', viewPhoto.id).eq('uploaded_by', user.id)
     setViewPhoto({ ...viewPhoto, caption: captionDraft })
     setPhotos(ps => ps.map(p => p.id === viewPhoto.id ? { ...p, caption: captionDraft } : p))
@@ -173,9 +178,10 @@ export default function Memories({ members: _members, knotId }: { members: any[]
     setUploadProgress(0)
 
     let uploaded = 0
+    let skipped = 0
     for (const rawFile of files) {
       const file = await compressImage(rawFile)
-      if (file.size > MAX_FILE_SIZE) { continue }
+      if (file.size > MAX_FILE_SIZE) { skipped++; continue }
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
       const safeType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg'
         : ext === 'png'  ? 'image/png'
@@ -186,7 +192,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
 
       const { error: uploadErr } = await supabase.storage
         .from('knot-photos').upload(path, file, { contentType: safeType })
-      if (uploadErr) { continue }
+      if (uploadErr) { skipped++; continue }
 
       await supabase.from('photos').insert({
         knot_id:      knotId,
@@ -199,7 +205,11 @@ export default function Memories({ members: _members, knotId }: { members: any[]
       })
 
       uploaded++
-      setUploadProgress(Math.round(uploaded / files.length * 100))
+      setUploadProgress(Math.round((uploaded + skipped) / files.length * 100))
+    }
+
+    if (skipped > 0) {
+      setUploadError(`${uploaded} uploaded, ${skipped} skipped (too large or failed).`)
     }
 
     if (uploaded > 0) {
@@ -220,6 +230,18 @@ export default function Memories({ members: _members, knotId }: { members: any[]
 
   async function deletePhoto(photo: any) {
     if (!user || photo.uploaded_by !== user.id) return
+    if (photo.from_comment) {
+      // Comment-sourced photos live in comments.photo_path — remove storage only
+      if (!confirm('Remove this comment photo from the gallery view?')) return
+      if (photo.storage_path) {
+        await supabase.storage.from('knot-photos').remove([photo.storage_path])
+      }
+      const commentId = String(photo.id).replace(/^comment-/, '')
+      await supabase.from('comments').update({ photo_path: null }).eq('id', commentId).eq('author_id', user.id)
+      setViewPhoto(null)
+      await loadMemories()
+      return
+    }
     if (!confirm('Delete this photo?')) return
     await supabase.storage.from('knot-photos').remove([photo.storage_path])
     await supabase.from('photos').delete().eq('id', photo.id).eq('uploaded_by', user.id)
@@ -266,7 +288,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>Add photos</div>
-            <div style={{ fontSize: 12, color: 'var(--text2)' }}>Max 5MB · stays private to this Knot forever</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)' }}>Compressed on upload · visible only to Knot members</div>
           </div>
           <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleUpload}
             style={{ display: 'none' }} id="photo-upload" />
@@ -319,7 +341,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
 
       {/* Privacy note */}
       <div style={{ padding: '10px 14px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 12, color: 'var(--text3)', marginBottom: 20 }}>
-        Photos are permanently private to this Knot. No sharing outside, no public access, ever.
+        Photos in this Knot are only listed for members here. Keep sharing links private.
       </div>
 
       {/* Photo modal */}
@@ -336,7 +358,9 @@ export default function Memories({ members: _members, knotId }: { members: any[]
 
               {/* Caption */}
               <div style={{ marginBottom: 12 }}>
-                {editingCaption ? (
+                {viewPhoto.from_comment ? (
+                  <div style={{ fontSize: 13, color: 'var(--text3)' }}>Posted as a comment on the feed</div>
+                ) : editingCaption ? (
                   <div style={{ display: 'flex', gap: 8 }}>
                     <input
                       value={captionDraft}
@@ -375,7 +399,8 @@ export default function Memories({ members: _members, knotId }: { members: any[]
                 Added by {viewPhoto.profiles?.name || 'someone'} · {formatDate(viewPhoto.created_at)}
               </div>
 
-              {/* Comments */}
+              {/* Comments — only for vault photos, not comment-sourced images */}
+              {!viewPhoto.from_comment && (
               <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>
                   Comments {comments.length > 0 && <span style={{ color: 'var(--text3)', fontWeight: 400 }}>({comments.length})</span>}
@@ -423,6 +448,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
                   </button>
                 </div>
               </div>
+              )}
 
               {/* Actions */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>

@@ -31,8 +31,8 @@ export default function Home() {
     if (data.session) {
       const pendingInvite = localStorage.getItem('pending_invite')
       localStorage.removeItem('pending_invite')
-      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-      if (pendingInvite && UUID_RE.test(pendingInvite)) {
+      // Accept UUID tokens or other opaque invite tokens from the DB
+      if (pendingInvite && /^[A-Za-z0-9_-]{8,128}$/.test(pendingInvite)) {
         window.location.href = `/invite/${pendingInvite}`
       } else {
         window.location.href = '/dashboard'

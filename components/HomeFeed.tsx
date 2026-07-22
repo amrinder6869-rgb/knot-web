@@ -106,11 +106,14 @@ export default function HomeFeed({ knots, onSelectKnot }: { knots: any[], onSele
       {items.map(item => {
         const knot   = item.knots
         const author = item.profiles?.name || 'Someone'
-        const isActivity = item._type === 'post' && (
-          item.content?.startsWith('added a bill') ||
-          item.content?.startsWith('started a hangout') ||
-          item.content?.startsWith('locked in') ||
-          item.content?.startsWith('treated ')
+        const isActivity = item._type === 'post' && item.post_type !== 'treat' && (
+          item.post_type === 'bill' ||
+          item.post_type === 'hangout' ||
+          item.content?.includes('added a bill') ||
+          item.content?.includes('planned a hangout') ||
+          item.content?.includes('set up a weekly hangout') ||
+          item.content?.includes('is at ') ||
+          item.content?.startsWith('locked in')
         )
 
         return (
@@ -202,7 +205,10 @@ export default function HomeFeed({ knots, onSelectKnot }: { knots: any[], onSele
                 </div>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                   <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--bg3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: 'var(--text2)', flexShrink: 0 }}>
-                    {item.content?.startsWith('added a bill') ? '$' : item.content?.startsWith('started a hangout') ? '?' : item.content?.startsWith('locked in') ? '!' : 'T'}
+                    {item.post_type === 'bill' || item.content?.includes('added a bill') ? '$'
+                      : item.post_type === 'hangout' || item.content?.includes('hangout') || item.content?.includes('is at ') ? '?'
+                      : item.content?.startsWith('locked in') ? '!'
+                      : 'T'}
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14 }}>

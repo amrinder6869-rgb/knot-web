@@ -82,6 +82,33 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
 
     if (error) { setLoading(false); return }
 
+    const postIds = (data || []).map((p: any) => p.id)
+    let reactionsByPost = new Map<string, Reaction[]>()
+    if (postIds.length > 0) {
+      const { data: reactionData } = await supabase
+        .from('reactions')
+        .select('post_id, emoji, user_id')
+        .in('post_id', postIds)
+
+      const { data: { user: me } } = await supabase.auth.getUser()
+      const meId = me?.id
+      const grouped = new Map<string, Map<string, { n: number; mine: boolean }>>()
+      for (const r of reactionData || []) {
+        if (!grouped.has(r.post_id)) grouped.set(r.post_id, new Map())
+        const emojiMap = grouped.get(r.post_id)!
+        const cur = emojiMap.get(r.emoji) || { n: 0, mine: false }
+        cur.n += 1
+        if (r.user_id === meId) cur.mine = true
+        emojiMap.set(r.emoji, cur)
+      }
+      for (const [pid, emojiMap] of grouped) {
+        reactionsByPost.set(
+          pid,
+          Array.from(emojiMap.entries()).map(([e, v]) => ({ e, n: v.n, mine: v.mine }))
+        )
+      }
+    }
+
     const mapped: Post[] = (data || []).map((p: any) => {
       const name = p.profiles?.name || 'Unknown'
       const col  = getColor(p.author_id)
@@ -98,7 +125,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
         type:       p.post_type || 'moment',
         hangout_id: p.hangout_id || null,
         profiles:   p.profiles,
-        reactions:  [],
+        reactions:  reactionsByPost.get(p.id) || [],
       }
     })
     setPosts(mapped)

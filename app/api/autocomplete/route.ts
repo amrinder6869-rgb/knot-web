@@ -66,6 +66,19 @@ export async function GET(request: Request) {
   if (!input || input.trim().length < 2) return NextResponse.json({ suggestions: [] })
 
   const params = new URLSearchParams({ input: input.trim(), key: apiKey })
+
+  // Optional location bias from Discover GPS / selected place
+  const lat = searchParams.get('lat')
+  const lng = searchParams.get('lng')
+  if (lat && lng) {
+    const latN = parseFloat(lat)
+    const lngN = parseFloat(lng)
+    if (!isNaN(latN) && !isNaN(lngN) && latN >= -90 && latN <= 90 && lngN >= -180 && lngN <= 180) {
+      params.set('location', `${latN},${lngN}`)
+      params.set('radius', '50000')
+    }
+  }
+
   try {
     const body = await httpsGet(`https://maps.googleapis.com/maps/api/place/autocomplete/json?${params}`)
     const data = JSON.parse(body)
