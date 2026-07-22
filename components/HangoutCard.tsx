@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { compressImage } from '@/lib/compressImage'
 
 function timeAgo(date: string) {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
@@ -199,9 +200,10 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
     let photoPath: string | null = null
     let photoUrl: string | null = null
     if (commentPhoto) {
-      const ext = commentPhoto.name.split('.').pop()
+      const compressed = await compressImage(commentPhoto)
+      const ext = compressed.name.split('.').pop()
       const path = `comments/${post.id}/${Date.now()}.${ext}`
-      const { error: uploadError } = await supabase.storage.from('knot-photos').upload(path, commentPhoto)
+      const { error: uploadError } = await supabase.storage.from('knot-photos').upload(path, compressed)
       if (uploadError) {
         setActionError('Photo upload failed. Comment not posted.')
         setSubmitting(false)

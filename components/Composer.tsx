@@ -3,6 +3,7 @@ import { useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { notifyKnotMembers } from '@/lib/notifications'
 import Discover from '@/components/Discover'
+import { compressImage } from '@/lib/compressImage'
 import DateTimePicker from '@/components/DateTimePicker'
 
 type PostType = 'moment' | 'hangout' | 'bill'
@@ -131,17 +132,18 @@ export default function Composer({
     if (postError || !newPost) { setPosting(false); return }
 
     if (momentPhoto) {
-      const ext = momentPhoto.name.split('.').pop()
+      const compressed = await compressImage(momentPhoto)
+      const ext = compressed.name.split('.').pop()
       const path = `${knotId}/${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
-      const { error: uploadError } = await supabase.storage.from('knot-photos').upload(path, momentPhoto)
+      const { error: uploadError } = await supabase.storage.from('knot-photos').upload(path, compressed)
       if (!uploadError) {
         await supabase.from('photos').insert({
           knot_id:      knotId,
           post_id:      newPost.id,
           uploaded_by:  user.id,
           storage_path: path,
-          file_name:    momentPhoto.name,
-          file_size:    momentPhoto.size,
+          file_name:    compressed.name,
+          file_size:    compressed.size,
         })
       }
     }

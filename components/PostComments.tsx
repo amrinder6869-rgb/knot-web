@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { compressImage } from '@/lib/compressImage'
 
 function timeAgo(date: string) {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
@@ -47,9 +48,10 @@ export default function PostComments({ postId, currentUser, initialComments, onC
     let photoPath: string | null = null
     let photoUrl: string | null = null
     if (commentPhoto) {
-      const ext = commentPhoto.name.split('.').pop()
+      const compressed = await compressImage(commentPhoto)
+      const ext = compressed.name.split('.').pop()
       const path = `comments/${postId}/${Date.now()}.${ext}`
-      const { error: uploadError } = await supabase.storage.from('knot-photos').upload(path, commentPhoto)
+      const { error: uploadError } = await supabase.storage.from('knot-photos').upload(path, compressed)
       if (uploadError) {
         setError('Photo upload failed. Comment not posted.')
         setSubmitting(false)

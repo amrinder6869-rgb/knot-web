@@ -1,8 +1,9 @@
 ﻿'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { compressImage } from '@/lib/compressImage'
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024
+const MAX_FILE_SIZE = 15 * 1024 * 1024 // safety net after client-side compression
 const MAX_FILES     = 20
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif'])
 const ALLOWED_EXTS  = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif'])
@@ -160,9 +161,9 @@ export default function Memories({ members: _members, knotId }: { members: any[]
       return
     }
 
-    const oversized = files.filter(f => f.size > MAX_FILE_SIZE)
-    if (oversized.length > 0) {
-      setUploadError(`${oversized.length} file(s) exceed the 5 MB limit.`)
+    const extremelyOversized = files.filter(f => f.size > 30 * 1024 * 1024)
+    if (extremelyOversized.length > 0) {
+      setUploadError(`${extremelyOversized.length} file(s) are too large to process (over 30 MB).`)
       if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
@@ -172,7 +173,9 @@ export default function Memories({ members: _members, knotId }: { members: any[]
     setUploadProgress(0)
 
     let uploaded = 0
-    for (const file of files) {
+    for (const rawFile of files) {
+      const file = await compressImage(rawFile)
+      if (file.size > MAX_FILE_SIZE) { continue }
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
       const safeType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg'
         : ext === 'png'  ? 'image/png'
