@@ -56,7 +56,7 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
     <div>
       <button onClick={() => { setActiveGame(null); loadGames() }}
         style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 16 }}>
-        â† Back to games
+        ← Back to games
       </button>
       {activeGame.game_type === 'most_likely' && (
         <MostLikelyTo game={activeGame} members={members} currentUser={currentUser} knotId={knotId} onEnd={() => { setActiveGame(null); loadGames() }} />
@@ -83,7 +83,7 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
             Vote on who in the group is most likely to... Results revealed after everyone votes.
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--yellow-soft)', color: 'var(--yellow)' }}>2â€“10 players</span>
+            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--yellow-soft)', color: 'var(--yellow)' }}>2–10 players</span>
             <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--olive-soft)', color: 'var(--olive)' }}>Async</span>
           </div>
         </div>
@@ -96,7 +96,7 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
             Classic board game. Roll dice, race your pieces home, knock opponents back to start.
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--yellow-soft)', color: 'var(--yellow)' }}>2â€“4 players</span>
+            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--yellow-soft)', color: 'var(--yellow)' }}>2–4 players</span>
             <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--amber-soft)', color: 'var(--amber)' }}>Real-time</span>
           </div>
         </div>

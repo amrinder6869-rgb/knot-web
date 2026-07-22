@@ -50,19 +50,41 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
     }
     setJoining(true)
 
-    const { error } = await supabase
-      .from('knot_members')
-      .insert({ knot_id: knot.id, user_id: user.id, role: 'member' })
+    // Atomically claim the invite first — only succeeds if still unused and unexpired
+    const { data: claimed, error: claimError } = await supabase
+      .from('invites')
+      .update({ used_by: user.id, used_at: new Date().toISOString() })
+      .eq('token', token)
+      .is('used_by', null)
+      .gt('expires_at', new Date().toISOString())
+      .select('id')
+      .maybeSingle()
 
-    if (error && !error.message.includes('duplicate')) {
-      alert('Error joining: ' + error.message)
+    if (claimError) {
+      alert('Error claiming invite: ' + claimError.message)
       setJoining(false)
       return
     }
 
-    await supabase.from('invites')
-      .update({ used_by: user.id, used_at: new Date().toISOString() })
-      .eq('token', token)
+    if (!claimed) {
+      // Re-check why it failed
+      const { data: inv } = await supabase.from('invites').select('used_by, expires_at').eq('token', token).single()
+      if (inv?.used_by) setStatus('used')
+      else if (inv && new Date(inv.expires_at) < new Date()) setStatus('expired')
+      else alert('Could not claim this invite. Please try again.')
+      setJoining(false)
+      return
+    }
+
+    const { error } = await supabase
+      .from('knot_members')
+      .insert({ knot_id: knot.id, user_id: user.id, role: 'member' })
+
+    if (error && !error.message.includes('duplicate') && error.code !== '23505') {
+      alert('Error joining: ' + error.message)
+      setJoining(false)
+      return
+    }
 
     setStatus('joined')
     setTimeout(() => { window.location.href = '/dashboard' }, 2000)
@@ -96,7 +118,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
 
         {status === 'error' && (
           <>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>Ã¢ÂÅ’</div>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>{'\u274C'}</div>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Invalid invite</div>
             <div style={{ fontSize: 13, color: 'var(--text2)' }}>This link doesn't exist or has been removed.</div>
           </>
@@ -104,7 +126,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
 
         {status === 'expired' && (
           <>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>Ã¢ÂÂ±Ã¯Â¸Â</div>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>{'\u23F3'}</div>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Invite expired</div>
             <div style={{ fontSize: 13, color: 'var(--text2)' }}>This invite link expired. Ask your friend to send a new one.</div>
           </>
@@ -112,7 +134,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
 
         {status === 'used' && (
           <>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>Ã°Å¸â€â€™</div>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>{'\uD83D\uDD12'}</div>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Already used</div>
             <div style={{ fontSize: 13, color: 'var(--text2)' }}>This one-time link has already been claimed.</div>
           </>
@@ -123,7 +145,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
             <div style={{ fontSize: 48, marginBottom: 12 }}>{knot.emoji}</div>
             <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>You're invited!</div>
             <div style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 24, lineHeight: 1.6 }}>
-              Join <strong style={{ color: 'var(--text)' }}>{knot.name}</strong> on Knot Ã¢â‚¬â€ a private circle for people who actually know each other.
+              Join <strong style={{ color: 'var(--text)' }}>{knot.name}</strong> on Knot {'\u2014'} a private circle for people who actually know each other.
             </div>
 
             {!user ? (
@@ -148,14 +170,14 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
             )}
 
             <div style={{ marginTop: 16, fontSize: 12, color: 'var(--text3)' }}>
-              Ã°Å¸â€Â Invite-only Ã‚Â· one-time link Ã‚Â· expires in 48hrs
+              {'\uD83D\uDD10'} Invite-only {'\u00B7'} one-time link {'\u00B7'} expires in 48hrs
             </div>
           </>
         )}
 
         {status === 'joined' && (
           <>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>Ã°Å¸Å½â€°</div>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>{'\uD83C\uDF89'}</div>
             <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: 'var(--sage)' }}>You're in!</div>
             <div style={{ fontSize: 13, color: 'var(--text2)' }}>Taking you to your dashboard...</div>
           </>

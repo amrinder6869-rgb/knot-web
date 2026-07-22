@@ -17,6 +17,7 @@ const TYPE_LABEL: Record<string, string> = {
   bill_settled: 'Bill settled',
   bill_treated: 'Treat',
   new_poll:     'New poll',
+  new_hangout:  'New hangout',
   photo_added:  'Photos added',
   member_joined:'New member',
 }

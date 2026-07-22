@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import https from 'https'
+import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 
 function httpsGet(url: string): Promise<string> {
@@ -18,6 +19,12 @@ function httpsGet(url: string): Promise<string> {
     req.on('error', reject)
     req.end()
   })
+}
+
+function signedPhotoUrl(photoReference: string, apiKey: string): string {
+  const exp = String(Date.now() + 60 * 60 * 1000) // 1 hour
+  const sig = crypto.createHmac('sha256', apiKey).update(`${photoReference}.${exp}`).digest('hex')
+  return `/api/places/photo?ref=${encodeURIComponent(photoReference)}&exp=${exp}&sig=${sig}`
 }
 
 const CATEGORY_TO_TYPE: Record<string, string> = {
@@ -49,6 +56,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const ll       = searchParams.get('ll')
   const category = searchParams.get('categories')
+  const budget   = searchParams.get('budget') // 1-4
 
   if (!ll || !category) return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
 
@@ -74,6 +82,12 @@ export async function GET(request: Request) {
     key: apiKey,
   })
 
+  // Google price_level is 0-4; our budget UI is 1-4 → map to maxprice 0-3
+  const budgetNum = budget ? parseInt(budget, 10) : NaN
+  if (!isNaN(budgetNum) && budgetNum >= 1 && budgetNum <= 4) {
+    params.set('maxprice', String(budgetNum - 1))
+  }
+
   try {
     const body = await httpsGet(
       `https://maps.googleapis.com/maps/api/place/nearbysearch/json?${params}`
@@ -87,20 +101,21 @@ export async function GET(request: Request) {
       .slice(0, 10)
       .sort((a: any, b: any) => (b.rating || 0) - (a.rating || 0))
       .map((p: any) => ({
-        fsq_id:   p.place_id,
+        place_id: p.place_id,
+        fsq_id:   p.place_id, // legacy alias for existing UI
         name:     p.name,
         location: {
           formatted_address: p.vicinity,
           address:           p.vicinity,
         },
         categories:   [{ id: p.place_id, name: p.types?.[0]?.replace(/_/g, ' ') || type }],
-        price:        p.price_level,
+        price:        p.price_level != null ? p.price_level + 1 : null, // normalize to 1-4
         distance:     null,
         closed_bucket: p.opening_hours?.open_now ? 'VeryLikelyOpen' : null,
         rating:        p.rating,
         rating_count:  p.user_ratings_total,
         photo_url:     p.photos?.[0]?.photo_reference
-          ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${p.photos[0].photo_reference}&key=${apiKey}`
+          ? signedPhotoUrl(p.photos[0].photo_reference, apiKey)
           : null,
         google_maps_url: `https://www.google.com/maps/place/?q=place_id:${p.place_id}`,
       }))

@@ -68,6 +68,7 @@ export default function Composer({
   const [billDesc, setBillDesc]       = useState('')
   const [billAmount, setBillAmount]   = useState('')
   const [billPosting, setBillPosting] = useState(false)
+  const [formError, setFormError]     = useState('')
 
   function reset() {
     setActiveType(null)
@@ -85,6 +86,7 @@ export default function Composer({
     setHangoutTitle('')
     setBillDesc('')
     setBillAmount('')
+    setFormError('')
   }
 
   function getVenueName() {
@@ -119,8 +121,9 @@ export default function Composer({
   async function postMoment() {
     if ((!momentText.trim() && !momentPhoto) || posting) return
     setPosting(true)
+    setFormError('')
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setPosting(false); return }
+    if (!user) { setPosting(false); setFormError('Not signed in'); return }
 
     const { data: newPost, error: postError } = await supabase.from('posts').insert({
       knot_id: knotId,
@@ -129,15 +132,21 @@ export default function Composer({
       post_type: 'moment',
     }).select().single()
 
-    if (postError || !newPost) { setPosting(false); return }
+    if (postError || !newPost) {
+      setPosting(false)
+      setFormError(postError?.message || 'Could not create post')
+      return
+    }
 
     if (momentPhoto) {
       const compressed = await compressImage(momentPhoto)
       const ext = compressed.name.split('.').pop()
       const path = `${knotId}/${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
       const { error: uploadError } = await supabase.storage.from('knot-photos').upload(path, compressed)
-      if (!uploadError) {
-        await supabase.from('photos').insert({
+      if (uploadError) {
+        setFormError('Post created, but photo upload failed. Try adding it from Media.')
+      } else {
+        const { error: photoInsertError } = await supabase.from('photos').insert({
           knot_id:      knotId,
           post_id:      newPost.id,
           uploaded_by:  user.id,
@@ -145,6 +154,9 @@ export default function Composer({
           file_name:    compressed.name,
           file_size:    compressed.size,
         })
+        if (photoInsertError) {
+          setFormError('Post created, but photo could not be saved.')
+        }
       }
     }
 
@@ -165,6 +177,7 @@ export default function Composer({
   async function postHangout() {
     if (!currentUser || creating) return
     setCreating(true)
+    setFormError('')
 
     const venueName    = getVenueName()
     const venueAddress = getVenueAddress()
@@ -180,7 +193,12 @@ export default function Composer({
       startTime   = new Date().toISOString()
       hangoutType = 'spontaneous'
     } else if (whenType === 'pick') {
-      startTime = scheduledFor ? scheduledFor.toISOString() : null
+      if (!scheduledFor) {
+        setCreating(false)
+        setFormError('Pick a date and time for the hangout')
+        return
+      }
+      startTime = scheduledFor.toISOString()
     } else if (whenType === 'weekly') {
       startTime        = getNextWeekday(recurrenceDay, recurrenceTime)
       hangoutType      = 'recurring'
@@ -191,7 +209,7 @@ export default function Composer({
 
     // Re-fetch authenticated user to ensure we have a valid session
     const { data: { user: authUser } } = await supabase.auth.getUser()
-    if (!authUser) { setCreating(false); return }
+    if (!authUser) { setCreating(false); setFormError('Not signed in'); return }
 
     const { data: h, error: hangoutError } = await supabase.from('hangouts').insert({
       knot_id:          knotId,
@@ -202,7 +220,7 @@ export default function Composer({
       venue_address:    venueAddress || null,
       venue_maps_url:   getVenueMapsUrl(),
       venue_booking_url: getVenueBookingUrl(),
-      venue_place_id:   selectedVenue?.place_id || null,
+      venue_place_id:   selectedVenue?.place_id || selectedVenue?.fsq_id || null,
       scheduled_for:    startTime,
       status:           whenType === 'now' ? 'live' : 'confirmed',
       is_live:          whenType === 'now',
@@ -211,42 +229,47 @@ export default function Composer({
       recurrence_time:  recurrenceTime_,
     }).select().single()
 
-    if (h) {
-      const actorName = currentUser.name || 'Someone'
-      let content = ''
-      if (whenType === 'now') {
-        content = `${actorName} is at ${venueName || title} \u2014 the night is on!`
-      } else if (whenType === 'weekly') {
-        content = `${actorName} set up a weekly hangout \u2014 ${DAYS[recurrenceDay]}s at ${recurrenceTime}${venueName ? ' at ' + venueName : ''}`
-      } else {
-        content = `${actorName} planned a hangout${venueName ? ' at ' + venueName : ''}${startTime ? ' \u2014 ' + formatDate(startTime) : ''}`
-      }
-
-      const { data: newPost, error: postError } = await supabase.from('posts').insert({
-        knot_id:    knotId,
-        author_id:  authUser.id,
-        hangout_id: h.id,
-        content,
-        post_type:  'hangout',
-      }).select('id').single()
-      if (postError) {
-        console.error('Post insert error:', JSON.stringify(postError))
-      } else if (newPost) {
-        const { error: updateError } = await supabase
-          .from('hangouts')
-          .update({ post_id: newPost.id })
-          .eq('id', h.id)
-        if (updateError) console.error('Hangout update error:', JSON.stringify(updateError))
-      }
-
-      await notifyKnotMembers({
-        knotId,
-        actorId:  authUser.id,
-        type:     'new_poll',
-        message:  content,
-        entityId: h.id,
-      })
+    if (hangoutError || !h) {
+      setCreating(false)
+      setFormError(hangoutError?.message || 'Could not create hangout')
+      return
     }
+
+    const actorName = currentUser.name || 'Someone'
+    let content = ''
+    if (whenType === 'now') {
+      content = `${actorName} is at ${venueName || title} \u2014 the night is on!`
+    } else if (whenType === 'weekly') {
+      content = `${actorName} set up a weekly hangout \u2014 ${DAYS[recurrenceDay]}s at ${recurrenceTime}${venueName ? ' at ' + venueName : ''}`
+    } else {
+      content = `${actorName} planned a hangout${venueName ? ' at ' + venueName : ''}${startTime ? ' \u2014 ' + formatDate(startTime) : ''}`
+    }
+
+    const { data: newPost, error: postError } = await supabase.from('posts').insert({
+      knot_id:    knotId,
+      author_id:  authUser.id,
+      hangout_id: h.id,
+      content,
+      post_type:  'hangout',
+    }).select('id').single()
+    if (postError) {
+      console.error('Post insert error:', JSON.stringify(postError))
+      setFormError('Hangout created, but feed post failed to publish')
+    } else if (newPost) {
+      const { error: updateError } = await supabase
+        .from('hangouts')
+        .update({ post_id: newPost.id })
+        .eq('id', h.id)
+      if (updateError) console.error('Hangout update error:', JSON.stringify(updateError))
+    }
+
+    await notifyKnotMembers({
+      knotId,
+      actorId:  authUser.id,
+      type:     'new_hangout',
+      message:  content,
+      entityId: h.id,
+    })
 
     setCreating(false)
     reset()
@@ -258,11 +281,12 @@ export default function Composer({
     const amount = parseFloat(billAmount)
     if (isNaN(amount) || amount <= 0) return
     setBillPosting(true)
+    setFormError('')
 
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setBillPosting(false); return }
+    if (!user) { setBillPosting(false); setFormError('Not signed in'); return }
 
-    const { data: bill } = await supabase.from('bills').insert({
+    const { data: bill, error: billError } = await supabase.from('bills').insert({
       knot_id:      knotId,
       added_by:     user.id,
       total_amount: amount,
@@ -270,15 +294,26 @@ export default function Composer({
       split_type:   'equal',
     }).select().single()
 
-    if (bill && members.length > 0) {
-      const share = amount / members.length
+    if (billError || !bill) {
+      setBillPosting(false)
+      setFormError(billError?.message || 'Could not create bill')
+      return
+    }
+
+    if (members.length > 0) {
+      const cents = Math.round(amount * 100)
+      const base = Math.floor(cents / members.length)
+      let remainder = cents - base * members.length
       await supabase.from('bill_splits').insert(
-        members.map(m => ({
-          bill_id:  bill.id,
-          user_id:  m.id,
-          amount:   parseFloat(share.toFixed(2)),
-          settled:  m.id === user.id,
-        }))
+        members.map((m, i) => {
+          const shareCents = base + (i < remainder ? 1 : 0)
+          return {
+            bill_id:  bill.id,
+            user_id:  m.id,
+            amount:   shareCents / 100,
+            settled:  m.id === user.id,
+          }
+        })
       )
       await supabase.from('posts').insert({
         knot_id:   knotId,
@@ -323,6 +358,12 @@ export default function Composer({
         ))}
       </div>
 
+      {formError && (
+        <div style={{ margin: '0 16px 12px', padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)' }}>
+          {formError}
+        </div>
+      )}
+
       {/* Moment form */}
       {activeType === 'moment' && (
         <div style={{ padding: 16 }}>
@@ -348,7 +389,7 @@ export default function Composer({
             <button onClick={() => momentPhotoInputRef.current?.click()}
               style={{ width: 38, height: 38, borderRadius: 8, background: momentPhoto ? 'var(--yellow-soft)' : 'var(--bg3)', border: `1px solid ${momentPhoto ? 'var(--yellow)' : 'var(--border2)'}`, color: momentPhoto ? 'var(--yellow)' : 'var(--text3)', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'inherit' }}
               title="Add photo">
-              P
+              Photo
             </button>
             <button onClick={postMoment} disabled={(!momentText.trim() && !momentPhoto) || posting}
               style={{ background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', padding: '9px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (!momentText.trim() && !momentPhoto) || posting ? 0.5 : 1 }}>

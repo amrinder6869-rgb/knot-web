@@ -50,7 +50,7 @@ export default function Members({ members: _members, knotId }: { members: any[],
   async function loadMembers() {
     const { data } = await supabase
       .from('knot_members')
-      // budget_tier is intentionally excluded â€” it is private per-user data
+      // budget_tier is intentionally excluded — it is private per-user data
       .select('user_id, role, joined_at, profiles:user_id(id, name)')
       .eq('knot_id', knotId)
     if (data) setKnotMembers(data)
@@ -87,9 +87,10 @@ export default function Members({ members: _members, knotId }: { members: any[],
     if (vote === 'no') setShowNote(prev => ({ ...prev, [nominationId]: true }))
   }
 
-  async function submitVote(nominationId: string) {
+  async function submitVote(nominationId: string, forcedVote?: string) {
     if (!user) return
-    const vote = myVote[nominationId]
+    const vote = forcedVote || myVote[nominationId]
+    if (!vote) return
     const note = anonNote[nominationId] || ''
 
     const { error } = await supabase.from('nomination_votes').upsert({
@@ -98,6 +99,7 @@ export default function Members({ members: _members, knotId }: { members: any[],
 
     if (error) { return }
 
+    setMyVote(prev => ({ ...prev, [nominationId]: vote }))
     setSubmitted(prev => ({ ...prev, [nominationId]: true }))
     setShowNote(prev => ({ ...prev, [nominationId]: false }))
     if (vote === 'no') setShowSplinter(prev => ({ ...prev, [nominationId]: true }))
@@ -108,12 +110,17 @@ export default function Members({ members: _members, knotId }: { members: any[],
       .eq('nomination_id', nominationId)
 
     if (votes) {
-      const yes = votes.filter(v => v.vote === 'yes').length
-      const no  = votes.filter(v => v.vote === 'no').length
+      const yes = votes.filter((v: any) => v.vote === 'yes').length
+      const no  = votes.filter((v: any) => v.vote === 'no').length
       const nom = nominations.find(n => n.id === nominationId)
       if (yes > no && yes >= Math.ceil(knotMembers.length / 2)) {
         if (nom?.nominee_email) {
           await supabase.from('nominations').update({ status: 'accepted' }).eq('id', nominationId)
+          // Create a shareable invite so the nominee can join
+          await supabase.from('invites').insert({
+            knot_id: knotId,
+            created_by: user.id,
+          })
         }
       }
     }
@@ -156,7 +163,7 @@ export default function Members({ members: _members, knotId }: { members: any[],
     <div style={{ maxWidth: 720 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
 
-        {/* Left â€” Members */}
+        {/* Left — Members */}
         <div>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Members</div>
           {knotMembers.length === 0 ? (
@@ -186,7 +193,7 @@ export default function Members({ members: _members, knotId }: { members: any[],
           })}
         </div>
 
-        {/* Right â€” Invite + Votes */}
+        {/* Right — Invite + Votes */}
         <div>
           {/* Invite */}
           <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, marginBottom: 14 }}>
@@ -232,7 +239,7 @@ export default function Members({ members: _members, knotId }: { members: any[],
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, fontWeight: 700 }}>{nom.nominee_name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text2)' }}>Nominated Â· pending vote</div>
+                    <div style={{ fontSize: 12, color: 'var(--text2)' }}>Nominated {'\u00B7'} pending vote</div>
                   </div>
                   <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 20, background: 'var(--amber-soft)', color: 'var(--amber)' }}>Open</span>
                 </div>
@@ -254,7 +261,7 @@ export default function Members({ members: _members, knotId }: { members: any[],
                         style={{ flex: 1, padding: '8px', borderRadius: 8, border: `1px solid ${myV === 'no' ? 'var(--yellow)' : 'var(--yellow-dim)'}`, background: myV === 'no' ? 'var(--yellow)' : 'var(--yellow-soft)', color: myV === 'no' ? '#fff' : 'var(--yellow)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                         No
                       </button>
-                      <button onClick={() => submitVote(nom.id)}
+                      <button onClick={() => { setMyVote(prev => ({ ...prev, [nom.id]: 'abstain' })); submitVote(nom.id, 'abstain') }}
                         style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border2)', background: 'var(--bg3)', color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
                         Abstain
                       </button>
@@ -262,7 +269,7 @@ export default function Members({ members: _members, knotId }: { members: any[],
 
                     {showNote[nom.id] && (
                       <div style={{ background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, padding: '10px 12px', marginBottom: 10 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--yellow)', marginBottom: 6 }}>Private note (optional Â· not shown to the nominee)</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--yellow)', marginBottom: 6 }}>Private note (optional {'\u00B7'} not shown to the nominee)</div>
                         <textarea value={anonNote[nom.id] || ''} onChange={e => setAnonNote(prev => ({ ...prev, [nom.id]: e.target.value }))}
                           placeholder="Share why privately..."
                           style={{ width: '100%', background: 'transparent', border: 'none', color: 'var(--text2)', fontFamily: 'inherit', fontSize: 12, resize: 'none', outline: 'none', minHeight: 56, lineHeight: 1.5 }} />
