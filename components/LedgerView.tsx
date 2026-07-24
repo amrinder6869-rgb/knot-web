@@ -19,7 +19,6 @@ export default function LedgerView({ debts, currentUser, knotId, onSettled }: Le
   const [error, setError] = useState('')
 
   async function settleDebt(debt: SimplifiedDebt) {
-    if (!currentUser || debt.from.id !== currentUser.id) return
     const key = debt.from.id + debt.to.id
     setSettlingId(key)
     setError('')
@@ -63,15 +62,15 @@ export default function LedgerView({ debts, currentUser, knotId, onSettled }: Le
           const key = debt.from.id + debt.to.id
           const isMine = debt.from.id === currentUser?.id
           const isOwedToMe = debt.to.id === currentUser?.id
+          const canSettle = isMine || isOwedToMe
+
           return (
             <div key={i} style={{
               display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
               background: 'var(--bg2)', border: `1px solid ${isMine ? 'var(--yellow-dim)' : 'var(--border)'}`, borderRadius: 12,
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: -6 }}>
-                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {getInitials(debt.from.name)}
-                </div>
+              <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                {getInitials(debt.from.name)}
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, color: 'var(--text)' }}>
@@ -83,10 +82,10 @@ export default function LedgerView({ debts, currentUser, knotId, onSettled }: Le
                   ${debt.amount.toFixed(2)}
                 </div>
               </div>
-              {isMine && (
+              {canSettle && (
                 <button onClick={() => settleDebt(debt)} disabled={settlingId === key}
-                  style={{ padding: '8px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: settlingId === key ? 0.6 : 1 }}>
-                  {settlingId === key ? 'Settling...' : 'Settle up'}
+                  style={{ padding: '8px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: settlingId === key ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+                  {settlingId === key ? '...' : isMine ? 'Settle up' : 'Mark as received'}
                 </button>
               )}
             </div>
