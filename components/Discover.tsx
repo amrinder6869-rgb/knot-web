@@ -170,14 +170,10 @@ export default function Discover({ members: _members, onVenueSelect }: { members
     setLoading(false)
   }
 
-  async function lockVenue(venue: any) {
+  function lockVenue(venue: any) {
     setSelected(venue)
     setLocked(true)
-    if (onVenueSelect) { onVenueSelect(venue); return }
-    // Post to feed
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
-    // We don't have knotId here so just store selected for now
+    if (onVenueSelect) onVenueSelect(venue)
   }
 
   const catObj = CATEGORIES.find(c => c.id === category)
