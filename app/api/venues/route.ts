@@ -63,7 +63,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Invalid category' }, { status: 400 })
 
   const apiKey = process.env.GOOGLE_PLACES_API_KEY
-  if (!apiKey) return NextResponse.json({ error: 'API key not configured' }, { status: 500 })
+  if (!apiKey) {
+    // Demo fallback venues (Toronto) when Places key is not configured
+    const type = CATEGORY_TO_TYPE[category]
+    const demos = [
+      { fsq_id: 'demo_pai', name: 'Pai Northern Thai', location: { formatted_address: '18 Duncan St, Toronto', address: '18 Duncan St, Toronto' }, categories: [{ id: 'demo_pai', name: type }], price: 2, distance: null, closed_bucket: 'VeryLikelyOpen', rating: 4.6, rating_count: 4200, photo_url: null, google_maps_url: 'https://www.google.com/maps/search/?api=1&query=Pai+Northern+Thai+Toronto' },
+      { fsq_id: 'demo_bar_raval', name: 'Bar Raval', location: { formatted_address: '505 College St, Toronto', address: '505 College St, Toronto' }, categories: [{ id: 'demo_bar_raval', name: type }], price: 3, distance: null, closed_bucket: 'VeryLikelyOpen', rating: 4.5, rating_count: 1800, photo_url: null, google_maps_url: 'https://www.google.com/maps/search/?api=1&query=Bar+Raval+Toronto' },
+      { fsq_id: 'demo_seven_lives', name: 'Seven Lives Tacos', location: { formatted_address: '69 Kensington Ave, Toronto', address: '69 Kensington Ave, Toronto' }, categories: [{ id: 'demo_seven_lives', name: type }], price: 1, distance: null, closed_bucket: 'VeryLikelyOpen', rating: 4.7, rating_count: 3100, photo_url: null, google_maps_url: 'https://www.google.com/maps/search/?api=1&query=Seven+Lives+Tacos+Toronto' },
+    ]
+    return NextResponse.json({ results: demos })
+  }
 
   const type = CATEGORY_TO_TYPE[category]
 

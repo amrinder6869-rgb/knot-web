@@ -38,7 +38,26 @@ export async function GET(request: Request) {
   const placeId = searchParams.get('place_id')
 
   const apiKey = process.env.GOOGLE_PLACES_API_KEY
-  if (!apiKey) return NextResponse.json({ error: 'API key not configured' }, { status: 500 })
+  if (!apiKey) {
+    // Demo fallback venues (Toronto) when Places key is not configured
+    if (placeId) {
+      const demos: Record<string, { name: string; formatted_address: string; lat: number; lng: number }> = {
+        demo_bar_raval: { name: 'Bar Raval', formatted_address: '505 College St, Toronto, ON', lat: 43.6555, lng: -79.4120 },
+        demo_pai: { name: 'Pai Northern Thai', formatted_address: '18 Duncan St, Toronto, ON', lat: 43.6479, lng: -79.3895 },
+        demo_seven_lives: { name: 'Seven Lives Tacos', formatted_address: '69 Kensington Ave, Toronto, ON', lat: 43.6544, lng: -79.4005 },
+      }
+      const d = demos[placeId] || demos.demo_pai
+      return NextResponse.json({ place: { place_id: placeId, ...d } })
+    }
+    const q = (input || '').toLowerCase()
+    const all = [
+      { place_id: 'demo_pai', description: 'Pai Northern Thai, Duncan St, Toronto', main_text: 'Pai Northern Thai', secondary_text: '18 Duncan St, Toronto' },
+      { place_id: 'demo_bar_raval', description: 'Bar Raval, College St, Toronto', main_text: 'Bar Raval', secondary_text: '505 College St, Toronto' },
+      { place_id: 'demo_seven_lives', description: 'Seven Lives Tacos, Kensington, Toronto', main_text: 'Seven Lives Tacos', secondary_text: '69 Kensington Ave, Toronto' },
+    ]
+    const suggestions = all.filter(s => !q || s.description.toLowerCase().includes(q) || s.main_text.toLowerCase().includes(q)).slice(0, 5)
+    return NextResponse.json({ suggestions })
+  }
 
   // Place details — get lat/lng from a place_id
   if (placeId) {
