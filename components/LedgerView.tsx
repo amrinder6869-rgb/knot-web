@@ -16,9 +16,11 @@ type LedgerViewProps = {
 
 export default function LedgerView({ debts, currentUser, knotId, onSettled }: LedgerViewProps) {
   const [settlingId, setSettlingId] = useState<string | null>(null)
+  const [partialKey, setPartialKey] = useState<string | null>(null)
+  const [partialAmount, setPartialAmount] = useState('')
   const [error, setError] = useState('')
 
-  async function settleDebt(debt: SimplifiedDebt) {
+  async function settleDebt(debt: SimplifiedDebt, amount: number) {
     const key = debt.from.id + debt.to.id
     setSettlingId(key)
     setError('')
@@ -27,8 +29,8 @@ export default function LedgerView({ debts, currentUser, knotId, onSettled }: Le
       knot_id: knotId,
       from_user_id: debt.from.id,
       to_user_id: debt.to.id,
-      amount: debt.amount,
-      note: 'Settled up',
+      amount,
+      note: amount < debt.amount ? 'Partial settlement' : 'Settled up',
     })
 
     if (insertError) {
@@ -38,7 +40,21 @@ export default function LedgerView({ debts, currentUser, knotId, onSettled }: Le
     }
 
     setSettlingId(null)
+    setPartialKey(null)
+    setPartialAmount('')
     onSettled()
+  }
+
+  function startPartial(key: string, fullAmount: number) {
+    setPartialKey(key)
+    setPartialAmount(fullAmount.toFixed(2))
+  }
+
+  function confirmPartial(debt: SimplifiedDebt) {
+    const amount = parseFloat(partialAmount)
+    if (isNaN(amount) || amount <= 0) { setError('Enter a valid amount.'); return }
+    if (amount > debt.amount + 0.01) { setError(`Amount can't exceed $${debt.amount.toFixed(2)}.`); return }
+    settleDebt(debt, Math.round(amount * 100) / 100)
   }
 
   if (debts.length === 0) {
@@ -63,30 +79,62 @@ export default function LedgerView({ debts, currentUser, knotId, onSettled }: Le
           const isMine = debt.from.id === currentUser?.id
           const isOwedToMe = debt.to.id === currentUser?.id
           const canSettle = isMine || isOwedToMe
+          const isPartialOpen = partialKey === key
 
           return (
             <div key={i} style={{
-              display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
+              padding: '14px 16px',
               background: 'var(--bg2)', border: `1px solid ${isMine ? 'var(--yellow-dim)' : 'var(--border)'}`, borderRadius: 12,
             }}>
-              <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                {getInitials(debt.from.name)}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, color: 'var(--text)' }}>
-                  <strong>{isMine ? 'You' : debt.from.name}</strong>
-                  <span style={{ color: 'var(--text2)' }}> owe{isMine ? '' : 's'} </span>
-                  <strong>{isOwedToMe ? 'you' : debt.to.name}</strong>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {getInitials(debt.from.name)}
                 </div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--yellow)', marginTop: 2 }}>
-                  ${debt.amount.toFixed(2)}
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, color: 'var(--text)' }}>
+                    <strong>{isMine ? 'You' : debt.from.name}</strong>
+                    <span style={{ color: 'var(--text2)' }}> owe{isMine ? '' : 's'} </span>
+                    <strong>{isOwedToMe ? 'you' : debt.to.name}</strong>
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--yellow)', marginTop: 2 }}>
+                    ${debt.amount.toFixed(2)}
+                  </div>
                 </div>
+                {canSettle && !isPartialOpen && (
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button onClick={() => startPartial(key, debt.amount)}
+                      style={{ padding: '8px 12px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                      Partial
+                    </button>
+                    <button onClick={() => settleDebt(debt, debt.amount)} disabled={settlingId === key}
+                      style={{ padding: '8px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: settlingId === key ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+                      {settlingId === key ? '...' : isMine ? 'Settle up' : 'Mark as received'}
+                    </button>
+                  </div>
+                )}
               </div>
-              {canSettle && (
-                <button onClick={() => settleDebt(debt)} disabled={settlingId === key}
-                  style={{ padding: '8px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: settlingId === key ? 0.6 : 1, whiteSpace: 'nowrap' }}>
-                  {settlingId === key ? '...' : isMine ? 'Settle up' : 'Mark as received'}
-                </button>
+
+              {isPartialOpen && (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text3)' }}>$</span>
+                  <input
+                    type="number"
+                    value={partialAmount}
+                    onChange={e => setPartialAmount(e.target.value)}
+                    autoFocus
+                    style={{ width: 90, padding: '7px 10px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit' }}
+                  />
+                  <span style={{ fontSize: 11, color: 'var(--text3)' }}>of ${debt.amount.toFixed(2)}</span>
+                  <div style={{ flex: 1 }} />
+                  <button onClick={() => { setPartialKey(null); setPartialAmount(''); setError('') }}
+                    style={{ padding: '7px 12px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Cancel
+                  </button>
+                  <button onClick={() => confirmPartial(debt)} disabled={settlingId === key}
+                    style={{ padding: '7px 14px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: settlingId === key ? 0.6 : 1 }}>
+                    {settlingId === key ? '...' : 'Confirm'}
+                  </button>
+                </div>
               )}
             </div>
           )
