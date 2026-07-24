@@ -6,6 +6,7 @@ import HomeBills from '@/components/HomeBills'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import Feed from '@/components/Feed'
+import VibesCounter from '@/components/VibesCounter'
 import Hangout from '@/components/Hangout'
 import BillSplit from '@/components/BillSplit'
 import Members from '@/components/Members'
@@ -276,6 +277,7 @@ async function switchKnot(k: any) {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <VibesCounter userId={user?.id} />
           <Notifications userId={user?.id || ''} knots={knots} onSelectKnot={(k) => switchKnot(k)} />
           <button onClick={() => setShowProfile(true)}
             style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#111', border: 'none', cursor: 'pointer', overflow: 'hidden', flexShrink: 0 }}>
