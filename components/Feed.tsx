@@ -1,11 +1,14 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import HangoutCard from '@/components/HangoutCard'
 import Composer from '@/components/Composer'
 import { loadHangoutBundle } from '@/lib/hangoutBundle'
 import PostComments from '@/components/PostComments'
 import { computeNetBalances } from '@/lib/ledger'
+import { compressImage } from '@/lib/compressImage'
+
+type MomentPhoto = { id: string; storage_path: string; url: string }
 
 type Reaction = { e: string; n: number; mine: boolean }
 type Post = {
@@ -58,8 +61,18 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
   const [bundle, setBundle]   = useState<any>(null)
   const [billBalance, setBillBalance] = useState<number | null>(null)
   const [momentComments, setMomentComments] = useState<Map<string, any[]>>(new Map())
-  const [momentPhotos, setMomentPhotos] = useState<Map<string, string>>(new Map())
+  const [momentPhotos, setMomentPhotos] = useState<Map<string, MomentPhoto>>(new Map())
   const [loading, setLoading] = useState(true)
+  const [editingPostId, setEditingPostId] = useState<string | null>(null)
+  const [editText, setEditText] = useState('')
+  const [editPhotoFile, setEditPhotoFile] = useState<File | null>(null)
+  const [editPhotoPreview, setEditPhotoPreview] = useState<string | null>(null)
+  const [editRemovePhoto, setEditRemovePhoto] = useState(false)
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState('')
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null)
+  const [momentActionError, setMomentActionError] = useState('')
+  const editPhotoInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!knotId) return
@@ -139,16 +152,18 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
     if (otherPostIds.length > 0) {
       const { data: postPhotos } = await supabase
         .from('photos')
-        .select('post_id, storage_path')
+        .select('id, post_id, storage_path')
         .in('post_id', otherPostIds)
 
-      const photoMap = new Map<string, string>()
+      const photoMap = new Map<string, MomentPhoto>()
       for (const p of postPhotos || []) {
         if (!p.post_id) continue
         const { data: { publicUrl } } = supabase.storage.from('knot-photos').getPublicUrl(p.storage_path)
-        photoMap.set(p.post_id, publicUrl)
+        photoMap.set(p.post_id, { id: p.id, storage_path: p.storage_path, url: publicUrl })
       }
       setMomentPhotos(photoMap)
+    } else {
+      setMomentPhotos(new Map())
     }
 
     if (otherPostIds.length > 0) {
@@ -240,6 +255,152 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
     }))
   }
 
+  function startEditMoment(post: Post) {
+    setEditingPostId(post.id)
+    setEditText(post.action || '')
+    setEditPhotoFile(null)
+    setEditPhotoPreview(null)
+    setEditRemovePhoto(false)
+    setEditError('')
+    setMomentActionError('')
+  }
+
+  function cancelEditMoment() {
+    setEditingPostId(null)
+    setEditText('')
+    setEditPhotoFile(null)
+    setEditPhotoPreview(null)
+    setEditRemovePhoto(false)
+    setEditError('')
+    if (editPhotoInputRef.current) editPhotoInputRef.current.value = ''
+  }
+
+  function handleEditPhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setEditPhotoFile(file)
+    setEditPhotoPreview(URL.createObjectURL(file))
+    setEditRemovePhoto(false)
+  }
+
+  async function saveEditMoment(post: Post) {
+    if (!currentUser || editSaving) return
+    if (!editText.trim() && !editPhotoFile && (editRemovePhoto || !momentPhotos.get(post.id))) {
+      setEditError('Add some text or a photo before saving.')
+      return
+    }
+    setEditSaving(true)
+    setEditError('')
+
+    const { error: updateError } = await supabase
+      .from('posts')
+      .update({ content: editText.trim() || null })
+      .eq('id', post.id)
+      .eq('author_id', currentUser.id)
+
+    if (updateError) {
+      setEditError('Could not save changes. Please try again.')
+      setEditSaving(false)
+      return
+    }
+
+    const existingPhoto = momentPhotos.get(post.id)
+
+    if (editRemovePhoto && existingPhoto && !editPhotoFile) {
+      const { error: storageError } = await supabase.storage.from('knot-photos').remove([existingPhoto.storage_path])
+      if (storageError) {
+        setEditError('Post saved, but the photo could not be removed from storage.')
+      } else {
+        const { error: photoDeleteError } = await supabase
+          .from('photos')
+          .delete()
+          .eq('id', existingPhoto.id)
+          .eq('uploaded_by', currentUser.id)
+        if (photoDeleteError) setEditError('Post saved, but the photo record failed to delete.')
+      }
+    } else if (editPhotoFile) {
+      const compressed = await compressImage(editPhotoFile)
+      const ext = compressed.name.split('.').pop()
+      const path = `${knotId}/${currentUser.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
+      const { error: uploadError } = await supabase.storage.from('knot-photos').upload(path, compressed)
+      if (uploadError) {
+        setEditError('Post saved, but the new photo failed to upload.')
+        setEditSaving(false)
+        cancelEditMoment()
+        await loadPosts()
+        return
+      }
+
+      if (existingPhoto) {
+        await supabase.storage.from('knot-photos').remove([existingPhoto.storage_path])
+        const { error: photoUpdateError } = await supabase
+          .from('photos')
+          .update({ storage_path: path, file_name: compressed.name, file_size: compressed.size })
+          .eq('id', existingPhoto.id)
+          .eq('uploaded_by', currentUser.id)
+        if (photoUpdateError) setEditError('Post saved, but the photo record failed to update.')
+      } else {
+        const { error: photoInsertError } = await supabase.from('photos').insert({
+          knot_id: knotId,
+          post_id: post.id,
+          uploaded_by: currentUser.id,
+          storage_path: path,
+          file_name: compressed.name,
+          file_size: compressed.size,
+        })
+        if (photoInsertError) setEditError('Post saved, but the photo failed to save.')
+      }
+    }
+
+    setEditSaving(false)
+    cancelEditMoment()
+    await loadPosts()
+  }
+
+  async function deleteMoment(post: Post) {
+    if (!currentUser) return
+    if (!confirm('Delete this post? This cannot be undone.')) return
+    setDeletingPostId(post.id)
+    setMomentActionError('')
+
+    const existingPhoto = momentPhotos.get(post.id)
+    if (existingPhoto) {
+      const { error: storageError } = await supabase.storage.from('knot-photos').remove([existingPhoto.storage_path])
+      if (storageError) {
+        setMomentActionError('Could not delete the photo file. Post was not removed.')
+        setDeletingPostId(null)
+        return
+      }
+      const { error: photoDeleteError } = await supabase
+        .from('photos')
+        .delete()
+        .eq('id', existingPhoto.id)
+        .eq('uploaded_by', currentUser.id)
+      if (photoDeleteError) {
+        setMomentActionError('Photo file removed, but the photo record failed to delete. Post was not removed.')
+        setDeletingPostId(null)
+        return
+      }
+    }
+
+    const { error } = await supabase
+      .from('posts')
+      .delete()
+      .eq('id', post.id)
+      .eq('author_id', currentUser.id)
+
+    if (error) {
+      setMomentActionError('Could not delete the post. Please try again.')
+      setDeletingPostId(null)
+      return
+    }
+
+    setDeletingPostId(null)
+    setMomentActionError('')
+    if (editingPostId === post.id) cancelEditMoment()
+    await loadPosts()
+  }
+
   if (!knotId) return null
 
   return (
@@ -281,6 +442,12 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
       </div>
 
       <Composer knotId={knotId} currentUser={currentUser} members={members} onPosted={loadPosts} />
+
+      {momentActionError && (
+        <div style={{ padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)', marginBottom: 12 }}>
+          {momentActionError}
+        </div>
+      )}
 
       {loading && (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text3)', fontSize: 13 }}>Loading...</div>
@@ -335,30 +502,95 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
               {p.initials}
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13 }}>
-                <strong style={{ color: 'var(--text)' }}>{p.author}</strong>
-                <span style={{ color: 'var(--text2)', marginLeft: 6 }}>{p.action}</span>
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{p.time}</div>
-              {momentPhotos.get(p.id) && (
-                <div style={{ marginTop: 10 }}>
-                  <img src={momentPhotos.get(p.id)} alt="" style={{ maxWidth: '100%', maxHeight: 360, borderRadius: 10, objectFit: 'cover', display: 'block' }} />
+              {editingPostId === p.id ? (
+                <div>
+                  <div style={{ fontSize: 13, marginBottom: 8 }}>
+                    <strong style={{ color: 'var(--text)' }}>{p.author}</strong>
+                  </div>
+                  {editError && (
+                    <div style={{ padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)', marginBottom: 8 }}>
+                      {editError}
+                    </div>
+                  )}
+                  <textarea
+                    value={editText}
+                    onChange={e => setEditText(e.target.value)}
+                    rows={3}
+                    style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical', marginBottom: 8 }}
+                  />
+                  {editPhotoPreview ? (
+                    <div style={{ position: 'relative', marginBottom: 8, display: 'inline-block' }}>
+                      <img src={editPhotoPreview} alt="" style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 10, objectFit: 'cover', display: 'block' }} />
+                      <button onClick={() => { setEditPhotoFile(null); setEditPhotoPreview(null); if (editPhotoInputRef.current) editPhotoInputRef.current.value = '' }}
+                        style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>
+                        x
+                      </button>
+                    </div>
+                  ) : momentPhotos.get(p.id) && !editRemovePhoto ? (
+                    <div style={{ position: 'relative', marginBottom: 8, display: 'inline-block' }}>
+                      <img src={momentPhotos.get(p.id)!.url} alt="" style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 10, objectFit: 'cover', display: 'block' }} />
+                      <button onClick={() => setEditRemovePhoto(true)}
+                        style={{ position: 'absolute', top: 6, right: 6, padding: '4px 8px', borderRadius: 6, background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        Remove photo
+                      </button>
+                    </div>
+                  ) : null}
+                  <input type="file" accept="image/*" ref={editPhotoInputRef} onChange={handleEditPhotoSelect} style={{ display: 'none' }} />
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button onClick={() => editPhotoInputRef.current?.click()}
+                      style={{ padding: '6px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      {editPhotoFile || (momentPhotos.get(p.id) && !editRemovePhoto) ? 'Replace photo' : 'Add photo'}
+                    </button>
+                    <button onClick={cancelEditMoment}
+                      style={{ padding: '6px 12px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      Cancel
+                    </button>
+                    <button onClick={() => saveEditMoment(p)} disabled={editSaving}
+                      style={{ padding: '6px 14px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: editSaving ? 0.5 : 1 }}>
+                      {editSaving ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
                 </div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 13 }}>
+                    <strong style={{ color: 'var(--text)' }}>{p.author}</strong>
+                    <span style={{ color: 'var(--text2)', marginLeft: 6 }}>{p.action}</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{p.time}</div>
+                  {momentPhotos.get(p.id) && (
+                    <div style={{ marginTop: 10 }}>
+                      <img src={momentPhotos.get(p.id)!.url} alt="" style={{ maxWidth: '100%', maxHeight: 360, borderRadius: 10, objectFit: 'cover', display: 'block' }} />
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                    {p.reactions.map(r => (
+                      <button key={r.e} onClick={() => toggleReaction(p.id, r.e)}
+                        style={{ padding: '4px 10px', borderRadius: 6, background: r.mine ? 'var(--yellow-dim)' : 'var(--bg3)', border: `1px solid ${r.mine ? 'var(--yellow)' : 'var(--border2)'}`, color: 'var(--text)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        {r.e} {r.n}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => toggleReaction(p.id, 'heart')}
+                      style={{ padding: '4px 10px', borderRadius: 6, background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      + React
+                    </button>
+                    {p.author_id === currentUser?.id && (
+                      <>
+                        <button onClick={() => startEditMoment(p)}
+                          style={{ padding: '4px 10px', borderRadius: 6, background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text2)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                          Edit
+                        </button>
+                        <button onClick={() => deleteMoment(p)} disabled={deletingPostId === p.id}
+                          style={{ padding: '4px 10px', borderRadius: 6, background: 'transparent', border: '1px solid var(--yellow-dim)', color: 'var(--yellow)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', opacity: deletingPostId === p.id ? 0.5 : 1 }}>
+                          {deletingPostId === p.id ? 'Deleting...' : 'Delete'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  <PostComments postId={p.id} currentUser={currentUser} initialComments={momentComments.get(p.id) || []} />
+                </>
               )}
-              <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-                {p.reactions.map(r => (
-                  <button key={r.e} onClick={() => toggleReaction(p.id, r.e)}
-                    style={{ padding: '4px 10px', borderRadius: 6, background: r.mine ? 'var(--yellow-dim)' : 'var(--bg3)', border: `1px solid ${r.mine ? 'var(--yellow)' : 'var(--border2)'}`, color: 'var(--text)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    {r.e} {r.n}
-                  </button>
-                ))}
-                <button
-                  onClick={() => toggleReaction(p.id, 'heart')}
-                  style={{ padding: '4px 10px', borderRadius: 6, background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  + React
-                </button>
-              </div>
-              <PostComments postId={p.id} currentUser={currentUser} initialComments={momentComments.get(p.id) || []} />
             </div>
           </div>
         )
