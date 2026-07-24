@@ -47,7 +47,8 @@ const SNAKE_HTML = `<!DOCTYPE html>
   const GRID_SIZE = 18;
   const TILE_COUNT = canvas.width / GRID_SIZE;
   let snake, food, dir, nextDir, score, gameInterval;
-  let highScore = localStorage.getItem('snake_highscore') || 0;
+  let highScore = 0;
+  try { highScore = localStorage.getItem('snake_highscore') || 0; } catch (e) {}
   highScoreEl.innerText = highScore;
 
   function initGame() {
@@ -111,7 +112,7 @@ const SNAKE_HTML = `<!DOCTYPE html>
     clearInterval(gameInterval);
     if (score > highScore) {
       highScore = score;
-      localStorage.setItem('snake_highscore', highScore);
+      try { localStorage.setItem('snake_highscore', highScore); } catch (e) {}
       highScoreEl.innerText = highScore;
     }
     window.parent.postMessage({ type: 'snake_game_over', score: score }, '*');
