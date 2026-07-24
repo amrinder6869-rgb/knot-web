@@ -28,6 +28,11 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
   const [addError, setAddError]     = useState('')
   const [undoingId, setUndoingId]   = useState<string | null>(null)
   const [undoError, setUndoError]   = useState('')
+  const [editingBillId, setEditingBillId] = useState<string | null>(null)
+  const [editSubmitting, setEditSubmitting] = useState(false)
+  const [editError, setEditError]   = useState('')
+  const [deletingBillId, setDeletingBillId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState('')
 
   useEffect(() => {
     if (knotId) loadAll()
@@ -104,8 +109,54 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
     await loadAll()
   }
 
-  // A settlement can be undone only if it's the most recent one for its directed
-  // (from -> to) pair. This avoids unwinding a settlement that a later one already built on.
+  async function handleEditBill(billId: string, desc: string, amount: number, splits: { user_id: string; amount: number }[]) {
+    if (!currentUser) return
+    setEditSubmitting(true)
+    setEditError('')
+
+    const { error: updateError } = await supabase
+      .from('bills')
+      .update({ description: desc, total_amount: amount })
+      .eq('id', billId)
+      .eq('added_by', currentUser.id)
+
+    if (updateError) {
+      setEditError('Could not update the bill. Please try again.')
+      setEditSubmitting(false)
+      return
+    }
+
+    const { error: deleteSplitsError } = await supabase.from('bill_splits').delete().eq('bill_id', billId)
+    if (deleteSplitsError) {
+      setEditError('Bill updated, but the old split could not be replaced.')
+      setEditSubmitting(false)
+      return
+    }
+
+    const { error: insertSplitsError } = await supabase.from('bill_splits').insert(
+      splits.map(s => ({ bill_id: billId, user_id: s.user_id, amount: s.amount, settled: s.user_id === currentUser.id }))
+    )
+    if (insertSplitsError) setEditError('Bill updated, but the new split failed to save.')
+
+    setEditSubmitting(false)
+    if (!insertSplitsError) setEditingBillId(null)
+    await loadAll()
+  }
+
+  async function handleDeleteBill(billId: string) {
+    if (!confirm('Delete this bill? This cannot be undone.')) return
+    setDeletingBillId(billId)
+    setDeleteError('')
+    const { error } = await supabase.from('bills').delete().eq('id', billId).eq('added_by', currentUser?.id)
+    if (error) {
+      setDeleteError('Could not delete the bill. Please try again.')
+      setDeletingBillId(null)
+      return
+    }
+    setDeletingBillId(null)
+    await loadAll()
+  }
+
   function latestSettlementIdsByPair(list: any[]): Set<string> {
     const latestByPair = new Map<string, any>()
     for (const s of list) {
@@ -209,6 +260,11 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
               {undoError}
             </div>
           )}
+          {deleteError && (
+            <div style={{ padding: '10px 14px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 13, color: 'var(--yellow)', marginBottom: 16 }}>
+              {deleteError}
+            </div>
+          )}
 
           {settlements.length > 0 && (
             <div style={{ marginBottom: 24 }}>
@@ -249,35 +305,70 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
                 const settledCount = bill.splits?.filter((s: any) => s.settled).length || 0
                 const progress = bill.splits?.length > 0 ? Math.round(settledCount / bill.splits.length * 100) : 0
                 const linkedHangout = bill.hangouts?.venue_name || bill.hangouts?.title
+                const isMine = bill.added_by === currentUser?.id
+                const isEditing = editingBillId === bill.id
 
                 return (
                   <div key={bill.id} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                      <div>
-                        <div style={{ fontSize: 16, fontWeight: 700 }}>${parseFloat(bill.total_amount).toFixed(2)}</div>
-                        <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>{bill.description} \u00B7 {timeAgo(bill.created_at)}</div>
-                        {linkedHangout && <div style={{ fontSize: 12, color: 'var(--yellow)', marginTop: 2 }}>From {linkedHangout}</div>}
-                        <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Paid by {bill.profiles?.name || 'someone'}</div>
-                      </div>
-                      <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 6, background: progress === 100 ? 'var(--sage-soft)' : 'var(--amber-soft)', color: progress === 100 ? 'var(--sage)' : 'var(--amber)', fontWeight: 600 }}>
-                        {progress === 100 ? 'All settled' : `${settledCount}/${bill.splits?.length} settled`}
-                      </span>
-                    </div>
 
-                    {bill.splits?.map((split: any) => {
-                      const isMe = split.user_id === currentUser?.id
-                      return (
-                        <div key={split.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-                          <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            {getInitials(split.profiles?.name || 'U')}
+                    {isEditing ? (
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Edit bill</div>
+                        <BillSplitForm
+                          members={memberList}
+                          defaultSelectedIds={bill.splits?.map((s: any) => s.user_id)}
+                          defaultDesc={bill.description}
+                          defaultAmount={parseFloat(bill.total_amount)}
+                          submitLabel="Save changes"
+                          submitting={editSubmitting}
+                          error={editError}
+                          onSubmit={(desc, amount, splits) => handleEditBill(bill.id, desc, amount, splits)}
+                          onCancel={() => { setEditingBillId(null); setEditError('') }}
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                          <div>
+                            <div style={{ fontSize: 16, fontWeight: 700 }}>${parseFloat(bill.total_amount).toFixed(2)}</div>
+                            <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>{bill.description} \u00B7 {timeAgo(bill.created_at)}</div>
+                            {linkedHangout && <div style={{ fontSize: 12, color: 'var(--yellow)', marginTop: 2 }}>From {linkedHangout}</div>}
+                            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Paid by {bill.profiles?.name || 'someone'}</div>
                           </div>
-                          <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{split.profiles?.name || 'Unknown'}{isMe ? ' (you)' : ''}</span>
-                          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text3)' }}>
-                            ${parseFloat(split.amount).toFixed(2)}
+                          <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 6, background: progress === 100 ? 'var(--sage-soft)' : 'var(--amber-soft)', color: progress === 100 ? 'var(--sage)' : 'var(--amber)', fontWeight: 600 }}>
+                            {progress === 100 ? 'All settled' : `${settledCount}/${bill.splits?.length} settled`}
                           </span>
                         </div>
-                      )
-                    })}
+
+                        {bill.splits?.map((split: any) => {
+                          const isMe = split.user_id === currentUser?.id
+                          return (
+                            <div key={split.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                              <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                {getInitials(split.profiles?.name || 'U')}
+                              </div>
+                              <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{split.profiles?.name || 'Unknown'}{isMe ? ' (you)' : ''}</span>
+                              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text3)' }}>
+                                ${parseFloat(split.amount).toFixed(2)}
+                              </span>
+                            </div>
+                          )
+                        })}
+
+                        {isMine && (
+                          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                            <button onClick={() => { setEditingBillId(bill.id); setEditError('') }}
+                              style={{ padding: '6px 14px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                              Edit
+                            </button>
+                            <button onClick={() => handleDeleteBill(bill.id)} disabled={deletingBillId === bill.id}
+                              style={{ padding: '6px 14px', background: 'transparent', border: '1px solid var(--yellow-dim)', borderRadius: 8, color: 'var(--yellow)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', opacity: deletingBillId === bill.id ? 0.5 : 1 }}>
+                              {deletingBillId === bill.id ? 'Deleting...' : 'Delete'}
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 )
               })}

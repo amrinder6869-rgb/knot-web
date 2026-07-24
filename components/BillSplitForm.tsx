@@ -7,6 +7,8 @@ type SplitLine = { user_id: string; amount: number }
 type BillSplitFormProps = {
   members: Member[]
   defaultSelectedIds?: string[]
+  defaultDesc?: string
+  defaultAmount?: number
   submitLabel?: string
   submitting?: boolean
   error?: string
@@ -22,6 +24,8 @@ function getInitials(name: string) {
 export default function BillSplitForm({
   members,
   defaultSelectedIds,
+  defaultDesc = '',
+  defaultAmount,
   submitLabel = 'Post bill',
   submitting = false,
   error = '',
@@ -29,8 +33,8 @@ export default function BillSplitForm({
   onCancel,
   theme = 'light',
 }: BillSplitFormProps) {
-  const [desc, setDesc]     = useState('')
-  const [amount, setAmount] = useState('')
+  const [desc, setDesc]     = useState(defaultDesc)
+  const [amount, setAmount] = useState(defaultAmount !== undefined ? String(defaultAmount) : '')
   const [mode, setMode]     = useState<'equal' | 'percentage'>('equal')
   const [selected, setSelected] = useState<Set<string>>(
     new Set(defaultSelectedIds && defaultSelectedIds.length > 0 ? defaultSelectedIds : members.map(m => m.id))
