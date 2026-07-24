@@ -1,8 +1,9 @@
 -- Sprint E: edit / undo / delete — RLS policies + hangout cancelled status
--- Idempotent: skips existing policies; safe to re-run.
--- Apply against the production (or local) Supabase project before relying on
--- client-side UPDATE/DELETE calls. Check first with:
---   SELECT policyname, cmd FROM pg_policies WHERE tablename = '<table>';
+-- Idempotent for most policies (skip if already present). Exception: hangouts
+-- UPDATE is drop-and-recreate to enforce creator-only scope (see below).
+-- Already applied to production (with the hangouts_update + 'locked' corrections
+-- reflected here) — do not re-run against production; this file is the source of
+-- truth for fresh local/staging environments.
 
 -- ---------------------------------------------------------------------------
 -- posts: author can update / delete their own rows
@@ -74,24 +75,26 @@ BEGIN
 END $$;
 
 -- ---------------------------------------------------------------------------
--- hangouts: creator can update (covers edit + cancel). Skip if any UPDATE
--- policy already exists for this table (e.g. hangouts_update from a prior sprint).
+-- hangouts: REPLACE the UPDATE policy with creator-only scope.
+--
+-- Production already had a policy named hangouts_update scoped to
+-- is_knot_member(knot_id), which let any Knot member update any hangout via
+-- a direct API call. Every hangouts UPDATE path in the app (lockPlan, goLive,
+-- endHangout, edit details, cancel) is creator-only in the UI, with no
+-- legitimate non-creator update — so RLS must match. Do not skip this when an
+-- UPDATE policy already exists; drop and recreate explicitly.
 -- ---------------------------------------------------------------------------
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE schemaname = 'public' AND tablename = 'hangouts' AND cmd = 'UPDATE'
-  ) THEN
-    CREATE POLICY hangouts_update_own ON public.hangouts
-      FOR UPDATE TO authenticated
-      USING (created_by = auth.uid())
-      WITH CHECK (created_by = auth.uid());
-  END IF;
-END $$;
+DROP POLICY IF EXISTS "hangouts_update" ON public.hangouts;
+DROP POLICY IF EXISTS hangouts_update_own ON public.hangouts;
+CREATE POLICY "hangouts_update" ON public.hangouts
+  FOR UPDATE
+  USING (created_by = auth.uid());
 
 -- ---------------------------------------------------------------------------
--- hangouts.status: allow 'cancelled' (E.4)
+-- hangouts.status: allow 'cancelled' (E.4).
+-- Also keep 'locked' — a legacy status from an older lock-in flow that still
+-- exists on historical rows. New code must not write 'locked'; omitting it
+-- would make this CHECK fail against existing data.
 -- ---------------------------------------------------------------------------
 DO $$
 DECLARE
@@ -112,7 +115,7 @@ BEGIN
 
   ALTER TABLE public.hangouts
     ADD CONSTRAINT hangouts_status_check
-    CHECK (status IN ('voting', 'confirmed', 'live', 'ended', 'cancelled'));
+    CHECK (status IN ('voting', 'confirmed', 'live', 'ended', 'locked', 'cancelled'));
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
@@ -144,6 +147,12 @@ END $$;
 
 -- ---------------------------------------------------------------------------
 -- games: creator can delete waiting lobbies
+--
+-- Note: games_update intentionally stays scoped to is_knot_member(knot_id),
+-- not created_by. In AmongUsLite the vote-tally path that can set
+-- status = 'finished' is callable by any player once all alive players have
+-- voted (canTally has no creator check). Do not tighten games_update to
+-- creator-only.
 -- ---------------------------------------------------------------------------
 DO $$
 BEGIN
