@@ -277,10 +277,10 @@ async function switchKnot(k: any) {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-          <VibesCounter userId={user?.id} />
+          <VibesCounter userId={user?.id} userName={profile?.name} />
           <Notifications userId={user?.id || ''} knots={knots} onSelectKnot={(k) => switchKnot(k)} />
           <button onClick={() => setShowProfile(true)}
-            style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#111', border: 'none', cursor: 'pointer', overflow: 'hidden', flexShrink: 0 }}>
+            style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#111', border: profile?.equipped_ring_color ? `3px solid ${profile.equipped_ring_color}` : 'none', cursor: 'pointer', overflow: 'hidden', flexShrink: 0, boxSizing: 'border-box' }}>
             {profile?.avatar_url
               ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               : initials}

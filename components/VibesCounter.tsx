@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import RewardsShop from '@/components/RewardsShop'
 
 const REASON_LABELS: Record<string, string> = {
   moment_post: 'Posted a moment',
@@ -20,12 +21,13 @@ function timeAgo(date: string) {
   return `${Math.floor(seconds / 86400)}d ago`
 }
 
-export default function VibesCounter({ userId }: { userId?: string }) {
+export default function VibesCounter({ userId, userName }: { userId?: string, userName?: string }) {
   const [balance, setBalance] = useState<number | null>(null)
   const [history, setHistory] = useState<any[]>([])
   const [showPanel, setShowPanel] = useState(false)
   const [loading, setLoading] = useState(true)
   const [justEarned, setJustEarned] = useState(false)
+  const [showShop, setShowShop] = useState(false)
 
   useEffect(() => {
     if (!userId) return
@@ -109,8 +111,23 @@ export default function VibesCounter({ userId }: { userId?: string }) {
                 ))
               )}
             </div>
+            <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border)' }}>
+              <button onClick={() => { setShowShop(true); setShowPanel(false) }}
+                style={{ width: '100%', padding: '9px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Open Vibes Shop
+              </button>
+            </div>
           </div>
         </>
+      )}
+
+      {showShop && userId && (
+        <RewardsShop
+          userId={userId}
+          userName={userName || 'You'}
+          onClose={() => setShowShop(false)}
+          onRedeemed={load}
+        />
       )}
     </div>
   )
