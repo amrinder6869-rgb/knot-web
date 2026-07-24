@@ -6,7 +6,7 @@ import Discover from '@/components/Discover'
 import { compressImage } from '@/lib/compressImage'
 import DateTimePicker from '@/components/DateTimePicker'
 
-type PostType = 'moment' | 'hangout' | 'bill'
+type PostType = 'moment' | 'hangout'
 type WhenType = 'now' | 'pick' | 'weekly'
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -64,11 +64,6 @@ export default function Composer({
   const [creating, setCreating]           = useState(false)
   const [hangoutError, setHangoutError]   = useState('')
 
-  const [billDesc, setBillDesc]       = useState('')
-  const [billAmount, setBillAmount]   = useState('')
-  const [billPosting, setBillPosting] = useState(false)
-  const [billError, setBillError]     = useState('')
-
   function reset() {
     setActiveType(null)
     setMomentText('')
@@ -85,9 +80,6 @@ export default function Composer({
     setManualAddress('')
     setHangoutTitle('')
     setHangoutError('')
-    setBillDesc('')
-    setBillAmount('')
-    setBillError('')
   }
 
   function getVenueName() {
@@ -271,56 +263,6 @@ export default function Composer({
     onPosted()
   }
 
-  async function postBill() {
-    if (!billDesc.trim() || !billAmount || billPosting) return
-    const amount = parseFloat(billAmount)
-    if (isNaN(amount) || amount <= 0) return
-    setBillPosting(true)
-    setBillError('')
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setBillError('You need to be signed in to post.'); setBillPosting(false); return }
-
-    const { data: bill, error: billInsertError } = await supabase.from('bills').insert({
-      knot_id:      knotId,
-      added_by:     user.id,
-      total_amount: amount,
-      description:  billDesc.trim(),
-      split_type:   'equal',
-    }).select().single()
-
-    if (billInsertError || !bill) {
-      setBillError('Could not post the bill. Please try again.')
-      setBillPosting(false)
-      return
-    }
-
-    if (members.length > 0) {
-      const share = amount / members.length
-      const { error: splitsError } = await supabase.from('bill_splits').insert(
-        members.map(m => ({
-          bill_id:  bill.id,
-          user_id:  m.id,
-          amount:   parseFloat(share.toFixed(2)),
-          settled:  m.id === user.id,
-        }))
-      )
-      if (splitsError) setBillError('Bill posted, but the split failed to save.')
-
-      const { error: feedPostError } = await supabase.from('posts').insert({
-        knot_id:   knotId,
-        author_id: user.id,
-        content:   `${currentUser?.name || 'Someone'} added a bill \u2014 ${billDesc.trim()} ($${amount.toFixed(2)})`,
-        post_type: 'bill',
-      })
-      if (feedPostError) setBillError('Bill saved, but it could not be posted to the feed.')
-    }
-
-    setBillPosting(false)
-    reset()
-    onPosted()
-  }
-
   const userName  = currentUser?.name || 'You'
   const userInitials = userName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()
 
@@ -331,7 +273,6 @@ export default function Composer({
         {([
           { type: 'moment' as PostType, label: 'Moment' },
           { type: 'hangout' as PostType, label: "Let's hang" },
-          { type: 'bill' as PostType, label: 'Bill' },
         ]).map(({ type, label }) => (
           <button key={type}
             onClick={() => setActiveType(activeType === type ? null : type)}
@@ -538,42 +479,6 @@ export default function Composer({
             <button onClick={postHangout} disabled={creating}
               style={{ flex: 1, padding: '10px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: creating ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: creating ? 0.6 : 1 }}>
               {creating ? 'Posting...' : whenType === 'now' ? 'Post now' : 'Post hangout'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {activeType === 'bill' && (
-        <div style={{ padding: 16 }}>
-          {billError && (
-            <div style={{ padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)', marginBottom: 12 }}>
-              {billError}
-            </div>
-          )}
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>What for</div>
-            <input value={billDesc} onChange={e => setBillDesc(e.target.value)}
-              placeholder="Dinner, drinks, Uber..."
-              style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', fontWeight: 500 }} />
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Total amount</div>
-            <input type="number" value={billAmount} onChange={e => setBillAmount(e.target.value)}
-              placeholder="0.00"
-              style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', fontWeight: 500 }} />
-            {billAmount && !isNaN(parseFloat(billAmount)) && members.length > 0 && (
-              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>
-                Split equally: ${(parseFloat(billAmount) / members.length).toFixed(2)} per person ({members.length} members)
-              </div>
-            )}
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={reset} style={{ padding: '10px 16px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-              Cancel
-            </button>
-            <button onClick={postBill} disabled={!billDesc.trim() || !billAmount || billPosting}
-              style={{ flex: 1, padding: '10px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: !billDesc.trim() || !billAmount || billPosting ? 0.5 : 1 }}>
-              {billPosting ? 'Posting...' : 'Post bill'}
             </button>
           </div>
         </div>

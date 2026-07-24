@@ -5,6 +5,7 @@ import HangoutCard from '@/components/HangoutCard'
 import Composer from '@/components/Composer'
 import { loadHangoutBundle } from '@/lib/hangoutBundle'
 import PostComments from '@/components/PostComments'
+import { computeNetBalances } from '@/lib/ledger'
 
 type Reaction = { e: string; n: number; mine: boolean }
 type Post = {
@@ -50,11 +51,12 @@ function timeAgo(date: string) {
   return `${Math.floor(seconds / 86400)}d ago`
 }
 
-export default function Feed({ members, knotName: _knotName, knotId, currentUser }: {
-  members: any[], knotName: string, knotId?: string, currentUser?: any
+export default function Feed({ members, knotName: _knotName, knotId, currentUser, onOpenBills }: {
+  members: any[], knotName: string, knotId?: string, currentUser?: any, onOpenBills?: () => void
 }) {
   const [posts, setPosts]     = useState<Post[]>([])
   const [bundle, setBundle]   = useState<any>(null)
+  const [billBalance, setBillBalance] = useState<number | null>(null)
   const [momentComments, setMomentComments] = useState<Map<string, any[]>>(new Map())
   const [momentPhotos, setMomentPhotos] = useState<Map<string, string>>(new Map())
   const [loading, setLoading] = useState(true)
@@ -62,6 +64,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
   useEffect(() => {
     if (!knotId) return
     loadPosts()
+    loadBillBalance()
 
     // Debounce so a burst of realtime events (e.g. several RSVPs at once) triggers one reload, not several
     let debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -175,6 +178,29 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
     setLoading(false)
   }
 
+  async function loadBillBalance() {
+    if (!knotId || !currentUser) return
+    const [{ data: billData }, { data: settlementData }] = await Promise.all([
+      supabase.from('bills').select('id, added_by, total_amount').eq('knot_id', knotId),
+      supabase.from('settlements').select('from_user_id, to_user_id, amount').eq('knot_id', knotId),
+    ])
+    if (!billData) return
+    const billIds = billData.map((b: any) => b.id)
+    let splitData: any[] = []
+    if (billIds.length > 0) {
+      const { data } = await supabase.from('bill_splits').select('bill_id, user_id, amount').in('bill_id', billIds)
+      splitData = data || []
+    }
+    const memberList = members.map(m => ({ id: m.id, name: m.name }))
+    const balances = computeNetBalances(
+      billData.map((b: any) => ({ id: b.id, added_by: b.added_by, total_amount: parseFloat(b.total_amount) })),
+      splitData.map((s: any) => ({ bill_id: s.bill_id, user_id: s.user_id, amount: parseFloat(s.amount) })),
+      (settlementData || []).map((s: any) => ({ from_user_id: s.from_user_id, to_user_id: s.to_user_id, amount: parseFloat(s.amount) })),
+      memberList
+    )
+    setBillBalance(balances.get(currentUser.id) || 0)
+  }
+
   function buildCardData(post: Post) {
     if (!bundle || !post.hangout_id) return null
     const hangout = bundle.hangoutsById.get(post.hangout_id)
@@ -219,7 +245,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
   return (
     <div style={{ maxWidth: 640 }}>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 24 }}>
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--yellow)', borderRadius: 12, padding: '14px 16px' }}>
           <div style={{ fontSize: 11, color: 'var(--yellow)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Tonight</div>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Plan a hangout</div>
@@ -229,6 +255,28 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
           <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Members</div>
           <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>{members.length}</div>
           <div style={{ fontSize: 12, color: 'var(--text2)' }}>in this Knot</div>
+        </div>
+        <div onClick={onOpenBills}
+          style={{ background: 'var(--bg2)', border: `1px solid ${billBalance && Math.abs(billBalance) > 0.01 ? 'var(--yellow)' : 'var(--border)'}`, borderRadius: 12, padding: '14px 16px', cursor: onOpenBills ? 'pointer' : 'default' }}>
+          <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Bills</div>
+          {billBalance === null ? (
+            <div style={{ fontSize: 12, color: 'var(--text3)' }}>Loading...</div>
+          ) : Math.abs(billBalance) < 0.01 ? (
+            <>
+              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: 'var(--sage)' }}>Settled up</div>
+              <div style={{ fontSize: 12, color: 'var(--text2)' }}>View balances</div>
+            </>
+          ) : billBalance > 0 ? (
+            <>
+              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: 'var(--sage)' }}>+${billBalance.toFixed(2)}</div>
+              <div style={{ fontSize: 12, color: 'var(--text2)' }}>You are owed</div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: 'var(--yellow)' }}>-${Math.abs(billBalance).toFixed(2)}</div>
+              <div style={{ fontSize: 12, color: 'var(--text2)' }}>You owe</div>
+            </>
+          )}
         </div>
       </div>
 
