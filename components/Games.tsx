@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import AmongUsLite from '@/components/AmongUsLite'
+import Snake from '@/components/Snake'
+import Tetris from '@/components/Tetris'
 
 // Registry of games available in the Knot. Adding a future game is just a new
 // entry here plus its own component — no changes needed to this hub.
@@ -13,14 +15,34 @@ const GAMES_REGISTRY = [
     players: '4\u201310 players',
     mode: 'Async rounds',
     status: 'available' as const,
+    kind: 'lobby' as const,
+  },
+  {
+    id: 'snake',
+    name: 'Snake',
+    description: 'Classic snake. Chase the highest score and climb your Knot\'s leaderboard.',
+    players: 'Solo',
+    mode: 'Instant play',
+    status: 'available' as const,
+    kind: 'instant' as const,
+  },
+  {
+    id: 'tetris',
+    name: 'Tetris',
+    description: 'Clear lines, chase combos, and top your Knot\'s leaderboard.',
+    players: 'Solo',
+    mode: 'Instant play',
+    status: 'available' as const,
+    kind: 'instant' as const,
   },
   // Future games go here, e.g.:
-  // { id: 'live_among_us', name: 'Imposter Live', description: '...', players: '4-10', mode: 'Real-time', status: 'coming_soon' as const },
+  // { id: 'live_among_us', name: 'Imposter Live', description: '...', players: '4-10', mode: 'Real-time', status: 'coming_soon' as const, kind: 'lobby' as const },
 ]
 
 export default function Games({ members, knotId, currentUser }: { members: any[], knotId?: string, currentUser?: any }) {
   const [games, setGames]           = useState<any[]>([])
   const [activeGame, setActiveGame] = useState<any>(null)
+  const [instantGame, setInstantGame] = useState<string | null>(null)
   const [loading, setLoading]       = useState(true)
   const [error, setError]           = useState('')
 
@@ -48,6 +70,13 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
   async function createGame(gameId: string) {
     if (!knotId || !currentUser?.id) return
     setError('')
+
+    const registryEntry = GAMES_REGISTRY.find(g => g.id === gameId)
+    if (registryEntry?.kind === 'instant') {
+      setInstantGame(gameId)
+      return
+    }
+
     const { data, error: insertError } = await supabase
       .from('games')
       .insert({ knot_id: knotId, created_by: currentUser.id, game_type: gameId, status: 'waiting' })
@@ -78,6 +107,14 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
 
   if (!currentUser || !knotId) return (
     <div style={{ color: 'var(--text2)', fontSize: 13, padding: '20px 0' }}>Loading...</div>
+  )
+
+  if (instantGame === 'snake') return (
+    <Snake knotId={knotId} currentUser={currentUser} onBack={() => setInstantGame(null)} />
+  )
+
+  if (instantGame === 'tetris') return (
+    <Tetris knotId={knotId} currentUser={currentUser} onBack={() => setInstantGame(null)} />
   )
 
   if (activeGame?.id) return (
