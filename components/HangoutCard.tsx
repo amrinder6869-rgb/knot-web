@@ -2,6 +2,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { compressImage } from '@/lib/compressImage'
+import DateTimePicker from '@/components/DateTimePicker'
+import BillSplitForm from '@/components/BillSplitForm'
 
 function timeAgo(date: string) {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
@@ -71,6 +73,19 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
   const [editCommentText, setEditCommentText]   = useState('')
   const [editCommentSaving, setEditCommentSaving] = useState(false)
   const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null)
+
+  const [editingHangout, setEditingHangout] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const [editScheduledFor, setEditScheduledFor] = useState<Date | null>(null)
+  const [editVenueName, setEditVenueName] = useState('')
+  const [editVenueAddress, setEditVenueAddress] = useState('')
+  const [editHangoutSaving, setEditHangoutSaving] = useState(false)
+  const [cancellingHangout, setCancellingHangout] = useState(false)
+
+  const [editingBillId, setEditingBillId] = useState<string | null>(null)
+  const [editBillSubmitting, setEditBillSubmitting] = useState(false)
+  const [editBillError, setEditBillError] = useState('')
+  const [deletingBillId, setDeletingBillId] = useState<string | null>(null)
 
   // Re-sync local state whenever fresh bundle data arrives from the parent
   useEffect(() => {
@@ -300,27 +315,140 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
     onRefresh()
   }
 
+  function startEditHangout() {
+    setEditingHangout(true)
+    setEditTitle(hangout.title || '')
+    setEditScheduledFor(hangout.scheduled_for ? new Date(hangout.scheduled_for) : null)
+    setEditVenueName(hangout.venue_name || '')
+    setEditVenueAddress(hangout.venue_address || '')
+    setActionError('')
+  }
+
+  function cancelEditHangout() {
+    setEditingHangout(false)
+    setEditTitle('')
+    setEditScheduledFor(null)
+    setEditVenueName('')
+    setEditVenueAddress('')
+  }
+
+  async function saveEditHangout() {
+    if (!currentUser || hangout.created_by !== currentUser.id || editHangoutSaving) return
+    setEditHangoutSaving(true)
+    setActionError('')
+    const updates = {
+      title: editTitle.trim() || hangout.title,
+      scheduled_for: editScheduledFor ? editScheduledFor.toISOString() : null,
+      venue_name: editVenueName.trim() || null,
+      venue_address: editVenueAddress.trim() || null,
+    }
+    const { error } = await supabase
+      .from('hangouts')
+      .update(updates)
+      .eq('id', hangout.id)
+      .eq('created_by', currentUser.id)
+    if (error) {
+      setActionError('Could not update hangout details.')
+      setEditHangoutSaving(false)
+      return
+    }
+    setHangout((prev: any) => ({ ...prev, ...updates }))
+    setEditingHangout(false)
+    setEditHangoutSaving(false)
+    onRefresh()
+  }
+
+  async function cancelHangout() {
+    if (!currentUser || hangout.created_by !== currentUser.id) return
+    if (!confirm('Cancel this hangout? This cannot be undone.')) return
+    setCancellingHangout(true)
+    setActionError('')
+    const { error } = await supabase
+      .from('hangouts')
+      .update({ status: 'cancelled', is_live: false })
+      .eq('id', hangout.id)
+      .eq('created_by', currentUser.id)
+    if (error) {
+      setActionError('Could not cancel the hangout.')
+      setCancellingHangout(false)
+      return
+    }
+    setHangout((prev: any) => ({ ...prev, status: 'cancelled', is_live: false }))
+    setEditingHangout(false)
+    setCancellingHangout(false)
+    onRefresh()
+  }
+
+  async function handleEditBill(billId: string, desc: string, amount: number, splits: { user_id: string; amount: number }[]) {
+    if (!currentUser) return
+    setEditBillSubmitting(true)
+    setEditBillError('')
+    const { error: updateError } = await supabase
+      .from('bills')
+      .update({ description: desc, total_amount: amount })
+      .eq('id', billId)
+      .eq('added_by', currentUser.id)
+    if (updateError) {
+      setEditBillError('Could not update the bill. Please try again.')
+      setEditBillSubmitting(false)
+      return
+    }
+    const { error: deleteSplitsError } = await supabase.from('bill_splits').delete().eq('bill_id', billId)
+    if (deleteSplitsError) {
+      setEditBillError('Bill updated, but the old split could not be replaced.')
+      setEditBillSubmitting(false)
+      return
+    }
+    const { error: insertSplitsError } = await supabase.from('bill_splits').insert(
+      splits.map(s => ({ bill_id: billId, user_id: s.user_id, amount: s.amount, settled: s.user_id === currentUser.id }))
+    )
+    if (insertSplitsError) setEditBillError('Bill updated, but the new split failed to save.')
+    setEditBillSubmitting(false)
+    if (!insertSplitsError) setEditingBillId(null)
+    onRefresh()
+  }
+
+  async function handleDeleteBill(billId: string) {
+    if (!confirm('Delete this bill? This cannot be undone.')) return
+    setDeletingBillId(billId)
+    setActionError('')
+    const { error } = await supabase.from('bills').delete().eq('id', billId).eq('added_by', currentUser?.id)
+    if (error) {
+      setActionError('Could not delete the bill. Please try again.')
+      setDeletingBillId(null)
+      return
+    }
+    setBills(prev => prev.filter(b => b.id !== billId))
+    setDeletingBillId(null)
+    if (editingBillId === billId) setEditingBillId(null)
+    onRefresh()
+  }
+
   if (!hangout) return null
 
   const isCreator   = hangout.created_by === currentUser?.id
-  const isLive      = hangout.is_live
-  const isVoting    = hangout.status === 'voting' && !isLive
-  const isConfirmed = hangout.status === 'confirmed' && !isLive
+  const isCancelled = hangout.status === 'cancelled'
+  const isLive      = hangout.is_live && !isCancelled
+  const isVoting    = hangout.status === 'voting' && !isLive && !isCancelled
+  const isConfirmed = hangout.status === 'confirmed' && !isLive && !isCancelled
   const isDone      = hangout.status === 'ended'
+  const canEditHangout = isCreator && (hangout.status === 'voting' || hangout.status === 'confirmed')
+  const canCancelHangout = isCreator && !isDone && !isCancelled
   const goingCount  = rsvps.filter(r => r.status === 'yes').length
   const maybeCount  = rsvps.filter(r => r.status === 'maybe').length
   const authorName  = post.profiles?.name || 'Someone'
+  const memberList  = members.map(m => ({ id: m.id, name: m.name }))
 
-  const borderColor = isLive ? '#4ade80' : isConfirmed ? 'var(--sage)' : isVoting ? 'var(--yellow)' : 'var(--border)'
-  const statusLabel = isLive ? 'Live now' : isConfirmed ? 'Confirmed' : isVoting ? 'Vote open' : isDone ? 'Done' : 'Planning'
-  const statusColor = isLive ? '#4ade80' : isConfirmed ? 'var(--sage)' : isVoting ? 'var(--yellow)' : 'var(--text3)'
+  const borderColor = isCancelled ? 'var(--border)' : isLive ? '#4ade80' : isConfirmed ? 'var(--sage)' : isVoting ? 'var(--yellow)' : 'var(--border)'
+  const statusLabel = isCancelled ? 'Cancelled' : isLive ? 'Live now' : isConfirmed ? 'Confirmed' : isVoting ? 'Vote open' : isDone ? 'Done' : 'Planning'
+  const statusColor = isCancelled ? 'var(--text3)' : isLive ? '#4ade80' : isConfirmed ? 'var(--sage)' : isVoting ? 'var(--yellow)' : 'var(--text3)'
   const cardBg      = isLive ? 'linear-gradient(135deg, #111 0%, #1a1a1a 100%)' : 'var(--bg2)'
   const textColor   = isLive ? '#fff' : 'var(--text)'
   const subColor    = isLive ? 'rgba(255,255,255,0.45)' : 'var(--text3)'
   const borderSep   = isLive ? 'rgba(255,255,255,0.08)' : 'var(--border)'
 
   return (
-    <div style={{ background: cardBg, border: `1.5px solid ${borderColor}`, borderRadius: 14, padding: 20, marginBottom: 16 }}>
+    <div style={{ background: cardBg, border: `1.5px solid ${borderColor}`, borderRadius: 14, padding: 20, marginBottom: 16, opacity: isCancelled ? 0.55 : 1 }}>
 
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -330,14 +458,40 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         <span style={{ fontSize: 11, color: subColor }}>{timeAgo(post.created_at)}</span>
       </div>
 
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: textColor, marginBottom: 4 }}>{hangout.venue_name || hangout.title}</div>
-        {hangout.venue_address && <div style={{ fontSize: 12, color: subColor, marginBottom: 4 }}>{hangout.venue_address}</div>}
-        {hangout.scheduled_for && !isLive && (
-          <div style={{ fontSize: 13, color: isConfirmed ? 'var(--sage)' : 'var(--text2)', fontWeight: 600, marginTop: 4 }}>{formatDate(hangout.scheduled_for)}</div>
-        )}
-        <div style={{ fontSize: 11, color: subColor, marginTop: 4 }}>Started by {authorName}</div>
-      </div>
+      {editingHangout ? (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: textColor, marginBottom: 10 }}>Edit hangout</div>
+          <input value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="Title"
+            style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 8 }} />
+          <input value={editVenueName} onChange={e => setEditVenueName(e.target.value)} placeholder="Venue name"
+            style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 8 }} />
+          <input value={editVenueAddress} onChange={e => setEditVenueAddress(e.target.value)} placeholder="Venue address"
+            style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 10 }} />
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>Date and time</div>
+            <DateTimePicker value={editScheduledFor} onChange={setEditScheduledFor} />
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={cancelEditHangout}
+              style={{ padding: '8px 14px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+              Cancel
+            </button>
+            <button onClick={saveEditHangout} disabled={editHangoutSaving}
+              style={{ padding: '8px 14px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: editHangoutSaving ? 0.5 : 1 }}>
+              {editHangoutSaving ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: textColor, marginBottom: 4 }}>{hangout.venue_name || hangout.title}</div>
+          {hangout.venue_address && <div style={{ fontSize: 12, color: subColor, marginBottom: 4 }}>{hangout.venue_address}</div>}
+          {hangout.scheduled_for && !isLive && (
+            <div style={{ fontSize: 13, color: isConfirmed ? 'var(--sage)' : 'var(--text2)', fontWeight: 600, marginTop: 4 }}>{formatDate(hangout.scheduled_for)}</div>
+          )}
+          <div style={{ fontSize: 11, color: subColor, marginTop: 4 }}>Started by {authorName}</div>
+        </div>
+      )}
 
       {actionError && (
         <div style={{ padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)', marginBottom: 12 }}>
@@ -345,7 +499,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         </div>
       )}
 
-      {isVoting && options.length > 0 && (
+      {!isCancelled && isVoting && options.length > 0 && (
         <div style={{ marginBottom: 14 }}>
           {options.map((o: any) => {
             const maxVotes = Math.max(...options.map((x: any) => x.vote_count), 1)
@@ -371,7 +525,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         </div>
       )}
 
-      {(isConfirmed || isLive) && (
+      {!isCancelled && (isConfirmed || isLive) && (
         <div style={{ marginBottom: 14 }}>
           {rsvps.length > 0 && (
             <div style={{ display: 'flex', gap: 4, marginBottom: 10, flexWrap: 'wrap' }}>
@@ -397,7 +551,8 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: isDone || bills.length > 0 ? 14 : 0, flexWrap: 'wrap' }}>
+      {!isCancelled && (
+      <div style={{ display: 'flex', gap: 8, marginBottom: isDone || bills.length > 0 || canEditHangout || canCancelHangout ? 14 : 0, flexWrap: 'wrap' }}>
         {isConfirmed && isCreator && (
           <button onClick={goLive} style={{ padding: '8px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>We are here</button>
         )}
@@ -416,48 +571,95 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         {isDone && bills.length > 0 && !showBill && (
           <button onClick={() => setShowBill(true)} style={{ padding: '8px 14px', background: 'transparent', border: `1px solid ${borderSep}`, borderRadius: 8, color: subColor, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Add another bill</button>
         )}
+        {canEditHangout && !editingHangout && (
+          <button onClick={startEditHangout}
+            style={{ padding: '8px 14px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+            Edit
+          </button>
+        )}
+        {canCancelHangout && (
+          <button onClick={cancelHangout} disabled={cancellingHangout}
+            style={{ padding: '8px 14px', background: 'transparent', border: '1px solid var(--yellow-dim)', borderRadius: 8, color: 'var(--yellow)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', opacity: cancellingHangout ? 0.5 : 1 }}>
+            {cancellingHangout ? 'Cancelling...' : 'Cancel hangout'}
+          </button>
+        )}
       </div>
+      )}
 
-      {(showBill || bills.length > 0) && (
+      {(bills.length > 0 || (showBill && !isCancelled)) && (
         <div style={{ borderTop: `1px solid ${borderSep}`, paddingTop: 14, marginBottom: 14 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: subColor, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>Bill</div>
           {bills.map((b: any) => {
             const totalSplits = b.bill_splits?.length || 0
             const settledCount = b.bill_splits?.filter((s: any) => s.settled).length || 0
+            const isMine = b.added_by === currentUser?.id
+            const isEditing = editingBillId === b.id
             return (
               <div key={b.id} style={{ background: isLive ? 'rgba(255,255,255,0.04)' : 'var(--bg3)', border: `1px solid ${borderSep}`, borderRadius: 10, padding: 14, marginBottom: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                {isEditing && !isCancelled ? (
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: textColor }}>{b.description}</div>
-                    <div style={{ fontSize: 12, color: subColor, marginTop: 2 }}>${parseFloat(b.total_amount).toFixed(2)} total</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: textColor, marginBottom: 10 }}>Edit bill</div>
+                    <BillSplitForm
+                      members={memberList}
+                      defaultSelectedIds={b.bill_splits?.map((s: any) => s.user_id)}
+                      defaultDesc={b.description}
+                      defaultAmount={parseFloat(b.total_amount)}
+                      submitLabel="Save changes"
+                      submitting={editBillSubmitting}
+                      error={editBillError}
+                      onSubmit={(desc, amount, splits) => handleEditBill(b.id, desc, amount, splits)}
+                      onCancel={() => { setEditingBillId(null); setEditBillError('') }}
+                      theme={isLive ? 'dark' : 'light'}
+                    />
                   </div>
-                  <div style={{ fontSize: 11, color: settledCount === totalSplits ? 'var(--sage)' : subColor, fontWeight: 600 }}>{settledCount}/{totalSplits} settled</div>
-                </div>
-                <div style={{ width: '100%', height: 3, background: isLive ? 'rgba(255,255,255,0.1)' : 'var(--bg4)', borderRadius: 2, marginBottom: 10, overflow: 'hidden' }}>
-                  <div style={{ width: `${totalSplits > 0 ? (settledCount / totalSplits) * 100 : 0}%`, height: '100%', background: 'var(--sage)', borderRadius: 2, transition: 'width 0.3s' }} />
-                </div>
-                {b.bill_splits?.map((s: any) => {
-                  const isMe = s.user_id === currentUser?.id
-                  return (
-                    <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderTop: `1px solid ${borderSep}` }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{getInitials(s.profiles?.name || 'U')}</div>
-                        <span style={{ fontSize: 12, color: textColor }}>{s.profiles?.name || 'Someone'}{isMe ? ' (you)' : ''}</span>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: textColor }}>{b.description}</div>
+                        <div style={{ fontSize: 12, color: subColor, marginTop: 2 }}>${parseFloat(b.total_amount).toFixed(2)} total</div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 12, color: s.settled ? 'var(--sage)' : subColor, fontWeight: 600 }}>${parseFloat(s.amount).toFixed(2)}</span>
-                        {!s.settled && isMe && (
-                          <button onClick={() => markSplitSettled(s.id)} style={{ padding: '3px 10px', background: 'var(--yellow)', border: 'none', borderRadius: 6, color: '#111', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Mark paid</button>
-                        )}
-                        {s.settled && <span style={{ fontSize: 11, color: 'var(--sage)', fontWeight: 600 }}>Paid</span>}
-                      </div>
+                      <div style={{ fontSize: 11, color: settledCount === totalSplits ? 'var(--sage)' : subColor, fontWeight: 600 }}>{settledCount}/{totalSplits} settled</div>
                     </div>
-                  )
-                })}
+                    <div style={{ width: '100%', height: 3, background: isLive ? 'rgba(255,255,255,0.1)' : 'var(--bg4)', borderRadius: 2, marginBottom: 10, overflow: 'hidden' }}>
+                      <div style={{ width: `${totalSplits > 0 ? (settledCount / totalSplits) * 100 : 0}%`, height: '100%', background: 'var(--sage)', borderRadius: 2, transition: 'width 0.3s' }} />
+                    </div>
+                    {b.bill_splits?.map((s: any) => {
+                      const isMe = s.user_id === currentUser?.id
+                      return (
+                        <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderTop: `1px solid ${borderSep}` }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{getInitials(s.profiles?.name || 'U')}</div>
+                            <span style={{ fontSize: 12, color: textColor }}>{s.profiles?.name || 'Someone'}{isMe ? ' (you)' : ''}</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 12, color: s.settled ? 'var(--sage)' : subColor, fontWeight: 600 }}>${parseFloat(s.amount).toFixed(2)}</span>
+                            {!isCancelled && !s.settled && isMe && (
+                              <button onClick={() => markSplitSettled(s.id)} style={{ padding: '3px 10px', background: 'var(--yellow)', border: 'none', borderRadius: 6, color: '#111', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Mark paid</button>
+                            )}
+                            {s.settled && <span style={{ fontSize: 11, color: 'var(--sage)', fontWeight: 600 }}>Paid</span>}
+                          </div>
+                        </div>
+                      )
+                    })}
+                    {isMine && !isCancelled && (
+                      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                        <button onClick={() => { setEditingBillId(b.id); setEditBillError('') }}
+                          style={{ padding: '6px 14px', background: 'transparent', border: `1px solid ${borderSep}`, borderRadius: 8, color: subColor, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                          Edit
+                        </button>
+                        <button onClick={() => handleDeleteBill(b.id)} disabled={deletingBillId === b.id}
+                          style={{ padding: '6px 14px', background: 'transparent', border: '1px solid var(--yellow-dim)', borderRadius: 8, color: 'var(--yellow)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', opacity: deletingBillId === b.id ? 0.5 : 1 }}>
+                          {deletingBillId === b.id ? 'Deleting...' : 'Delete'}
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             )
           })}
-          {showBill && (
+          {showBill && !isCancelled && (
             <div style={{ background: isLive ? 'rgba(255,255,255,0.04)' : 'var(--bg3)', border: `1px solid ${borderSep}`, borderRadius: 10, padding: 14 }}>
               <div style={{ fontSize: 12, color: subColor, marginBottom: 10 }}>
                 Split between {rsvps.filter(r => r.status === 'yes').length > 0 ? `${rsvps.filter(r => r.status === 'yes').length} people who went` : `${members.length} members`}
