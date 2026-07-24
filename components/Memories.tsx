@@ -25,6 +25,10 @@ export default function Memories({ members: _members, knotId }: { members: any[]
   const [newComment, setNewComment]         = useState('')
   const [postingComment, setPostingComment] = useState(false)
   const [commentError, setCommentError]     = useState('')
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  const [editCommentText, setEditCommentText]   = useState('')
+  const [editCommentSaving, setEditCommentSaving] = useState(false)
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null)
   const [editingCaption, setEditingCaption] = useState(false)
   const [captionDraft, setCaptionDraft]     = useState('')
   const [captionError, setCaptionError]     = useState('')
@@ -45,6 +49,8 @@ export default function Memories({ members: _members, knotId }: { members: any[]
       setCommentError('')
       setCaptionError('')
       setDeleteError('')
+      setEditingCommentId(null)
+      setEditCommentText('')
     }
   }, [viewPhoto?.id])
 
@@ -146,10 +152,53 @@ export default function Memories({ members: _members, knotId }: { members: any[]
   }
 
   async function deleteComment(commentId: string) {
+    if (!user) return
+    if (!confirm('Delete this comment? This cannot be undone.')) return
+    setDeletingCommentId(commentId)
     setCommentError('')
     const { error } = await supabase.from('photo_comments').delete().eq('id', commentId).eq('user_id', user.id)
-    if (error) { setCommentError('Could not delete comment.'); return }
+    if (error) {
+      setCommentError('Could not delete comment.')
+      setDeletingCommentId(null)
+      return
+    }
+    if (editingCommentId === commentId) {
+      setEditingCommentId(null)
+      setEditCommentText('')
+    }
+    setDeletingCommentId(null)
     await loadComments(viewPhoto.id)
+  }
+
+  function startEditComment(c: any) {
+    setEditingCommentId(c.id)
+    setEditCommentText(c.content || '')
+    setCommentError('')
+  }
+
+  function cancelEditComment() {
+    setEditingCommentId(null)
+    setEditCommentText('')
+  }
+
+  async function saveEditComment(commentId: string) {
+    if (!user || editCommentSaving) return
+    setEditCommentSaving(true)
+    setCommentError('')
+    const { error } = await supabase
+      .from('photo_comments')
+      .update({ content: editCommentText.trim() })
+      .eq('id', commentId)
+      .eq('user_id', user.id)
+    if (error) {
+      setCommentError('Could not save comment.')
+      setEditCommentSaving(false)
+      return
+    }
+    setComments(prev => prev.map(c => c.id === commentId ? { ...c, content: editCommentText.trim() } : c))
+    setEditingCommentId(null)
+    setEditCommentText('')
+    setEditCommentSaving(false)
   }
 
   async function saveCaption() {
@@ -437,18 +486,51 @@ export default function Memories({ members: _members, knotId }: { members: any[]
                         {getInitials(c.profiles?.name || '?')}
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13 }}>
-                          <strong>{c.profiles?.name || 'Someone'}</strong>
-                          <span style={{ color: 'var(--text2)', marginLeft: 6 }}>{c.content}</span>
-                        </div>
-                        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{timeAgo(c.created_at)}</div>
+                        {editingCommentId === c.id ? (
+                          <div>
+                            <div style={{ fontSize: 13, marginBottom: 6 }}>
+                              <strong>{c.profiles?.name || 'Someone'}</strong>
+                            </div>
+                            <input
+                              value={editCommentText}
+                              onChange={e => setEditCommentText(e.target.value)}
+                              style={{ width: '100%', padding: '7px 10px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 6 }}
+                            />
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button onClick={cancelEditComment}
+                                style={{ padding: '5px 10px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--text3)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+                                Cancel
+                              </button>
+                              <button onClick={() => saveEditComment(c.id)} disabled={editCommentSaving || !editCommentText.trim()}
+                                style={{ padding: '5px 12px', background: 'var(--yellow)', border: 'none', borderRadius: 6, color: '#111', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: editCommentSaving || !editCommentText.trim() ? 0.5 : 1 }}>
+                                {editCommentSaving ? 'Saving...' : 'Save'}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div style={{ fontSize: 13 }}>
+                              <strong>{c.profiles?.name || 'Someone'}</strong>
+                              <span style={{ color: 'var(--text2)', marginLeft: 6 }}>{c.content}</span>
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 2 }}>
+                              <div style={{ fontSize: 11, color: 'var(--text3)' }}>{timeAgo(c.created_at)}</div>
+                              {c.user_id === user?.id && (
+                                <>
+                                  <button onClick={() => startEditComment(c)}
+                                    style={{ background: 'none', border: 'none', padding: 0, fontSize: 11, color: 'var(--text3)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                                    Edit
+                                  </button>
+                                  <button onClick={() => deleteComment(c.id)} disabled={deletingCommentId === c.id}
+                                    style={{ background: 'none', border: 'none', padding: 0, fontSize: 11, color: 'var(--yellow)', cursor: 'pointer', fontFamily: 'inherit', opacity: deletingCommentId === c.id ? 0.5 : 1 }}>
+                                    {deletingCommentId === c.id ? 'Deleting...' : 'Delete'}
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </>
+                        )}
                       </div>
-                      {c.user_id === user?.id && (
-                        <button onClick={() => deleteComment(c.id)}
-                          style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: 'transparent', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontFamily: 'inherit' }}>
-                          x
-                        </button>
-                      )}
                     </div>
                   ))}
                 </div>
