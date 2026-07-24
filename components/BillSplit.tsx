@@ -26,6 +26,8 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
   const [showAdd, setShowAdd]       = useState(false)
   const [adding, setAdding]         = useState(false)
   const [addError, setAddError]     = useState('')
+  const [undoingId, setUndoingId]   = useState<string | null>(null)
+  const [undoError, setUndoError]   = useState('')
 
   useEffect(() => {
     if (knotId) loadAll()
@@ -43,7 +45,7 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
         .order('created_at', { ascending: false }),
       supabase
         .from('settlements')
-        .select('*')
+        .select('*, from_profile:from_user_id(name), to_profile:to_user_id(name)')
         .eq('knot_id', knotId)
         .order('created_at', { ascending: false }),
     ])
@@ -102,6 +104,33 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
     await loadAll()
   }
 
+  // A settlement can be undone only if it's the most recent one for its directed
+  // (from -> to) pair. This avoids unwinding a settlement that a later one already built on.
+  function latestSettlementIdsByPair(list: any[]): Set<string> {
+    const latestByPair = new Map<string, any>()
+    for (const s of list) {
+      const key = s.from_user_id + '->' + s.to_user_id
+      const existing = latestByPair.get(key)
+      if (!existing || new Date(s.created_at) > new Date(existing.created_at)) {
+        latestByPair.set(key, s)
+      }
+    }
+    return new Set(Array.from(latestByPair.values()).map(s => s.id))
+  }
+
+  async function undoSettlement(settlementId: string) {
+    setUndoingId(settlementId)
+    setUndoError('')
+    const { error } = await supabase.from('settlements').delete().eq('id', settlementId)
+    if (error) {
+      setUndoError('Could not undo the settlement. Please try again.')
+      setUndoingId(null)
+      return
+    }
+    setUndoingId(null)
+    await loadAll()
+  }
+
   if (loading) return <div style={{ color: 'var(--text2)', fontSize: 13, padding: '20px 0' }}>Loading...</div>
 
   const memberList: Member[] = members.map(m => ({ id: m.id, name: m.name }))
@@ -113,6 +142,7 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
   const simplified = simplifyDebts(balances, memberList)
 
   const myBalance = balances.get(currentUser?.id) || 0
+  const undoableIds = latestSettlementIdsByPair(settlements)
 
   return (
     <div style={{ maxWidth: 720 }}>
@@ -173,51 +203,87 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
       )}
 
       {view === 'activity' && (
-        bills.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text2)' }}>
-            <div style={{ fontWeight: 600, marginBottom: 6 }}>No bills yet</div>
-            <div style={{ fontSize: 13, color: 'var(--text3)' }}>Bills from hangouts and standalone expenses show up here.</div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {bills.map((bill: any) => {
-              const settledCount = bill.splits?.filter((s: any) => s.settled).length || 0
-              const progress = bill.splits?.length > 0 ? Math.round(settledCount / bill.splits.length * 100) : 0
-              const linkedHangout = bill.hangouts?.venue_name || bill.hangouts?.title
+        <div>
+          {undoError && (
+            <div style={{ padding: '10px 14px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 13, color: 'var(--yellow)', marginBottom: 16 }}>
+              {undoError}
+            </div>
+          )}
 
-              return (
-                <div key={bill.id} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                    <div>
-                      <div style={{ fontSize: 16, fontWeight: 700 }}>${parseFloat(bill.total_amount).toFixed(2)}</div>
-                      <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>{bill.description} \u00B7 {timeAgo(bill.created_at)}</div>
-                      {linkedHangout && <div style={{ fontSize: 12, color: 'var(--yellow)', marginTop: 2 }}>From {linkedHangout}</div>}
-                      <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Paid by {bill.profiles?.name || 'someone'}</div>
-                    </div>
-                    <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 6, background: progress === 100 ? 'var(--sage-soft)' : 'var(--amber-soft)', color: progress === 100 ? 'var(--sage)' : 'var(--amber)', fontWeight: 600 }}>
-                      {progress === 100 ? 'All settled' : `${settledCount}/${bill.splits?.length} settled`}
-                    </span>
-                  </div>
-
-                  {bill.splits?.map((split: any) => {
-                    const isMe = split.user_id === currentUser?.id
-                    return (
-                      <div key={split.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          {getInitials(split.profiles?.name || 'U')}
-                        </div>
-                        <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{split.profiles?.name || 'Unknown'}{isMe ? ' (you)' : ''}</span>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text3)' }}>
-                          ${parseFloat(split.amount).toFixed(2)}
-                        </span>
+          {settlements.length > 0 && (
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>Settlements</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {settlements.map((s: any) => {
+                  const canUndo = undoableIds.has(s.id)
+                  return (
+                    <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10 }}>
+                      <div style={{ flex: 1, fontSize: 13, color: 'var(--text)' }}>
+                        <strong>{s.from_profile?.name || 'Someone'}</strong>
+                        <span style={{ color: 'var(--text2)' }}> paid </span>
+                        <strong>{s.to_profile?.name || 'someone'}</strong>
+                        <span style={{ color: 'var(--sage)', fontWeight: 700, marginLeft: 6 }}>${parseFloat(s.amount).toFixed(2)}</span>
                       </div>
-                    )
-                  })}
-                </div>
-              )
-            })}
-          </div>
-        )
+                      <span style={{ fontSize: 11, color: 'var(--text3)' }}>{timeAgo(s.created_at)}</span>
+                      {canUndo && (
+                        <button onClick={() => undoSettlement(s.id)} disabled={undoingId === s.id}
+                          style={{ padding: '5px 10px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--text3)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: undoingId === s.id ? 0.5 : 1, whiteSpace: 'nowrap' }}>
+                          {undoingId === s.id ? '...' : 'Undo'}
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {bills.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text2)' }}>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>No bills yet</div>
+              <div style={{ fontSize: 13, color: 'var(--text3)' }}>Bills from hangouts and standalone expenses show up here.</div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {bills.map((bill: any) => {
+                const settledCount = bill.splits?.filter((s: any) => s.settled).length || 0
+                const progress = bill.splits?.length > 0 ? Math.round(settledCount / bill.splits.length * 100) : 0
+                const linkedHangout = bill.hangouts?.venue_name || bill.hangouts?.title
+
+                return (
+                  <div key={bill.id} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 16, fontWeight: 700 }}>${parseFloat(bill.total_amount).toFixed(2)}</div>
+                        <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>{bill.description} \u00B7 {timeAgo(bill.created_at)}</div>
+                        {linkedHangout && <div style={{ fontSize: 12, color: 'var(--yellow)', marginTop: 2 }}>From {linkedHangout}</div>}
+                        <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Paid by {bill.profiles?.name || 'someone'}</div>
+                      </div>
+                      <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 6, background: progress === 100 ? 'var(--sage-soft)' : 'var(--amber-soft)', color: progress === 100 ? 'var(--sage)' : 'var(--amber)', fontWeight: 600 }}>
+                        {progress === 100 ? 'All settled' : `${settledCount}/${bill.splits?.length} settled`}
+                      </span>
+                    </div>
+
+                    {bill.splits?.map((split: any) => {
+                      const isMe = split.user_id === currentUser?.id
+                      return (
+                        <div key={split.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                          <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            {getInitials(split.profiles?.name || 'U')}
+                          </div>
+                          <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{split.profiles?.name || 'Unknown'}{isMe ? ' (you)' : ''}</span>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text3)' }}>
+                            ${parseFloat(split.amount).toFixed(2)}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
       )}
     </div>
   )
