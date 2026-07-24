@@ -105,6 +105,24 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
     setActiveGame(game)
   }
 
+  async function cancelLobby(game: any) {
+    if (!currentUser?.id || game.created_by !== currentUser.id || game.status !== 'waiting') return
+    if (!confirm('Cancel this lobby? This cannot be undone.')) return
+    setError('')
+    const { error: deleteError } = await supabase
+      .from('games')
+      .delete()
+      .eq('id', game.id)
+      .eq('created_by', currentUser.id)
+      .eq('status', 'waiting')
+    if (deleteError) {
+      setError('Could not cancel the lobby. Please try again.')
+      return
+    }
+    if (activeGame?.id === game.id) setActiveGame(null)
+    await loadGames()
+  }
+
   if (!currentUser || !knotId) return (
     <div style={{ color: 'var(--text2)', fontSize: 13, padding: '20px 0' }}>Loading...</div>
   )
@@ -194,6 +212,12 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
                   <button onClick={() => joinGame(g)}
                     style={{ padding: '6px 14px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                     {g.status === 'waiting' ? 'Join' : 'Rejoin'}
+                  </button>
+                )}
+                {g.status === 'waiting' && g.created_by === currentUser?.id && (
+                  <button onClick={() => cancelLobby(g)}
+                    style={{ padding: '6px 12px', background: 'transparent', border: '1px solid var(--yellow-dim)', borderRadius: 8, color: 'var(--yellow)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Cancel lobby
                   </button>
                 )}
               </div>
