@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 const SNAKE_HTML = `<!DOCTYPE html>
@@ -11,28 +11,54 @@ const SNAKE_HTML = `<!DOCTYPE html>
   <style>
     * { box-sizing: border-box; touch-action: manipulation; }
     body {
-      margin: 0; background: #0f172a; color: #f8fafc;
-      font-family: system-ui, -apple-system, sans-serif;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      min-height: 100vh; padding: 16px;
+      margin: 0; background: #FFFFFF; color: #111111;
+      font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 16px 12px;
     }
-    .header { display: flex; justify-content: space-between; width: 100%; max-width: 360px; margin-bottom: 12px; }
-    .score-box { font-size: 18px; font-weight: 600; }
-    canvas { background: #1e293b; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-    .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; width: 200px; }
-    .btn { background: #334155; color: #fff; border: none; padding: 16px; font-size: 18px; border-radius: 8px; cursor: pointer; }
+    .header { display: flex; justify-content: space-between; width: 100%; max-width: 300px; margin-bottom: 10px; }
+    .score-box { font-size: 14px; font-weight: 700; color: #111111; }
+    .score-box span { color: #C68E00; }
+    canvas { background: #F7F7F5; border: 1px solid #E5E5E5; border-radius: 12px; display: block; }
+    .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 14px; width: 168px; }
+    .btn {
+      background: #F0F0EE; color: #111111; border: 1px solid #E5E5E5; padding: 12px; font-size: 13px; font-weight: 600;
+      border-radius: 8px; cursor: pointer; font-family: inherit;
+    }
+    .btn:active { background: #E5E5E5; }
     .btn-up { grid-column: 2; }
     .btn-left { grid-column: 1; grid-row: 2; }
     .btn-down { grid-column: 2; grid-row: 2; }
     .btn-right { grid-column: 3; grid-row: 2; }
+    .toprow { display: flex; gap: 8px; width: 100%; max-width: 300px; margin-bottom: 10px; }
+    .toprow button {
+      flex: 1; padding: 8px; font-size: 12px; font-weight: 700; border-radius: 8px; border: none; cursor: pointer; font-family: inherit;
+    }
+    .btn-start { background: #F8BD03; color: #111111; }
+    .btn-pause { background: #F0F0EE; color: #111111; border: 1px solid #E5E5E5 !important; }
+    .overlay {
+      position: absolute; inset: 0; background: rgba(255,255,255,0.9);
+      display: flex; align-items: center; justify-content: center; flex-direction: column; border-radius: 12px;
+    }
+    .overlay-text { font-size: 13px; font-weight: 700; color: #111111; margin-bottom: 10px; }
+    .canvas-wrap { position: relative; }
   </style>
 </head>
 <body>
   <div class="header">
-    <div class="score-box">Score: <span id="score">0</span></div>
-    <div class="score-box">Best: <span id="highScore">0</span></div>
+    <div class="score-box">Score <span id="score">0</span></div>
+    <div class="score-box">Best <span id="highScore">0</span></div>
   </div>
-  <canvas id="gameCanvas" width="360" height="360"></canvas>
+  <div class="toprow">
+    <button class="btn-start" id="startBtn" onclick="toggleStart()">Start</button>
+    <button class="btn-pause" id="pauseBtn" onclick="togglePause()" disabled>Pause</button>
+  </div>
+  <div class="canvas-wrap">
+    <canvas id="gameCanvas" width="300" height="300"></canvas>
+    <div class="overlay" id="overlay">
+      <div class="overlay-text">Tap Start to play</div>
+    </div>
+  </div>
   <div class="controls">
     <button class="btn btn-up" onclick="setDir('UP')">Up</button>
     <button class="btn btn-left" onclick="setDir('LEFT')">Left</button>
@@ -44,20 +70,23 @@ const SNAKE_HTML = `<!DOCTYPE html>
   const ctx = canvas.getContext('2d');
   const scoreEl = document.getElementById('score');
   const highScoreEl = document.getElementById('highScore');
-  const GRID_SIZE = 18;
+  const overlay = document.getElementById('overlay');
+  const startBtn = document.getElementById('startBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const GRID_SIZE = 15;
   const TILE_COUNT = canvas.width / GRID_SIZE;
   let snake, food, dir, nextDir, score, gameInterval;
+  let running = false, paused = false;
   let highScore = 0;
   try { highScore = localStorage.getItem('snake_highscore') || 0; } catch (e) {}
   highScoreEl.innerText = highScore;
 
-  function initGame() {
+  function resetState() {
     snake = [{ x: 10, y: 10 }, { x: 10, y: 11 }];
     dir = 'UP'; nextDir = 'UP'; score = 0;
     scoreEl.innerText = score;
     spawnFood();
-    if (gameInterval) clearInterval(gameInterval);
-    gameInterval = setInterval(gameLoop, 120);
+    draw();
   }
 
   function spawnFood() {
@@ -65,7 +94,29 @@ const SNAKE_HTML = `<!DOCTYPE html>
     if (snake.some(s => s.x === food.x && s.y === food.y)) spawnFood();
   }
 
+  function toggleStart() {
+    resetState();
+    running = true; paused = false;
+    overlay.style.display = 'none';
+    startBtn.innerText = 'Restart';
+    pauseBtn.disabled = false;
+    pauseBtn.innerText = 'Pause';
+    if (gameInterval) clearInterval(gameInterval);
+    gameInterval = setInterval(gameLoop, 130);
+  }
+  window.toggleStart = toggleStart;
+
+  function togglePause() {
+    if (!running) return;
+    paused = !paused;
+    pauseBtn.innerText = paused ? 'Resume' : 'Pause';
+    overlay.style.display = paused ? 'flex' : 'none';
+    if (paused) overlay.querySelector('.overlay-text').innerText = 'Paused';
+  }
+  window.togglePause = togglePause;
+
   function setDir(newDir) {
+    if (!running || paused) return;
     const opposites = { UP: 'DOWN', DOWN: 'UP', LEFT: 'RIGHT', RIGHT: 'LEFT' };
     if (newDir !== opposites[dir]) nextDir = newDir;
   }
@@ -79,6 +130,7 @@ const SNAKE_HTML = `<!DOCTYPE html>
   });
 
   function gameLoop() {
+    if (paused) return;
     dir = nextDir;
     const head = { ...snake[0] };
     if (dir === 'UP') head.y--;
@@ -96,30 +148,33 @@ const SNAKE_HTML = `<!DOCTYPE html>
   }
 
   function draw() {
-    ctx.fillStyle = '#1e293b';
+    ctx.fillStyle = '#F7F7F5';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#ef4444';
+    ctx.fillStyle = '#C0392B';
     ctx.beginPath();
     ctx.arc((food.x + 0.5) * GRID_SIZE, (food.y + 0.5) * GRID_SIZE, GRID_SIZE / 2 - 2, 0, Math.PI * 2);
     ctx.fill();
     snake.forEach((segment, index) => {
-      ctx.fillStyle = index === 0 ? '#10b981' : '#34d399';
+      ctx.fillStyle = index === 0 ? '#C68E00' : '#F8BD03';
       ctx.fillRect(segment.x * GRID_SIZE + 1, segment.y * GRID_SIZE + 1, GRID_SIZE - 2, GRID_SIZE - 2);
     });
   }
 
   function gameOver() {
     clearInterval(gameInterval);
+    running = false;
     if (score > highScore) {
       highScore = score;
       try { localStorage.setItem('snake_highscore', highScore); } catch (e) {}
       highScoreEl.innerText = highScore;
     }
+    overlay.querySelector('.overlay-text').innerText = 'Game over \\u2014 tap Start';
+    overlay.style.display = 'flex';
+    pauseBtn.disabled = true;
     window.parent.postMessage({ type: 'snake_game_over', score: score }, '*');
-    setTimeout(initGame, 600);
   }
 
-  initGame();
+  resetState();
 </script>
 </body>
 </html>`
@@ -127,7 +182,6 @@ const SNAKE_HTML = `<!DOCTYPE html>
 export default function Snake({ knotId, currentUser, onBack }: { knotId: string, currentUser: any, onBack: () => void }) {
   const [leaderboard, setLeaderboard] = useState<any[]>([])
   const [error, setError] = useState('')
-  const iframeRef = useRef<HTMLIFrameElement>(null)
 
   useEffect(() => {
     loadLeaderboard()
@@ -172,11 +226,10 @@ export default function Snake({ knotId, currentUser, onBack }: { knotId: string,
       )}
 
       <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-        <div style={{ border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
+        <div style={{ border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', background: '#fff' }}>
           <iframe
-            ref={iframeRef}
             srcDoc={SNAKE_HTML}
-            style={{ width: 392, height: 520, border: 'none', display: 'block' }}
+            style={{ width: 340, height: 480, border: 'none', display: 'block' }}
             sandbox="allow-scripts"
           />
         </div>

@@ -11,28 +11,43 @@ const TETRIS_HTML = `<!DOCTYPE html>
   <style>
     * { box-sizing: border-box; touch-action: manipulation; }
     body {
-      margin: 0; background: #0f172a; color: #f8fafc;
-      font-family: system-ui, -apple-system, sans-serif;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      min-height: 100vh; padding: 16px;
+      margin: 0; background: #FFFFFF; color: #111111;
+      font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 14px 10px;
     }
-    .header { display: flex; justify-content: space-between; width: 100%; max-width: 240px; margin-bottom: 12px; }
-    .score-box { font-size: 16px; font-weight: 600; }
-    canvas { background: #1e293b; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-    .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; width: 240px; }
-    .btn { background: #334155; color: #fff; border: none; padding: 14px; font-size: 16px; border-radius: 8px; cursor: pointer; }
+    .header { display: flex; justify-content: space-between; width: 100%; max-width: 220px; margin-bottom: 8px; }
+    .score-box { font-size: 13px; font-weight: 700; color: #111111; }
+    .score-box span { color: #C68E00; }
+    canvas { background: #F7F7F5; border: 1px solid #E5E5E5; border-radius: 10px; display: block; }
+    .toprow { display: flex; gap: 6px; width: 100%; max-width: 220px; margin-bottom: 8px; }
+    .toprow button { flex: 1; padding: 7px; font-size: 11px; font-weight: 700; border-radius: 8px; border: none; cursor: pointer; font-family: inherit; }
+    .btn-start { background: #F8BD03; color: #111111; }
+    .btn-pause { background: #F0F0EE; color: #111111; border: 1px solid #E5E5E5 !important; }
+    .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; width: 220px; }
+    .btn { background: #F0F0EE; color: #111111; border: 1px solid #E5E5E5; padding: 11px; font-size: 12px; font-weight: 600; border-radius: 8px; cursor: pointer; font-family: inherit; }
     .btn-rotate { grid-column: 2; }
     .btn-left { grid-column: 1; grid-row: 2; }
     .btn-drop { grid-column: 2; grid-row: 2; }
     .btn-right { grid-column: 3; grid-row: 2; }
+    .canvas-wrap { position: relative; }
+    .overlay { position: absolute; inset: 0; background: rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; border-radius: 10px; }
+    .overlay-text { font-size: 12px; font-weight: 700; color: #111111; }
   </style>
 </head>
 <body>
   <div class="header">
-    <div class="score-box">Score: <span id="score">0</span></div>
-    <div class="score-box">Lines: <span id="lines">0</span></div>
+    <div class="score-box">Score <span id="score">0</span></div>
+    <div class="score-box">Lines <span id="lines">0</span></div>
   </div>
-  <canvas id="tetris" width="240" height="480"></canvas>
+  <div class="toprow">
+    <button class="btn-start" id="startBtn" onclick="toggleStart()">Start</button>
+    <button class="btn-pause" id="pauseBtn" onclick="togglePause()" disabled>Pause</button>
+  </div>
+  <div class="canvas-wrap">
+    <canvas id="tetris" width="200" height="400"></canvas>
+    <div class="overlay" id="overlay"><div class="overlay-text">Tap Start to play</div></div>
+  </div>
   <div class="controls">
     <button class="btn btn-rotate" onclick="playerRotate(1)">Rotate</button>
     <button class="btn btn-left" onclick="playerMove(-1)">Left</button>
@@ -42,9 +57,12 @@ const TETRIS_HTML = `<!DOCTYPE html>
 <script>
   const canvas = document.getElementById('tetris');
   const context = canvas.getContext('2d');
-  context.scale(24, 24);
+  context.scale(20, 20);
   const scoreEl = document.getElementById('score');
   const linesEl = document.getElementById('lines');
+  const overlay = document.getElementById('overlay');
+  const startBtn = document.getElementById('startBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
 
   const PIECES = {
     'I': [[0,1,0,0],[0,1,0,0],[0,1,0,0],[0,1,0,0]],
@@ -55,10 +73,11 @@ const TETRIS_HTML = `<!DOCTYPE html>
     'S': [[0,6,6],[6,6,0],[0,0,0]],
     'T': [[0,7,0],[7,7,7],[0,0,0]]
   };
-  const COLORS = [null,'#00f0f0','#f0a000','#0000f0','#f0f000','#f00000','#00f000','#a000f0'];
+  const COLORS = [null,'#F8BD03','#C68E00','#111111','#8B7355','#C0392B','#5A6B2A','#6B705C'];
 
-  const arena = createMatrix(10, 20);
+  let arena = createMatrix(10, 20);
   let score = 0, lines = 0;
+  let running = false, paused = false;
   const player = { pos: { x: 0, y: 0 }, matrix: null };
 
   function createMatrix(w, h) { const m = []; while (h--) m.push(new Array(w).fill(0)); return m; }
@@ -91,6 +110,7 @@ const TETRIS_HTML = `<!DOCTYPE html>
   }
 
   function playerDrop() {
+    if (!running || paused) return;
     player.pos.y++;
     if (collide(arena, player)) {
       player.pos.y--;
@@ -100,8 +120,14 @@ const TETRIS_HTML = `<!DOCTYPE html>
     }
     dropCounter = 0;
   }
+  window.playerDrop = playerDrop;
 
-  function playerMove(dir) { player.pos.x += dir; if (collide(arena, player)) player.pos.x -= dir; }
+  function playerMove(dir) {
+    if (!running || paused) return;
+    player.pos.x += dir;
+    if (collide(arena, player)) player.pos.x -= dir;
+  }
+  window.playerMove = playerMove;
 
   function rotate(matrix, dir) {
     for (let y = 0; y < matrix.length; ++y)
@@ -109,7 +135,8 @@ const TETRIS_HTML = `<!DOCTYPE html>
     if (dir > 0) matrix.forEach(row => row.reverse());
     else matrix.reverse();
   }
-  window.playerRotate = function(dir) {
+  function playerRotate(dir) {
+    if (!running || paused) return;
     const pos = player.pos.x;
     let offset = 1;
     rotate(player.matrix, dir);
@@ -118,22 +145,46 @@ const TETRIS_HTML = `<!DOCTYPE html>
       offset = -(offset + (offset > 0 ? 1 : -1));
       if (offset > player.matrix[0].length) { rotate(player.matrix, -dir); player.pos.x = pos; return; }
     }
-  };
-  window.playerMove = playerMove;
-  window.playerDrop = playerDrop;
+  }
+  window.playerRotate = playerRotate;
 
   function playerReset() {
     const pieces = 'ILJOTSZ';
     player.matrix = PIECES[pieces[pieces.length * Math.random() | 0]];
     player.pos.y = 0;
     player.pos.x = (arena[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);
-    if (collide(arena, player)) { arena.forEach(row => row.fill(0)); gameOver(); }
+    if (collide(arena, player)) gameOver();
   }
 
-  function gameOver() {
-    window.parent.postMessage({ type: 'tetris_game_over', score: score, lines: lines }, '*');
+  function toggleStart() {
+    arena = createMatrix(10, 20);
     score = 0; lines = 0;
     scoreEl.innerText = 0; linesEl.innerText = 0;
+    running = true; paused = false;
+    overlay.style.display = 'none';
+    startBtn.innerText = 'Restart';
+    pauseBtn.disabled = false;
+    pauseBtn.innerText = 'Pause';
+    playerReset();
+    lastTime = 0; dropCounter = 0;
+  }
+  window.toggleStart = toggleStart;
+
+  function togglePause() {
+    if (!running) return;
+    paused = !paused;
+    pauseBtn.innerText = paused ? 'Resume' : 'Pause';
+    overlay.style.display = paused ? 'flex' : 'none';
+    if (paused) overlay.querySelector('.overlay-text').innerText = 'Paused';
+  }
+  window.togglePause = togglePause;
+
+  function gameOver() {
+    running = false;
+    overlay.querySelector('.overlay-text').innerText = 'Game over \\u2014 tap Start';
+    overlay.style.display = 'flex';
+    pauseBtn.disabled = true;
+    window.parent.postMessage({ type: 'tetris_game_over', score: score, lines: lines }, '*');
   }
 
   function drawMatrix(matrix, offset) {
@@ -141,7 +192,7 @@ const TETRIS_HTML = `<!DOCTYPE html>
       if (value !== 0) {
         context.fillStyle = COLORS[value];
         context.fillRect(x + offset.x, y + offset.y, 1, 1);
-        context.strokeStyle = '#1e293b';
+        context.strokeStyle = '#F7F7F5';
         context.lineWidth = 0.05;
         context.strokeRect(x + offset.x, y + offset.y, 1, 1);
       }
@@ -149,18 +200,20 @@ const TETRIS_HTML = `<!DOCTYPE html>
   }
 
   function draw() {
-    context.fillStyle = '#1e293b';
+    context.fillStyle = '#F7F7F5';
     context.fillRect(0, 0, canvas.width, canvas.height);
     drawMatrix(arena, { x: 0, y: 0 });
-    drawMatrix(player.matrix, player.pos);
+    if (player.matrix) drawMatrix(player.matrix, player.pos);
   }
 
   let dropCounter = 0, dropInterval = 1000, lastTime = 0;
   function update(time = 0) {
     const deltaTime = time - lastTime;
     lastTime = time;
-    dropCounter += deltaTime;
-    if (dropCounter > dropInterval) playerDrop();
+    if (running && !paused) {
+      dropCounter += deltaTime;
+      if (dropCounter > dropInterval) playerDrop();
+    }
     draw();
     requestAnimationFrame(update);
   }
@@ -172,7 +225,7 @@ const TETRIS_HTML = `<!DOCTYPE html>
     if (event.keyCode === 38 || event.keyCode === 87) playerRotate(1);
   });
 
-  playerReset();
+  draw();
   update();
 </script>
 </body>
@@ -225,10 +278,10 @@ export default function Tetris({ knotId, currentUser, onBack }: { knotId: string
       )}
 
       <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-        <div style={{ border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
+        <div style={{ border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', background: '#fff' }}>
           <iframe
             srcDoc={TETRIS_HTML}
-            style={{ width: 280, height: 620, border: 'none', display: 'block' }}
+            style={{ width: 260, height: 560, border: 'none', display: 'block' }}
             sandbox="allow-scripts"
           />
         </div>
