@@ -93,9 +93,11 @@ const savedKnotId = localStorage.getItem('active_knot_id')
 const savedKnot = savedKnotId ? knotList.find(k => k.id === savedKnotId) : null
 const startKnot = savedKnot || knotList[0]
 const savedShowHome = localStorage.getItem('show_home')
+const savedActiveTab = localStorage.getItem('active_tab')
 if (savedShowHome === 'false' && savedKnot) {
   setShowHome(false)
   setActiveKnot(startKnot)
+  if (savedActiveTab) setActive(savedActiveTab)
 } else {
   setActiveKnot(startKnot)
 }
@@ -106,6 +108,10 @@ await loadKnotMembers(startKnot.id, data.user.id)
       setKnotsLoading(false)
     })
   }, [])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') localStorage.setItem('active_tab', active)
+  }, [active])
 
   async function loadKnotMembers(knotId: string, userId?: string) {
     const { data } = await supabase
