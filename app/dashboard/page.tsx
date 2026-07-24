@@ -39,7 +39,10 @@ const MEMBER_COLORS = [
 ]
 
 export default function Dashboard() {
-  const [active, setActive]                 = useState('feed')
+  const [active, setActive]                 = useState(() => {
+    if (typeof window === 'undefined') return 'feed'
+    return localStorage.getItem('active_tab') || 'feed'
+  })
   const [activeKnot, setActiveKnot]         = useState<any>(null)
   const [homeTab, setHomeTab]               = useState<'feed' | 'events' | 'bills'>('feed')
   const [user, setUser]                     = useState<any>(null)
