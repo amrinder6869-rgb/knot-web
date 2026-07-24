@@ -67,6 +67,11 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
   const [detectingLocation, setDetectingLocation]   = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
 
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  const [editCommentText, setEditCommentText]   = useState('')
+  const [editCommentSaving, setEditCommentSaving] = useState(false)
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null)
+
   // Re-sync local state whenever fresh bundle data arrives from the parent
   useEffect(() => {
     setHangout(data.hangout)
@@ -231,6 +236,67 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
     setCommentLocation('')
     setShowLocationInput(false)
     setSubmitting(false)
+    onRefresh()
+  }
+
+  function startEditComment(c: any) {
+    setEditingCommentId(c.id)
+    setEditCommentText(c.content || '')
+    setActionError('')
+  }
+
+  function cancelEditComment() {
+    setEditingCommentId(null)
+    setEditCommentText('')
+  }
+
+  async function saveEditComment(commentId: string) {
+    if (!currentUser || editCommentSaving) return
+    setEditCommentSaving(true)
+    setActionError('')
+    const { error } = await supabase
+      .from('comments')
+      .update({ content: editCommentText.trim() || null })
+      .eq('id', commentId)
+      .eq('author_id', currentUser.id)
+    if (error) {
+      setActionError('Could not save comment.')
+      setEditCommentSaving(false)
+      return
+    }
+    setComments(prev => prev.map(c => c.id === commentId ? { ...c, content: editCommentText.trim() || null } : c))
+    setEditingCommentId(null)
+    setEditCommentText('')
+    setEditCommentSaving(false)
+    onRefresh()
+  }
+
+  async function deleteComment(c: any) {
+    if (!currentUser) return
+    if (!confirm('Delete this comment? This cannot be undone.')) return
+    setDeletingCommentId(c.id)
+    setActionError('')
+    if (c.photo_path) {
+      const { error: storageError } = await supabase.storage.from('knot-photos').remove([c.photo_path])
+      if (storageError) {
+        setActionError('Could not delete the comment photo. Comment was not removed.')
+        setDeletingCommentId(null)
+        return
+      }
+    }
+    const { error } = await supabase
+      .from('comments')
+      .delete()
+      .eq('id', c.id)
+      .eq('author_id', currentUser.id)
+    if (error) {
+      setActionError('Could not delete comment.')
+      setDeletingCommentId(null)
+      return
+    }
+    setComments(prev => prev.filter(x => x.id !== c.id))
+    if (editingCommentId === c.id) cancelEditComment()
+    setDeletingCommentId(null)
     onRefresh()
   }
 
@@ -429,13 +495,49 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
                 <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{getInitials(c.profiles?.name || 'U')}</div>
                 <div style={{ flex: 1 }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: isLive ? 'rgba(255,255,255,0.8)' : 'var(--text)' }}>{c.profiles?.name || 'Someone'}</span>
-                  {c.content && <span style={{ fontSize: 12, color: isLive ? 'rgba(255,255,255,0.55)' : 'var(--text2)', marginLeft: 6 }}>{c.content}</span>}
-                  {c.photo_url && (
+                  {editingCommentId === c.id ? (
                     <div style={{ marginTop: 6 }}>
-                      <img src={c.photo_url} alt="" style={{ maxWidth: '100%', maxHeight: 240, borderRadius: 8, objectFit: 'cover', display: 'block' }} />
+                      <input
+                        value={editCommentText}
+                        onChange={e => setEditCommentText(e.target.value)}
+                        style={{ width: '100%', padding: '7px 10px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${borderSep}`, borderRadius: 8, color: textColor, fontSize: 12, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 6 }}
+                      />
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button onClick={cancelEditComment}
+                          style={{ padding: '5px 10px', background: 'transparent', border: `1px solid ${borderSep}`, borderRadius: 6, color: subColor, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+                          Cancel
+                        </button>
+                        <button onClick={() => saveEditComment(c.id)} disabled={editCommentSaving}
+                          style={{ padding: '5px 12px', background: 'var(--yellow)', border: 'none', borderRadius: 6, color: '#111', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: editCommentSaving ? 0.5 : 1 }}>
+                          {editCommentSaving ? 'Saving...' : 'Save'}
+                        </button>
+                      </div>
                     </div>
+                  ) : (
+                    <>
+                      {c.content && <span style={{ fontSize: 12, color: isLive ? 'rgba(255,255,255,0.55)' : 'var(--text2)', marginLeft: 6 }}>{c.content}</span>}
+                      {c.photo_url && (
+                        <div style={{ marginTop: 6 }}>
+                          <img src={c.photo_url} alt="" style={{ maxWidth: '100%', maxHeight: 240, borderRadius: 8, objectFit: 'cover', display: 'block' }} />
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 3 }}>
+                        <div style={{ fontSize: 10, color: subColor }}>{timeAgo(c.created_at)}</div>
+                        {c.author_id === currentUser?.id && (
+                          <>
+                            <button onClick={() => startEditComment(c)}
+                              style={{ background: 'none', border: 'none', padding: 0, fontSize: 10, color: subColor, cursor: 'pointer', fontFamily: 'inherit' }}>
+                              Edit
+                            </button>
+                            <button onClick={() => deleteComment(c)} disabled={deletingCommentId === c.id}
+                              style={{ background: 'none', border: 'none', padding: 0, fontSize: 10, color: 'var(--yellow)', cursor: 'pointer', fontFamily: 'inherit', opacity: deletingCommentId === c.id ? 0.5 : 1 }}>
+                              {deletingCommentId === c.id ? 'Deleting...' : 'Delete'}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </>
                   )}
-                  <div style={{ fontSize: 10, color: subColor, marginTop: 3 }}>{timeAgo(c.created_at)}</div>
                 </div>
               </div>
             ))}

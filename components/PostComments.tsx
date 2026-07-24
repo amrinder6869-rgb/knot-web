@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { compressImage } from '@/lib/compressImage'
 
@@ -32,6 +32,15 @@ export default function PostComments({ postId, currentUser, initialComments, onC
   const [commentPhoto, setCommentPhoto]               = useState<File | null>(null)
   const [commentPhotoPreview, setCommentPhotoPreview] = useState<string | null>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
+
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editText, setEditText]   = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setComments(initialComments)
+  }, [initialComments])
 
   function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -82,6 +91,71 @@ export default function PostComments({ postId, currentUser, initialComments, onC
     if (onCommentAdded) onCommentAdded()
   }
 
+  function startEdit(c: any) {
+    setEditingId(c.id)
+    setEditText(c.content || '')
+    setError('')
+  }
+
+  function cancelEdit() {
+    setEditingId(null)
+    setEditText('')
+  }
+
+  async function saveEdit(commentId: string) {
+    if (!currentUser || editSaving) return
+    setEditSaving(true)
+    setError('')
+    const { error: updateError } = await supabase
+      .from('comments')
+      .update({ content: editText.trim() || null })
+      .eq('id', commentId)
+      .eq('author_id', currentUser.id)
+
+    if (updateError) {
+      setError('Could not save comment.')
+      setEditSaving(false)
+      return
+    }
+
+    setComments(prev => prev.map(c => c.id === commentId ? { ...c, content: editText.trim() || null } : c))
+    setEditingId(null)
+    setEditText('')
+    setEditSaving(false)
+  }
+
+  async function deleteComment(c: any) {
+    if (!currentUser) return
+    if (!confirm('Delete this comment? This cannot be undone.')) return
+    setDeletingId(c.id)
+    setError('')
+
+    if (c.photo_path) {
+      const { error: storageError } = await supabase.storage.from('knot-photos').remove([c.photo_path])
+      if (storageError) {
+        setError('Could not delete the comment photo. Comment was not removed.')
+        setDeletingId(null)
+        return
+      }
+    }
+
+    const { error: deleteError } = await supabase
+      .from('comments')
+      .delete()
+      .eq('id', c.id)
+      .eq('author_id', currentUser.id)
+
+    if (deleteError) {
+      setError('Could not delete comment.')
+      setDeletingId(null)
+      return
+    }
+
+    setComments(prev => prev.filter(x => x.id !== c.id))
+    if (editingId === c.id) cancelEdit()
+    setDeletingId(null)
+  }
+
   return (
     <div style={{ marginTop: 10 }}>
       <button onClick={() => setShowComments(s => !s)}
@@ -98,13 +172,49 @@ export default function PostComments({ postId, currentUser, initialComments, onC
               </div>
               <div style={{ flex: 1 }}>
                 <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{c.profiles?.name || 'Someone'}</span>
-                {c.content && <span style={{ fontSize: 12, color: 'var(--text2)', marginLeft: 6 }}>{c.content}</span>}
-                {c.photo_url && (
+                {editingId === c.id ? (
                   <div style={{ marginTop: 6 }}>
-                    <img src={c.photo_url} alt="" style={{ maxWidth: '100%', maxHeight: 220, borderRadius: 8, objectFit: 'cover', display: 'block' }} />
+                    <input
+                      value={editText}
+                      onChange={e => setEditText(e.target.value)}
+                      style={{ width: '100%', padding: '7px 10px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 12, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 6 }}
+                    />
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button onClick={cancelEdit}
+                        style={{ padding: '5px 10px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--text3)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        Cancel
+                      </button>
+                      <button onClick={() => saveEdit(c.id)} disabled={editSaving}
+                        style={{ padding: '5px 12px', background: 'var(--yellow)', border: 'none', borderRadius: 6, color: '#111', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: editSaving ? 0.5 : 1 }}>
+                        {editSaving ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
                   </div>
+                ) : (
+                  <>
+                    {c.content && <span style={{ fontSize: 12, color: 'var(--text2)', marginLeft: 6 }}>{c.content}</span>}
+                    {c.photo_url && (
+                      <div style={{ marginTop: 6 }}>
+                        <img src={c.photo_url} alt="" style={{ maxWidth: '100%', maxHeight: 220, borderRadius: 8, objectFit: 'cover', display: 'block' }} />
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 2 }}>
+                      <div style={{ fontSize: 10, color: 'var(--text3)' }}>{timeAgo(c.created_at)}</div>
+                      {c.author_id === currentUser?.id && (
+                        <>
+                          <button onClick={() => startEdit(c)}
+                            style={{ background: 'none', border: 'none', padding: 0, fontSize: 10, color: 'var(--text3)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                            Edit
+                          </button>
+                          <button onClick={() => deleteComment(c)} disabled={deletingId === c.id}
+                            style={{ background: 'none', border: 'none', padding: 0, fontSize: 10, color: 'var(--yellow)', cursor: 'pointer', fontFamily: 'inherit', opacity: deletingId === c.id ? 0.5 : 1 }}>
+                            {deletingId === c.id ? 'Deleting...' : 'Delete'}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </>
                 )}
-                <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{timeAgo(c.created_at)}</div>
               </div>
             </div>
           ))}
