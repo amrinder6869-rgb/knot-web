@@ -13,12 +13,28 @@ export default function Hangout({ members, knotId, currentUser }: { members: any
   useEffect(() => {
     if (!knotId) return
     loadHangoutPosts()
+
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null
+    function scheduleReload() {
+      if (debounceTimer) clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => loadHangoutPosts(), 400)
+    }
+
     const channel = supabase
       .channel(`tonight:${knotId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'posts', filter: `knot_id=eq.${knotId}` }, () => loadHangoutPosts())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'hangouts', filter: `knot_id=eq.${knotId}` }, () => loadHangoutPosts())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'hangout_rsvps' }, scheduleReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'hangout_votes' }, scheduleReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, scheduleReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bills', filter: `knot_id=eq.${knotId}` }, scheduleReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bill_splits' }, scheduleReload)
       .subscribe()
-    return () => { supabase.removeChannel(channel) }
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer)
+      supabase.removeChannel(channel)
+    }
   }, [knotId])
 
   async function loadHangoutPosts() {

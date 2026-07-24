@@ -62,13 +62,33 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
   useEffect(() => {
     if (!knotId) return
     loadPosts()
+
+    // Debounce so a burst of realtime events (e.g. several RSVPs at once) triggers one reload, not several
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null
+    function scheduleReload() {
+      if (debounceTimer) clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => loadPosts(), 400)
+    }
+
     const channel = supabase
       .channel(`posts:${knotId}`)
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'posts', filter: `knot_id=eq.${knotId}`
       }, () => loadPosts())
+      // Hangout interactions from other members — RSVPs, votes, comments, and bills don't
+      // carry knot_id directly on every table, so we refresh on any change and let RLS
+      // scope what's actually returned. See H.3 hardening notes.
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'hangout_rsvps' }, scheduleReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'hangout_votes' }, scheduleReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, scheduleReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bills', filter: `knot_id=eq.${knotId}` }, scheduleReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bill_splits' }, scheduleReload)
       .subscribe()
-    return () => { supabase.removeChannel(channel) }
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer)
+      supabase.removeChannel(channel)
+    }
   }, [knotId])
 
   async function loadPosts() {
