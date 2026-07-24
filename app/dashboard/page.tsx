@@ -1,6 +1,8 @@
 'use client'
 
 import HomeFeed from '@/components/HomeFeed'
+import HomeEvents from '@/components/HomeEvents'
+import HomeBills from '@/components/HomeBills'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import Feed from '@/components/Feed'
@@ -39,6 +41,7 @@ const MEMBER_COLORS = [
 export default function Dashboard() {
   const [active, setActive]                 = useState('feed')
   const [activeKnot, setActiveKnot]         = useState<any>(null)
+  const [homeTab, setHomeTab]               = useState<'feed' | 'events' | 'bills'>('feed')
   const [user, setUser]                     = useState<any>(null)
   const [profile, setProfile]               = useState<any>(null)
   const [showHome, setShowHome]             = useState(true)
@@ -430,7 +433,35 @@ async function switchKnot(k: any) {
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px', display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, alignItems: 'start' }} className="desktop-layout">
           <div>
             
-            <HomeFeed knots={knots} onSelectKnot={(k) => switchKnot(k)} />
+            <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
+              {([
+                { id: 'feed' as const, label: 'Feed' },
+                { id: 'events' as const, label: 'Events' },
+                { id: 'bills' as const, label: 'Bills' },
+              ]).map(t => (
+                <button key={t.id} onClick={() => setHomeTab(t.id)}
+                  style={{
+                    padding: '8px 16px', borderRadius: 8,
+                    border: `1px solid ${homeTab === t.id ? 'var(--yellow)' : 'var(--border2)'}`,
+                    background: homeTab === t.id ? 'var(--yellow-soft)' : 'transparent',
+                    color: homeTab === t.id ? 'var(--yellow)' : 'var(--text2)',
+                    fontSize: 13, fontWeight: homeTab === t.id ? 700 : 500,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {homeTab === 'feed' && (
+              <HomeFeed knots={knots} onSelectKnot={(k) => switchKnot(k)} />
+            )}
+            {homeTab === 'events' && (
+              <HomeEvents knots={knots} onOpenKnotTab={(k, tabId) => { switchKnot(k); setActive(tabId) }} />
+            )}
+            {homeTab === 'bills' && (
+              <HomeBills knots={knots} currentUser={profile} onOpenKnotTab={(k, tabId) => { switchKnot(k); setActive(tabId) }} />
+            )}
           </div>
           <div className="desktop-only" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
