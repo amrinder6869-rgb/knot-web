@@ -40,6 +40,7 @@ export default function Discover({ members: _members, onVenueSelect }: { members
   const [budget, setBudget]     = useState<number|null>(2)
   const [groupSize, setGroupSize] = useState<number>(4)
   const [merchants, setMerchants] = useState<Record<string, any>>({})
+  const [specials, setSpecials] = useState<Record<string, any>>({})
   const [venues, setVenues]     = useState<any[]>([])
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
@@ -186,6 +187,23 @@ export default function Discover({ members: _members, onVenueSelect }: { members
         const map: Record<string, any> = {}
         data.forEach((m: any) => { map[m.place_id] = m })
         setMerchants(map)
+
+        // Fetch active specials for these merchants
+        const merchantIds = data.map((m: any) => m.id)
+        if (merchantIds.length > 0) {
+          const { data: specialsData } = await supabase
+            .from('knot_specials')
+            .select('*, merchant:merchant_id(place_id)')
+            .in('merchant_id', merchantIds)
+            .eq('active', true)
+          if (specialsData) {
+            const specialsMap: Record<string, any> = {}
+            specialsData.forEach((s: any) => {
+              if (s.merchant?.place_id) specialsMap[s.merchant.place_id] = s
+            })
+            setSpecials(specialsMap)
+          }
+        }
       }
     } catch (err) {
       console.error('Merchant enrichment error:', err)
@@ -407,6 +425,11 @@ export default function Discover({ members: _members, onVenueSelect }: { members
                         {merchants[v.fsq_id] && (
                           <span style={{ padding: '2px 7px', borderRadius: 20, background: 'rgba(234,179,8,0.15)', border: '1px solid rgba(234,179,8,0.3)', fontSize: 10, fontWeight: 700, color: '#EAB308', whiteSpace: 'nowrap' }}>
                             Knot
+                          </span>
+                        )}
+                        {specials[v.fsq_id] && (
+                          <span style={{ padding: '2px 7px', borderRadius: 20, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', fontSize: 10, fontWeight: 700, color: '#16A34A', whiteSpace: 'nowrap' }}>
+                            {specials[v.fsq_id].discount_percent}% off groups
                           </span>
                         )}
                       </div>
