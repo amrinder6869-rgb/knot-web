@@ -66,7 +66,7 @@ export default function Composer({
   const [briefNote, setBriefNote]         = useState('')
   const [briefVibe, setBriefVibe]         = useState('')
   const [briefBudget, setBriefBudget]     = useState('')
-  const [suggestions, setSuggestions2]    = useState<any>(null)
+  const [groupSuggestions, setGroupSuggestions] = useState<any>(null)
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
 
   function reset() {
@@ -292,7 +292,7 @@ export default function Composer({
         headers: { Authorization: 'Bearer ' + session.access_token }
       })
         .then(r => r.json())
-        .then(data => { if (data.hasHistory) setSuggestions2(data) })
+        .then(data => { if (data.hasHistory) setGroupSuggestions(data) })
         .catch(() => {})
         .finally(() => setLoadingSuggestions(false))
     })
@@ -374,13 +374,13 @@ export default function Composer({
             </div>
           )}
 
-          {suggestions2 && suggestions2.topVenues?.length > 0 && (
+          {groupSuggestions && groupSuggestions.topVenues?.length > 0 && (
             <div style={{ marginBottom: 14, padding: '10px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 10 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--yellow)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
                 Your group loves
               </div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {suggestions2.topVenues.map((v: any) => (
+                {groupSuggestions.topVenues.map((v: any) => (
                   <button key={v.name}
                     onClick={() => setHangoutTitle(v.name)}
                     style={{ padding: '5px 10px', borderRadius: 20, border: '1px solid var(--yellow)', background: 'transparent', color: 'var(--yellow)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -388,9 +388,9 @@ export default function Composer({
                   </button>
                 ))}
               </div>
-              {suggestions2.preferredDay && (
+              {groupSuggestions.preferredDay && (
                 <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>
-                  Your group usually hangs on {suggestions2.preferredDay}s
+                  Your group usually hangs on {groupSuggestions.preferredDay}s
                 </div>
               )}
             </div>
