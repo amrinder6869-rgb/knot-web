@@ -53,7 +53,7 @@ export default function VibesCounter({ userId, userName }: { userId?: string, us
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-      .limit(30)
+      .limit(500)
 
     if (error) { setLoading(false); return }
     setHistory(data || [])

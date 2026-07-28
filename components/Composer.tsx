@@ -247,7 +247,8 @@ export default function Composer({
       startTime   = new Date().toISOString()
       hangoutType = 'spontaneous'
     } else if (whenType === 'pick') {
-      startTime = scheduledFor ? scheduledFor.toISOString() : null
+      if (!scheduledFor) { setHangoutError('Please pick a date and time.'); setCreating(false); return }
+      startTime = scheduledFor.toISOString()
     } else if (whenType === 'weekly') {
       startTime        = getNextWeekday(recurrenceDay, recurrenceTime)
       hangoutType      = 'recurring'

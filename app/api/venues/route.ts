@@ -47,8 +47,10 @@ export async function GET(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
-  const ll       = searchParams.get('ll')
-  const category = searchParams.get('categories')
+  const ll           = searchParams.get('ll')
+  const category     = searchParams.get('categories')
+  const priceLevel   = searchParams.get('price') ? parseInt(searchParams.get('price')!) : null
+  const minGroupSize = searchParams.get('min_group') ? parseInt(searchParams.get('min_group')!) : null
 
   if (!ll || !category) return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
 
@@ -73,6 +75,7 @@ export async function GET(request: Request) {
     type,
     key: apiKey,
   })
+  if (priceLevel) params.set('maxprice', String(priceLevel))
 
   try {
     const body = await httpsGet(
@@ -83,9 +86,17 @@ export async function GET(request: Request) {
     if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS')
       return NextResponse.json({ error: 'Places API error' }, { status: 400 })
 
-    const results = (data.results || [])
-      .slice(0, 10)
+    let rawResults = (data.results || [])
       .sort((a: any, b: any) => (b.rating || 0) - (a.rating || 0))
+
+    // Filter by price level if specified
+    if (priceLevel) {
+      const filtered = rawResults.filter((p: any) => p.price_level == null || p.price_level <= priceLevel)
+      if (filtered.length > 0) rawResults = filtered
+    }
+
+    const results = rawResults
+      .slice(0, 10)
       .map((p: any) => ({
         fsq_id:   p.place_id,
         name:     p.name,

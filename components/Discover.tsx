@@ -155,6 +155,8 @@ export default function Discover({ members: _members, onVenueSelect }: { members
     if (!session) { setError('Not authenticated'); setLoading(false); return }
 
     const params = new URLSearchParams({ ll: `${loc.lat},${loc.lng}`, categories: category, limit: '10' })
+    if (budget) params.set('price', String(budget))
+    if (groupSize) params.set('min_group', String(groupSize))
     try {
       const res  = await fetch(`/api/venues?${params}`, {
         headers: { Authorization: `Bearer ${session.access_token}` },

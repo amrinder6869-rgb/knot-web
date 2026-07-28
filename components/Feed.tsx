@@ -134,7 +134,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
         type:       p.post_type || 'moment',
         hangout_id: p.hangout_id || null,
         profiles:   p.profiles,
-        reactions:  [],
+        reactions:  (reactionsMap[p.id] || []),
       }
     })
     setPosts(mapped)
