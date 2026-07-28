@@ -171,7 +171,7 @@ export default function BillSplitForm({
 
       {mode === 'equal' && validAmount && selectedMembers.length > 0 && (
         <div style={{ fontSize: 11, color: subColor, marginBottom: 10 }}>
-          ${(parsedAmount / selectedMembers.length).toFixed(2)} each \u00B7 {selectedMembers.length} people
+          ${(parsedAmount / selectedMembers.length).toFixed(2)} each · {selectedMembers.length} people
         </div>
       )}
 

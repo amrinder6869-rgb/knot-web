@@ -24,7 +24,7 @@ function initialPieces() {
   )
 }
 
-export default function Ludo({ game, members, currentUser, knotId, onEnd }: any) {
+export default function Ludo({ game, members, currentUser, _knotId, onEnd }: any) {
   const [players, setPlayers]     = useState<any[]>([])
   const [pieces, setPieces]       = useState(initialPieces())
   const [dice, setDice]           = useState<number|null>(null)

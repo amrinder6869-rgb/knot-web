@@ -20,6 +20,7 @@ const TYPE_LABEL: Record<string, string> = {
   photo_added:  'Photos added',
   member_joined:'New member',
   role_assigned: 'Role assigned',
+  new_hangout: 'New hangout',
 }
 
 export default function Notifications({ userId, onSelectKnot, knots }: {

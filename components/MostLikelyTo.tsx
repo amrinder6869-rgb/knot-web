@@ -134,7 +134,7 @@ export default function MostLikelyTo({ game, members, currentUser, knotId: _knot
         </div>
 
         <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 20 }}>
-          {players.length} player{players.length !== 1 ? 's' : ''} joined Â· Share this Knot to invite more
+          {players.length} player{players.length !== 1 ? 's' : ''} joined · Share this Knot to invite more
         </div>
 
         {currentUser?.id === game.created_by && (

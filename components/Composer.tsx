@@ -319,7 +319,7 @@ export default function Composer({
     await notifyKnotMembers({
       knotId,
       actorId:  authUser.id,
-      type:     'new_poll',
+      type:     'new_hangout',
       message:  content,
       entityId: h.id,
     })

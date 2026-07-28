@@ -18,9 +18,25 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { amount, orderId, hangoutId, merchantName } = await request.json()
+  const { orderId, hangoutId, merchantName } = await request.json()
 
-  if (!amount || amount < 0.5) return NextResponse.json({ error: 'Minimum amount is $0.50' }, { status: 400 })
+  // Server-side amount verification — never trust client amount
+  const { data: items, error: itemsError } = await supabase
+    .from('order_items')
+    .select('total_price')
+    .eq('order_id', orderId)
+    .eq('user_id', user.id)
+    .eq('payment_status', 'pending')
+
+  if (itemsError || !items || items.length === 0) {
+    return NextResponse.json({ error: 'No pending items found for this order.' }, { status: 400 })
+  }
+
+  const amount = items.reduce((sum, i) => sum + parseFloat(i.total_price), 0)
+
+  if (amount < 0.5) {
+    return NextResponse.json({ error: 'Minimum amount is $0.50' }, { status: 400 })
+  }
 
   try {
     const paymentIntent = await stripe.paymentIntents.create({
@@ -35,7 +51,11 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json({ clientSecret: paymentIntent.client_secret, paymentIntentId: paymentIntent.id })
+    return NextResponse.json({
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
+      amount,
+    })
   } catch (err: any) {
     console.error('Stripe error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })

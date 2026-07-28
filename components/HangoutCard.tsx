@@ -27,6 +27,13 @@ function formatDate(d: string) {
   return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ` \u00B7 ${time}`
 }
 
+const BRIEF_BUDGET_LABELS: Record<string, string> = {
+  free: 'Free',
+  cheap: 'Cheap',
+  mid: 'Mid',
+  splurge: 'Splurge',
+}
+
 function getInitials(name: string) {
   return (name || 'U').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()
 }
@@ -508,7 +515,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
           {hangout.brief && <div style={{ fontSize: 13, color: textColor, marginBottom: 6, lineHeight: 1.5 }}>{hangout.brief}</div>}
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {hangout.brief_vibe && <span style={{ padding: '3px 8px', borderRadius: 20, background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.25)', fontSize: 11, fontWeight: 600, color: '#EAB308' }}>{hangout.brief_vibe}</span>}
-            {hangout.brief_budget && <span style={{ padding: '3px 8px', borderRadius: 20, background: 'rgba(148,163,184,0.1)', border: '1px solid rgba(148,163,184,0.2)', fontSize: 11, fontWeight: 600, color: 'var(--text3)' }}>{hangout.brief_budget}</span>}
+            {hangout.brief_budget && <span style={{ padding: '3px 8px', borderRadius: 20, background: 'rgba(148,163,184,0.1)', border: '1px solid rgba(148,163,184,0.2)', fontSize: 11, fontWeight: 600, color: 'var(--text3)' }}>{BRIEF_BUDGET_LABELS[hangout.brief_budget] || hangout.brief_budget}</span>}
           </div>
         </div>
       )}
@@ -717,14 +724,6 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
           )}
         </div>
       )}
-
-      <CrewSection
-        hangoutId={hangout.id}
-        knotId={knotId}
-        currentUserId={currentUser?.id || ''}
-        isPlanner={hangout.created_by === currentUser?.id}
-        isLive={isLive}
-      />
 
       <CrewSection
         hangoutId={hangout.id}

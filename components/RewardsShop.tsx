@@ -125,7 +125,7 @@ export default function RewardsShop({ userId, userName, onClose, onRedeemed }: {
                     <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12, background: 'var(--bg2)', border: `1px solid ${isEquipped ? 'var(--yellow)' : 'var(--border)'}`, borderRadius: 10 }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{r.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>{r.description} \u00B7 {r.point_cost} Vibes</div>
+                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>{r.description} · {r.point_cost} Vibes</div>
                       </div>
                       {isEquipped ? (
                         <span style={{ fontSize: 11, color: 'var(--sage)', fontWeight: 700, flexShrink: 0 }}>Equipped</span>

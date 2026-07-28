@@ -354,7 +354,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>Add photos</div>
-            <div style={{ fontSize: 12, color: 'var(--text2)' }}>Photos are optimized automatically \u00B7 stays private to this Knot forever</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)' }}>Photos are optimized automatically · stays private to this Knot forever</div>
           </div>
           <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleUpload}
             style={{ display: 'none' }} id="photo-upload" />
@@ -382,7 +382,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
               {hangouts.slice(0, 5).map(h => (
                 <div key={h.id} onClick={() => setSelectedHangout(h.id)}
                   style={{ padding: '4px 10px', borderRadius: 20, border: `1px solid ${selectedHangout === h.id ? 'var(--yellow)' : 'var(--border2)'}`, background: selectedHangout === h.id ? 'var(--yellow-soft)' : 'transparent', fontSize: 12, cursor: 'pointer', color: selectedHangout === h.id ? 'var(--yellow)' : 'var(--text2)' }}>
-                  {h.title || 'Hangout'} \u00B7 {formatDate(h.created_at)}
+                  {h.title || 'Hangout'} · {formatDate(h.created_at)}
                 </div>
               ))}
             </div>
@@ -461,7 +461,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
               </div>
 
               <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 16 }}>
-                Added by {viewPhoto.profiles?.name || 'someone'} \u00B7 {formatDate(viewPhoto.created_at)}
+                Added by {viewPhoto.profiles?.name || 'someone'} · {formatDate(viewPhoto.created_at)}
               </div>
 
               <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
@@ -476,7 +476,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
                 )}
 
                 {comments.length === 0 && (
-                  <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 12 }}>No comments yet \u2014 be the first.</div>
+                  <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 12 }}>No comments yet — be the first.</div>
                 )}
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
@@ -582,7 +582,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
         <div key={h.id} style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
             {h.title || 'Hangout'}
-            <span style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 400 }}>\u00B7 {formatDate(h.created_at)} \u00B7 {h.photos.length} photo{h.photos.length !== 1 ? 's' : ''}</span>
+            <span style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 400 }}>· {formatDate(h.created_at)} · {h.photos.length} photo{h.photos.length !== 1 ? 's' : ''}</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
             {h.photos.map((p: any) => (
@@ -603,7 +603,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
       {ungrouped.length > 0 && (
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: 'var(--text2)' }}>
-            General \u00B7 {ungrouped.length} photo{ungrouped.length !== 1 ? 's' : ''}
+            General · {ungrouped.length} photo{ungrouped.length !== 1 ? 's' : ''}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
             {ungrouped.map((p: any) => (

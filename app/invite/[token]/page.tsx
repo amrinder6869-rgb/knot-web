@@ -123,7 +123,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
             <div style={{ fontSize: 48, marginBottom: 12 }}>{knot.emoji}</div>
             <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>You're invited!</div>
             <div style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 24, lineHeight: 1.6 }}>
-              Join <strong style={{ color: 'var(--text)' }}>{knot.name}</strong> on Knot Ã¢â‚¬â€ a private circle for people who actually know each other.
+              Join <strong style={{ color: 'var(--text)' }}>{knot.name}</strong> on Knot — a private circle for people who actually know each other.
             </div>
 
             {!user ? (
@@ -148,14 +148,14 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
             )}
 
             <div style={{ marginTop: 16, fontSize: 12, color: 'var(--text3)' }}>
-              Ã°Å¸â€Â Invite-only Ã‚Â· one-time link Ã‚Â· expires in 48hrs
+              Ã°Å¸â€Â Invite-only · one-time link · expires in 48hrs
             </div>
           </>
         )}
 
         {status === 'joined' && (
           <>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>Ã°Å¸Å½â€°</div>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🙏</div>
             <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: 'var(--sage)' }}>You're in!</div>
             <div style={{ fontSize: 13, color: 'var(--text2)' }}>Taking you to your dashboard...</div>
           </>
