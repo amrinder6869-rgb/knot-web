@@ -103,6 +103,8 @@ export async function GET(request: Request) {
           ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${p.photos[0].photo_reference}&key=${apiKey}`
           : null,
         google_maps_url: `https://www.google.com/maps/place/?q=place_id:${p.place_id}`,
+        lat: p.geometry?.location?.lat || null,
+        lng: p.geometry?.location?.lng || null,
       }))
 
     return NextResponse.json({ results })

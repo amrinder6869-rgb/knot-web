@@ -104,6 +104,13 @@ export default function Composer({
     return selectedVenue?.booking_url || null
   }
 
+  function getVenueCoords(): { lat: number | null; lng: number | null } {
+    return {
+      lat: selectedVenue?.lat || null,
+      lng: selectedVenue?.lng || null,
+    }
+  }
+
   function handleMomentPhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -208,6 +215,8 @@ export default function Composer({
       venue_maps_url:    getVenueMapsUrl(),
       venue_booking_url: getVenueBookingUrl(),
       venue_place_id:    selectedVenue?.place_id || null,
+      venue_lat:         getVenueCoords().lat,
+      venue_lng:         getVenueCoords().lng,
       scheduled_for:     startTime,
       status:            whenType === 'now' ? 'live' : 'confirmed',
       is_live:           whenType === 'now',
