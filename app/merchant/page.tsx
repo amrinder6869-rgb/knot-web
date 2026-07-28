@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 
 export default function MerchantSignup() {
   const [step, setStep] = useState<'intro' | 'auth' | 'profile'>('intro')
+  const [authMode, setAuthMode] = useState<'signup' | 'signin'>('signup')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -76,7 +77,7 @@ export default function MerchantSignup() {
   if (step === 'auth') return (
     <div style={{ maxWidth: 400, margin: '0 auto', padding: '80px 24px' }}>
       <div style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 24, fontWeight: 800, color: '#111', marginBottom: 8 }}>Create your account</h2>
+        <h2 style={{ fontSize: 24, fontWeight: 800, color: '#111', marginBottom: 8 }}>{authMode === 'signin' ? 'Sign in to your account' : 'Create your account'}</h2>
         <p style={{ fontSize: 14, color: '#666' }}>You will set up your restaurant profile in the next step.</p>
       </div>
 

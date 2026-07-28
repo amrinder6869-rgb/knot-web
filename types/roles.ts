@@ -27,6 +27,7 @@ export interface HangoutMemberWithRole {
   name: string
   avatar_url: string | null
   roles: HangoutRoleType[]
+  completedRoles?: HangoutRoleType[]
 }
 
 export const ROLE_LABELS: Record<HangoutRoleType, string> = {

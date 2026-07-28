@@ -21,7 +21,7 @@ function CheckoutForm({
 }: {
   amount: number
   clientSecret: string
-  onSuccess: () => void
+  onSuccess: (paymentIntentId: string) => void
   onCancel: () => void
 }) {
   const stripe = useStripe()
@@ -52,7 +52,7 @@ function CheckoutForm({
     }
 
     if (paymentIntent?.status === 'succeeded') {
-      onSuccess()
+      onSuccess(paymentIntent.id)
     }
     setProcessing(false)
   }
@@ -206,11 +206,17 @@ export function PreOrderCard({ hangout, knotId, currentUserId, isLive = false }:
     }
   }
 
-  async function onPaymentSuccess() {
-    await supabase.from('order_items')
-      .update({ payment_status: 'paid' })
-      .eq('order_id', order.id)
-      .eq('user_id', currentUserId)
+  async function onPaymentSuccess(paymentIntentId: string) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      await fetch('/api/stripe/verify-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session?.access_token },
+        body: JSON.stringify({ paymentIntentId, orderId: order.id }),
+      })
+    } catch (err) {
+      console.error('Payment verification error:', err)
+    }
     setPaid(true)
     setShowPayment(false)
     loadMerchantData()

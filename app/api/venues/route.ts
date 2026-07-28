@@ -95,6 +95,25 @@ export async function GET(request: Request) {
       if (filtered.length > 0) rawResults = filtered
     }
 
+    // Filter by group size via merchant data
+    if (minGroupSize && minGroupSize > 2) {
+      const placeIds = rawResults.map((p: any) => p.place_id).filter(Boolean)
+      if (placeIds.length > 0) {
+        const { createClient: sc } = await import('@supabase/supabase-js')
+        const sb = sc(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+        const { data: merchants } = await sb.from('merchants').select('place_id, max_group_size').in('place_id', placeIds)
+        if (merchants && merchants.length > 0) {
+          const capacityMap: Record<string, number> = {}
+          merchants.forEach((m: any) => { capacityMap[m.place_id] = m.max_group_size })
+          const filtered = rawResults.filter((p: any) => {
+            const cap = capacityMap[p.place_id]
+            return !cap || cap >= minGroupSize
+          })
+          if (filtered.length > 0) rawResults = filtered
+        }
+      }
+    }
+
     const results = rawResults
       .slice(0, 10)
       .map((p: any) => ({
@@ -111,7 +130,7 @@ export async function GET(request: Request) {
         rating:        p.rating,
         rating_count:  p.user_ratings_total,
         photo_url:     p.photos?.[0]?.photo_reference
-          ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${p.photos[0].photo_reference}&key=${apiKey}`
+          ? `/api/place-photo?ref=${encodeURIComponent(p.photos[0].photo_reference)}`
           : null,
         google_maps_url: `https://www.google.com/maps/place/?q=place_id:${p.place_id}`,
         lat: p.geometry?.location?.lat || null,

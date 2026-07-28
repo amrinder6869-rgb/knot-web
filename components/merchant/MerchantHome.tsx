@@ -54,9 +54,10 @@ export default function MerchantHome({ merchant, user, onUpdate }: Props) {
     loadBookings()
   }
 
+  const now = new Date()
   const pending = bookings.filter(b => b.status === 'pending')
-  const confirmed = bookings.filter(b => b.status === 'confirmed')
-  const past = bookings.filter(b => b.status === 'cancelled' || b.status === 'declined' || (b.scheduled_for && new Date(b.scheduled_for) < new Date()))
+  const confirmed = bookings.filter(b => b.status === 'confirmed' && (!b.scheduled_for || new Date(b.scheduled_for) >= now))
+  const past = bookings.filter(b => b.status === 'cancelled' || b.status === 'declined' || (b.scheduled_for && new Date(b.scheduled_for) < now))
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '24px' }}>
