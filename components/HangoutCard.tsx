@@ -718,8 +718,10 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
 
       <CrewSection
         hangoutId={hangout.id}
+        knotId={knotId}
         currentUserId={currentUser?.id || ''}
         isPlanner={hangout.created_by === currentUser?.id}
+        isLive={isLive}
       />
 
       <div style={{ borderTop: `1px solid ${borderSep}`, paddingTop: 12 }}>
