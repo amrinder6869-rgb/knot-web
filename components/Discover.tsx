@@ -38,6 +38,8 @@ function StarRating({ rating }: { rating: number }) {
 export default function Discover({ members: _members, onVenueSelect }: { members: any[], onVenueSelect?: (venue: any) => void }) {
   const [category, setCategory] = useState<string|null>(null)
   const [budget, setBudget]     = useState<number|null>(2)
+  const [groupSize, setGroupSize] = useState<number>(4)
+  const [merchants, setMerchants] = useState<Record<string, any>>({})
   const [venues, setVenues]     = useState<any[]>([])
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
@@ -161,6 +163,8 @@ export default function Discover({ members: _members, onVenueSelect }: { members
         setError('Could not load venues. Please try again.')
       } else if (data.results && data.results.length > 0) {
         setVenues(data.results)
+        const placeIds = data.results.map((v: any) => v.fsq_id).filter(Boolean)
+        enrichWithMerchants(placeIds)
       } else {
         setError('No venues found nearby. Try a different category or location.')
       }
@@ -168,6 +172,24 @@ export default function Discover({ members: _members, onVenueSelect }: { members
       setError('Failed to fetch venues. Please try again.')
     }
     setLoading(false)
+  }
+
+  async function enrichWithMerchants(placeIds: string[]) {
+    if (placeIds.length === 0) return
+    try {
+      const { data } = await supabase
+        .from('merchants')
+        .select('id, place_id, name, min_group_size, max_group_size')
+        .in('place_id', placeIds)
+        .eq('active', true)
+      if (data) {
+        const map: Record<string, any> = {}
+        data.forEach((m: any) => { map[m.place_id] = m })
+        setMerchants(map)
+      }
+    } catch (err) {
+      console.error('Merchant enrichment error:', err)
+    }
   }
 
   function lockVenue(venue: any) {
@@ -293,6 +315,33 @@ export default function Discover({ members: _members, onVenueSelect }: { members
         </div>
       </div>
 
+      {/* Group size */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>Group size</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button onClick={() => setGroupSize(s => Math.max(2, s - 1))}
+            style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid var(--border2)', background: 'var(--bg3)', color: 'var(--text)', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit', flexShrink: 0 }}>
+            -
+          </button>
+          <div style={{ textAlign: 'center', minWidth: 80 }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)' }}>{groupSize}</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)' }}>people</div>
+          </div>
+          <button onClick={() => setGroupSize(s => Math.min(20, s + 1))}
+            style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid var(--border2)', background: 'var(--bg3)', color: 'var(--text)', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit', flexShrink: 0 }}>
+            +
+          </button>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {[2, 4, 6, 8, 10].map(n => (
+              <button key={n} onClick={() => setGroupSize(n)}
+                style={{ padding: '5px 12px', borderRadius: 20, border: groupSize === n ? '1px solid var(--yellow)' : '1px solid var(--border2)', background: groupSize === n ? 'var(--yellow-soft)' : 'transparent', color: groupSize === n ? 'var(--yellow)' : 'var(--text3)', fontSize: 12, fontWeight: groupSize === n ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Error */}
       {error && (
         <div style={{ padding: '10px 14px', background: 'var(--danger-soft)', border: '1px solid var(--danger-dim)', borderRadius: 8, fontSize: 13, color: 'var(--danger)', marginBottom: 14 }}>
@@ -353,7 +402,14 @@ export default function Discover({ members: _members, onVenueSelect }: { members
                   {/* Info */}
                   <div style={{ flex: 1, padding: '14px 14px 14px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                     <div>
-                      <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 3, color: 'var(--text)' }}>{v.name}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{v.name}</div>
+                        {merchants[v.fsq_id] && (
+                          <span style={{ padding: '2px 7px', borderRadius: 20, background: 'rgba(234,179,8,0.15)', border: '1px solid rgba(234,179,8,0.3)', fontSize: 10, fontWeight: 700, color: '#EAB308', whiteSpace: 'nowrap' }}>
+                            Knot
+                          </span>
+                        )}
+                      </div>
                       <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8 }}>{v.location?.formatted_address}</div>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
                         {v.rating && <StarRating rating={v.rating} />}

@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { notifyKnotMembers } from '@/lib/notifications'
 import Discover from '@/components/Discover'
@@ -63,6 +63,11 @@ export default function Composer({
   const [hangoutTitle, setHangoutTitle]   = useState('')
   const [creating, setCreating]           = useState(false)
   const [hangoutError, setHangoutError]   = useState('')
+  const [briefNote, setBriefNote]         = useState('')
+  const [briefVibe, setBriefVibe]         = useState('')
+  const [briefBudget, setBriefBudget]     = useState('')
+  const [suggestions, setSuggestions2]    = useState<any>(null)
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false)
 
   function reset() {
     setActiveType(null)
@@ -80,6 +85,9 @@ export default function Composer({
     setManualAddress('')
     setHangoutTitle('')
     setHangoutError('')
+    setBriefNote('')
+    setBriefVibe('')
+    setBriefBudget('')
   }
 
   function getVenueName() {
@@ -218,6 +226,9 @@ export default function Composer({
       venue_lat:         getVenueCoords().lat,
       venue_lng:         getVenueCoords().lng,
       scheduled_for:     startTime,
+      brief:             briefNote.trim() || null,
+      brief_vibe:        briefVibe || null,
+      brief_budget:      briefBudget || null,
       status:            whenType === 'now' ? 'live' : 'confirmed',
       is_live:           whenType === 'now',
       recurrence,
@@ -271,6 +282,21 @@ export default function Composer({
     reset()
     onPosted()
   }
+
+  useEffect(() => {
+    if (activeType !== 'hangout' || !knotId) return
+    setLoadingSuggestions(true)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) { setLoadingSuggestions(false); return }
+      fetch('/api/recommendations?knot_id=' + knotId, {
+        headers: { Authorization: 'Bearer ' + session.access_token }
+      })
+        .then(r => r.json())
+        .then(data => { if (data.hasHistory) setSuggestions2(data) })
+        .catch(() => {})
+        .finally(() => setLoadingSuggestions(false))
+    })
+  }, [activeType, knotId])
 
   const userName  = currentUser?.name || 'You'
   const userInitials = userName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()
@@ -348,11 +374,61 @@ export default function Composer({
             </div>
           )}
 
+          {suggestions2 && suggestions2.topVenues?.length > 0 && (
+            <div style={{ marginBottom: 14, padding: '10px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 10 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--yellow)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+                Your group loves
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {suggestions2.topVenues.map((v: any) => (
+                  <button key={v.name}
+                    onClick={() => setHangoutTitle(v.name)}
+                    style={{ padding: '5px 10px', borderRadius: 20, border: '1px solid var(--yellow)', background: 'transparent', color: 'var(--yellow)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {v.name}
+                  </button>
+                ))}
+              </div>
+              {suggestions2.preferredDay && (
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>
+                  Your group usually hangs on {suggestions2.preferredDay}s
+                </div>
+              )}
+            </div>
+          )}
+
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>What</div>
             <input value={hangoutTitle} onChange={e => setHangoutTitle(e.target.value)}
               placeholder="Birthday dinner, movie night, just vibes..."
               style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', fontWeight: 500 }} />
+          </div>
+
+          {/* GROUP BRIEF */}
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Brief</div>
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8 }}>Give the group context before they RSVP</div>
+            <input
+              value={briefNote}
+              onChange={e => setBriefNote(e.target.value)}
+              placeholder="What is the plan exactly? Any details to know..."
+              style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 8 }}
+            />
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+              {['Chill', 'Active', 'Party', 'Foodie', 'Culture', 'Outdoors'].map(v => (
+                <button key={v} onClick={() => setBriefVibe(briefVibe === v ? '' : v)}
+                  style={{ padding: '5px 10px', borderRadius: 20, border: briefVibe === v ? '1px solid var(--yellow)' : '1px solid var(--border2)', background: briefVibe === v ? 'var(--yellow-soft)' : 'transparent', color: briefVibe === v ? 'var(--yellow)' : 'var(--text3)', fontSize: 11, fontWeight: briefVibe === v ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  {v}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {[{ id: 'free', label: 'Free' }, { id: 'cheap', label: 'Cheap' }, { id: 'mid', label: 'Mid' }, { id: 'splurge', label: 'Splurge' }].map(b => (
+                <button key={b.id} onClick={() => setBriefBudget(briefBudget === b.id ? '' : b.id)}
+                  style={{ flex: 1, padding: '6px 4px', borderRadius: 6, border: briefBudget === b.id ? '1px solid var(--yellow)' : '1px solid var(--border2)', background: briefBudget === b.id ? 'var(--yellow-soft)' : 'transparent', color: briefBudget === b.id ? 'var(--yellow)' : 'var(--text3)', fontSize: 11, fontWeight: briefBudget === b.id ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  {b.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div style={{ marginBottom: 14 }}>

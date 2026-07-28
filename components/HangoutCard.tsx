@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase'
 import { compressImage } from '@/lib/compressImage'
 import DateTimePicker from '@/components/DateTimePicker'
 import BillSplitForm from '@/components/BillSplitForm'
+import { CrewSection } from '@/components/CrewSection'
+import { PostHangoutLoop } from '@/components/PostHangoutLoop'
 
 function timeAgo(date: string) {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
@@ -499,6 +501,17 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         </div>
       )}
 
+      {!isCancelled && (isVoting || isConfirmed) && (hangout.brief || hangout.brief_vibe || hangout.brief_budget) && (
+        <div style={{ padding: '10px 12px', background: isLive ? 'rgba(255,255,255,0.04)' : 'var(--bg3)', border: `1px solid ${borderSep}`, borderRadius: 10, marginBottom: 14 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: subColor, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Brief</div>
+          {hangout.brief && <div style={{ fontSize: 13, color: textColor, marginBottom: 6, lineHeight: 1.5 }}>{hangout.brief}</div>}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {hangout.brief_vibe && <span style={{ padding: '3px 8px', borderRadius: 20, background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.25)', fontSize: 11, fontWeight: 600, color: '#EAB308' }}>{hangout.brief_vibe}</span>}
+            {hangout.brief_budget && <span style={{ padding: '3px 8px', borderRadius: 20, background: 'rgba(148,163,184,0.1)', border: '1px solid rgba(148,163,184,0.2)', fontSize: 11, fontWeight: 600, color: 'var(--text3)' }}>{hangout.brief_budget}</span>}
+          </div>
+        </div>
+      )}
+
       {!isCancelled && isVoting && options.length > 0 && (
         <div style={{ marginBottom: 14 }}>
           {options.map((o: any) => {
@@ -584,6 +597,16 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
           </button>
         )}
       </div>
+      )}
+
+      {isDone && !isCancelled && (
+        <PostHangoutLoop
+          hangout={hangout}
+          knotId={knotId}
+          currentUserId={currentUser?.id || ''}
+          goingCount={goingCount}
+          onPhotoPosted={onRefresh}
+        />
       )}
 
       {(bills.length > 0 || (showBill && !isCancelled)) && (
@@ -684,6 +707,20 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
           )}
         </div>
       )}
+
+      <CrewSection
+        hangoutId={hangout.id}
+        knotId={knotId}
+        currentUserId={currentUser?.id || ''}
+        isPlanner={hangout.created_by === currentUser?.id}
+        isLive={isLive}
+      />
+
+      <CrewSection
+        hangoutId={hangout.id}
+        currentUserId={currentUser?.id || ''}
+        isPlanner={hangout.created_by === currentUser?.id}
+      />
 
       <div style={{ borderTop: `1px solid ${borderSep}`, paddingTop: 12 }}>
         <button onClick={() => setShowComments(s => !s)} style={{ background: 'none', border: 'none', padding: 0, fontSize: 12, color: subColor, cursor: 'pointer', fontFamily: 'inherit' }}>

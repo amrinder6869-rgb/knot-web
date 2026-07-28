@@ -11,6 +11,7 @@ const REASON_LABELS: Record<string, string> = {
   game_won: 'Won a game',
   streak_bonus: 'Streak bonus',
   redemption: 'Redeemed',
+  role_completed: 'Completed a role',
 }
 
 function timeAgo(date: string) {

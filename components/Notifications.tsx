@@ -19,6 +19,7 @@ const TYPE_LABEL: Record<string, string> = {
   new_poll:     'New poll',
   photo_added:  'Photos added',
   member_joined:'New member',
+  role_assigned: 'Role assigned',
 }
 
 export default function Notifications({ userId, onSelectKnot, knots }: {
