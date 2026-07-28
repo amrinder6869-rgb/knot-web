@@ -118,6 +118,22 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
 
     if (error) { setLoading(false); return }
 
+    // Fetch reactions for all posts
+    const postIds = (data || []).map((p: any) => p.id)
+    const { data: reactionsData } = await supabase
+      .from('reactions')
+      .select('post_id, emoji, user_id')
+      .in('post_id', postIds)
+
+    const reactionsMap: Record<string, any[]> = {}
+    const currentAuthUser = (await supabase.auth.getUser()).data.user
+    ;(reactionsData || []).forEach((r: any) => {
+      if (!reactionsMap[r.post_id]) reactionsMap[r.post_id] = []
+      const existing = reactionsMap[r.post_id].find((x: any) => x.e === r.emoji)
+      if (existing) { existing.n++; if (r.user_id === currentAuthUser?.id) existing.mine = true }
+      else reactionsMap[r.post_id].push({ e: r.emoji, n: 1, mine: r.user_id === currentAuthUser?.id })
+    })
+
     const mapped: Post[] = (data || []).map((p: any) => {
       const name = p.profiles?.name || 'Unknown'
       const col  = getColor(p.author_id)
@@ -134,7 +150,6 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
         type:       p.post_type || 'moment',
         hangout_id: p.hangout_id || null,
         profiles:   p.profiles,
-        reactions:  (reactionsMap[p.id] || []),
       }
     })
     setPosts(mapped)
@@ -153,7 +168,6 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
       const { data: postPhotos } = await supabase
         .from('photos')
         .select('id, post_id, storage_path')
-        .in('post_id', otherPostIds)
 
       const photoMap = new Map<string, MomentPhoto>()
       for (const p of postPhotos || []) {
@@ -170,7 +184,6 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
       const { data: commentData } = await supabase
         .from('comments')
         .select('*, profiles:author_id(name)')
-        .in('post_id', otherPostIds)
         .order('created_at', { ascending: true })
 
       const withUrls = await Promise.all((commentData || []).map(async (c: any) => {
@@ -564,7 +577,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
                     </div>
                   )}
                   <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                    {p.reactions.map(r => (
+                    {(p.reactions || []).map(r => (
                       <button key={r.e} onClick={() => toggleReaction(p.id, r.e)}
                         style={{ padding: '4px 10px', borderRadius: 6, background: r.mine ? 'var(--yellow-dim)' : 'var(--bg3)', border: `1px solid ${r.mine ? 'var(--yellow)' : 'var(--border2)'}`, color: 'var(--text)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
                         {r.e} {r.n}
