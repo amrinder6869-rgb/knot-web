@@ -163,8 +163,8 @@ export function PostHangoutLoop({
                 <Star
                   size={18}
                   strokeWidth={2}
-                  color={displayRating && r <= displayRating ? 'var(--yellow)' : 'var(--text3)'}
-                  fill={displayRating && r <= displayRating ? 'var(--yellow)' : 'none'}
+                  
+                  
                 />
               </button>
             ))}
@@ -172,7 +172,7 @@ export function PostHangoutLoop({
         </div>
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <CheckCircle size={16} color="#4ade80" strokeWidth={2} />
+          <span style={{ color: '#4ade80', display: 'flex' }}><CheckCircle size={16} strokeWidth={2} /></span>
           <span style={{ fontSize: 13, color: 'var(--text2)' }}>
             Rated {rating} star{rating !== 1 ? 's' : ''} — +5 Vibes earned
           </span>

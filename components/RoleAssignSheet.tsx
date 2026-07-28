@@ -131,7 +131,7 @@ export function RoleAssignSheet({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Icon size={16} strokeWidth={2} color={active ? styles.activeText : 'var(--text3)'} />
+          <span style={{ color: active ? styles.activeText : 'var(--text3)', display: 'flex' }}><Icon size={16} strokeWidth={2} /></span>
           <div>
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{ROLE_LABELS[role]}</div>
             <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 1 }}>{ROLE_DESCRIPTIONS[role]}</div>
