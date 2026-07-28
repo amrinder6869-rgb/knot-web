@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import MerchantSpecials from './MerchantSpecials'
+import MerchantMenu from './MerchantMenu'
 import { supabase } from '@/lib/supabase'
 
 interface Props {
@@ -24,7 +25,7 @@ function formatDate(d: string) {
 export default function MerchantHome({ merchant, user, onUpdate }: Props) {
   const [bookings, setBookings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'bookings' | 'specials' | 'profile'>('bookings')
+  const [activeTab, setActiveTab] = useState<'bookings' | 'specials' | 'menu' | 'profile'>('bookings')
   const [updatingBooking, setUpdatingBooking] = useState<string | null>(null)
 
   useEffect(() => {
@@ -79,8 +80,9 @@ export default function MerchantHome({ merchant, user, onUpdate }: Props) {
         {([
           { id: 'bookings', label: 'Bookings' },
           { id: 'specials', label: 'Knot Specials' },
+          { id: 'menu', label: 'Menu' },
           { id: 'profile', label: 'Profile' },
-        ] as { id: 'bookings' | 'specials' | 'profile', label: string }[]).map(t => (
+        ] as { id: 'bookings' | 'specials' | 'menu' | 'profile', label: string }[]).map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)}
             style={{ padding: '10px 16px', background: 'none', border: 'none', borderBottom: activeTab === t.id ? '2px solid #F8BD03' : '2px solid transparent', color: activeTab === t.id ? '#F8BD03' : '#888', fontSize: 14, fontWeight: activeTab === t.id ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', marginBottom: -1 }}>
             {t.label}
@@ -151,6 +153,9 @@ export default function MerchantHome({ merchant, user, onUpdate }: Props) {
       )}
 
       {activeTab === 'specials' && <MerchantSpecials merchant={merchant} />}
+
+      {activeTab === 'menu' && <MerchantMenu merchant={merchant} />}
+
 
       {activeTab === 'profile' && (
         <div style={{ background: '#fff', border: '1px solid #E5E5E5', borderRadius: 12, padding: '20px' }}>

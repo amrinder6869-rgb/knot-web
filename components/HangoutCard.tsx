@@ -6,6 +6,7 @@ import DateTimePicker from '@/components/DateTimePicker'
 import BillSplitForm from '@/components/BillSplitForm'
 import { CrewSection } from '@/components/CrewSection'
 import { PostHangoutLoop } from '@/components/PostHangoutLoop'
+import { PreOrderCard } from '@/components/PreOrderCard'
 
 function timeAgo(date: string) {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
@@ -597,6 +598,15 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
           </button>
         )}
       </div>
+      )}
+
+      {(isConfirmed || isLive) && !isCancelled && hangout.venue_place_id && (
+        <PreOrderCard
+          hangout={hangout}
+          knotId={knotId}
+          currentUserId={currentUser?.id || ''}
+          isLive={isLive}
+        />
       )}
 
       {isDone && !isCancelled && (
