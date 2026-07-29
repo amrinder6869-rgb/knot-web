@@ -27,6 +27,27 @@ function formatDate(d: string) {
   return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ` \u00B7 ${time}`
 }
 
+
+function buildUberLink(venueName: string, venueAddress: string) {
+  const dest = encodeURIComponent((venueName + ' ' + venueAddress).trim())
+  return `https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[nickname]=${encodeURIComponent(venueName)}&dropoff[formatted_address]=${encodeURIComponent(venueAddress)}`
+}
+
+function buildLyftLink(venueName: string, venueAddress: string) {
+  const dest = encodeURIComponent(venueAddress || venueName)
+  return `https://ride.lyft.com/ridetype?id=lyft&destination=${dest}`
+}
+
+function buildOpenTableLink(venueName: string) {
+  const q = encodeURIComponent(venueName)
+  return `https://www.opentable.com/s?term=${q}`
+}
+
+function buildResyLink(venueName: string) {
+  const q = encodeURIComponent(venueName)
+  return `https://resy.com/cities?query=${q}`
+}
+
 const BRIEF_BUDGET_LABELS: Record<string, string> = {
   free: 'Free',
   cheap: 'Cheap',
@@ -583,8 +604,17 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         {hangout.venue_maps_url && (isConfirmed || isLive) && (
           <a href={hangout.venue_maps_url} target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.65)' : 'var(--text2)', fontSize: 12, textDecoration: 'none', fontFamily: 'inherit' }}>Directions</a>
         )}
-        {hangout.venue_booking_url && (isConfirmed || isLive) && (
-          <a href={hangout.venue_booking_url} target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 12, fontWeight: 700, textDecoration: 'none', fontFamily: 'inherit' }}>Book a table</a>
+        {(isConfirmed || isLive) && (hangout.venue_name || hangout.venue_address) && (
+          <>
+            <a href={buildUberLink(hangout.venue_name || '', hangout.venue_address || '')} target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.65)' : 'var(--text2)', fontSize: 12, textDecoration: 'none', fontFamily: 'inherit' }}>Uber</a>
+            <a href={buildLyftLink(hangout.venue_name || '', hangout.venue_address || '')} target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.65)' : 'var(--text2)', fontSize: 12, textDecoration: 'none', fontFamily: 'inherit' }}>Lyft</a>
+          </>
+        )}
+        {(isConfirmed || isLive) && hangout.venue_name && (
+          <>
+            <a href={buildOpenTableLink(hangout.venue_name)} target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.65)' : 'var(--text2)', fontSize: 12, textDecoration: 'none', fontFamily: 'inherit' }}>OpenTable</a>
+            <a href={buildResyLink(hangout.venue_name)} target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.65)' : 'var(--text2)', fontSize: 12, textDecoration: 'none', fontFamily: 'inherit' }}>Resy</a>
+          </>
         )}
         {isDone && !showBill && bills.length === 0 && (
           <button onClick={() => setShowBill(true)} style={{ padding: '8px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Split the bill</button>
