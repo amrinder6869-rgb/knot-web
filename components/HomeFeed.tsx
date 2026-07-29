@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase, getSignedUrl } from '@/lib/supabase'
 
 function timeAgo(date: string) {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
@@ -58,8 +58,8 @@ export default function HomeFeed({ knots, onSelectKnot }: { knots: any[], onSele
     ])
 
     const photosWithUrls = await Promise.all((photos || []).map(async (p: any) => {
-      const { data: { publicUrl } } = supabase.storage.from('knot-photos').getPublicUrl(p.storage_path)
-      return { ...p, url: publicUrl }
+      const signedUrl = await getSignedUrl(p.storage_path)
+      return { ...p, url: signedUrl ?? '' }
     }))
 
     const photoGroups = groupPhotos(photosWithUrls).map(group => ({

@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase, getSignedUrl } from '@/lib/supabase'
 import { compressImage } from '@/lib/compressImage'
 
 const MAX_FILE_SIZE = 15 * 1024 * 1024 // safety net after client-side compression
@@ -110,8 +110,8 @@ export default function Memories({ members: _members, knotId }: { members: any[]
 
     if (allPhotoRecords.length > 0) {
       const withUrls = await Promise.all(allPhotoRecords.map(async (p) => {
-        const { data: { publicUrl } } = supabase.storage.from('knot-photos').getPublicUrl(p.storage_path)
-        return { ...p, url: publicUrl }
+        const signedUrl = await getSignedUrl(p.storage_path)
+        return { ...p, url: signedUrl ?? '' }
       }))
       withUrls.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       setPhotos(withUrls)

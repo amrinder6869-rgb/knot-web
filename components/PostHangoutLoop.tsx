@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Star, Camera, CheckCircle } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { supabase, getSignedUrl } from '@/lib/supabase'
 import { compressImage } from '@/lib/compressImage'
 
 interface PostHangoutLoopProps {
@@ -84,7 +84,7 @@ export function PostHangoutLoop({
 
       if (uploadError) { setPhotoError('Upload failed. Try again.'); setPhotoUploading(false); return }
 
-      const { data: { publicUrl } } = supabase.storage.from('knot-photos').getPublicUrl(storagePath)
+      const signedUrl = await getSignedUrl(storagePath)
 
       // Insert photo record
       await supabase.from('photos').insert({

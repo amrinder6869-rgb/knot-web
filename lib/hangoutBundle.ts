@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { supabase, getSignedUrl } from '@/lib/supabase'
 
 export type HangoutBundle = {
   hangoutsById: Map<string, any>
@@ -69,8 +69,8 @@ export async function loadHangoutBundle(hangoutIds: string[], postIds: string[])
   const commentsByPost = new Map<string, any[]>()
   for (const c of commentsData || []) {
     if (c.photo_path) {
-      const { data: { publicUrl } } = supabase.storage.from('knot-photos').getPublicUrl(c.photo_path)
-      c.photo_url = publicUrl
+      const signedUrl = await getSignedUrl(c.photo_path)
+      c.photo_url = signedUrl ?? ''
     }
     const list = commentsByPost.get(c.post_id) || []
     list.push(c)

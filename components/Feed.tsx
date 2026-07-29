@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase, getSignedUrl } from '@/lib/supabase'
 import HangoutCard from '@/components/HangoutCard'
 import Composer from '@/components/Composer'
 import { loadHangoutBundle } from '@/lib/hangoutBundle'
@@ -173,8 +173,8 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
       const photoMap = new Map<string, MomentPhoto>()
       for (const p of postPhotos || []) {
         if (!p.post_id) continue
-        const { data: { publicUrl } } = supabase.storage.from('knot-photos').getPublicUrl(p.storage_path)
-        photoMap.set(p.post_id, { id: p.id, storage_path: p.storage_path, url: publicUrl })
+        const signedUrl = await getSignedUrl(p.storage_path)
+        photoMap.set(p.post_id, { id: p.id, storage_path: p.storage_path, url: signedUrl ?? '' })
       }
       setMomentPhotos(photoMap)
     } else {
@@ -189,8 +189,8 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
 
       const withUrls = await Promise.all((commentData || []).map(async (c: any) => {
         if (c.photo_path) {
-          const { data: { publicUrl } } = supabase.storage.from('knot-photos').getPublicUrl(c.photo_path)
-          return { ...c, photo_url: publicUrl }
+          const signedUrl = await getSignedUrl(c.photo_path)
+          return { ...c, photo_url: signedUrl ?? '' }
         }
         return c
       }))

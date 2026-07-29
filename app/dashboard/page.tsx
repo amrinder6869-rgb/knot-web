@@ -4,7 +4,7 @@ import HomeFeed from '@/components/HomeFeed'
 import HomeEvents from '@/components/HomeEvents'
 import HomeBills from '@/components/HomeBills'
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase, getSignedUrl } from '@/lib/supabase'
 import Feed from '@/components/Feed'
 import VibesCounter from '@/components/VibesCounter'
 import Hangout from '@/components/Hangout'
@@ -652,9 +652,9 @@ async function switchKnot(k: any) {
                     const safePath = `avatars/${user.id}.${ext}`
                     const { error: upErr } = await supabase.storage.from('knot-photos').upload(safePath, file, { upsert: true, contentType: safeType })
                     if (upErr) { setAvatarError('Upload failed. Please try again.'); return }
-                    const { data: { publicUrl } } = supabase.storage.from('knot-photos').getPublicUrl(safePath)
-                    await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id)
-                    setProfile((p: any) => ({ ...p, avatar_url: publicUrl }))
+                    const signedUrl = await getSignedUrl(safePath)
+                    await supabase.from('profiles').update({ avatar_url: safePath }).eq('id', user.id)
+                    setProfile((p: any) => ({ ...p, avatar_url: signedUrl ?? safePath }))
                   }} />
               </div>
             </div>

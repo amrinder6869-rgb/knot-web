@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase, getSignedUrl } from '@/lib/supabase'
 import { compressImage } from '@/lib/compressImage'
 
 function timeAgo(date: string) {
@@ -67,8 +67,8 @@ export default function PostComments({ postId, currentUser, initialComments, onC
         return
       }
       photoPath = path
-      const { data: { publicUrl } } = supabase.storage.from('knot-photos').getPublicUrl(path)
-      photoUrl = publicUrl
+      const signedUrl = await getSignedUrl(path)
+      photoUrl = signedUrl ?? ''
     }
 
     const { data: newC, error: insertError } = await supabase

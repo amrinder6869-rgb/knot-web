@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase, getSignedUrl } from '@/lib/supabase'
 import { compressImage } from '@/lib/compressImage'
 import DateTimePicker from '@/components/DateTimePicker'
 import BillSplitForm from '@/components/BillSplitForm'
@@ -240,8 +240,8 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         return
       }
       photoPath = path
-      const { data: { publicUrl } } = supabase.storage.from('knot-photos').getPublicUrl(path)
-      photoUrl = publicUrl
+      const signedUrl = await getSignedUrl(path)
+      photoUrl = signedUrl ?? ''
     }
     const parts = [newComment.trim(), commentLocation ? `${commentLocation}` : ''].filter(Boolean)
     const { data: newC, error } = await supabase
