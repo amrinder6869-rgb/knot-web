@@ -8,7 +8,7 @@ import PostComments from '@/components/PostComments'
 import { computeNetBalances } from '@/lib/ledger'
 import { compressImage } from '@/lib/compressImage'
 
-type MomentPhoto = { id: string; storage_path: string; url: string }
+type MomentPhoto = { id: string; storage_path: string; url: string; media_type: string }
 
 type Reaction = { e: string; n: number; mine: boolean }
 type Post = {
@@ -168,13 +168,13 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
     if (otherPostIds.length > 0) {
       const { data: postPhotos } = await supabase
         .from('photos')
-        .select('id, post_id, storage_path')
+        .select('id, post_id, storage_path, media_type')
 
       const photoMap = new Map<string, MomentPhoto>()
       for (const p of postPhotos || []) {
         if (!p.post_id) continue
         const signedUrl = await getSignedUrl(p.storage_path)
-        photoMap.set(p.post_id, { id: p.id, storage_path: p.storage_path, url: signedUrl ?? '' })
+        photoMap.set(p.post_id, { id: p.id, storage_path: p.storage_path, url: signedUrl ?? '', media_type: p.media_type ?? 'image' })
       }
       setMomentPhotos(photoMap)
     } else {
@@ -534,7 +534,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
                   />
                   {editPhotoPreview ? (
                     <div style={{ position: 'relative', marginBottom: 8, display: 'inline-block' }}>
-                      <img src={editPhotoPreview} alt="" style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 10, objectFit: 'cover', display: 'block' }} />
+                      <img src={editPhotoPreview} alt="" style={{ width: '100%', aspectRatio: '4/5', borderRadius: 10, objectFit: 'cover', display: 'block' }} />
                       <button onClick={() => { setEditPhotoFile(null); setEditPhotoPreview(null); if (editPhotoInputRef.current) editPhotoInputRef.current.value = '' }}
                         style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>
                         x
@@ -542,7 +542,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
                     </div>
                   ) : momentPhotos.get(p.id) && !editRemovePhoto ? (
                     <div style={{ position: 'relative', marginBottom: 8, display: 'inline-block' }}>
-                      <img src={momentPhotos.get(p.id)!.url} alt="" style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 10, objectFit: 'cover', display: 'block' }} />
+                      <img src={momentPhotos.get(p.id)!.url} alt="" style={{ width: '100%', aspectRatio: '4/5', borderRadius: 10, objectFit: 'cover', display: 'block' }} />
                       <button onClick={() => setEditRemovePhoto(true)}
                         style={{ position: 'absolute', top: 6, right: 6, padding: '4px 8px', borderRadius: 6, background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
                         Remove photo
@@ -572,11 +572,18 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
                     <span style={{ color: 'var(--text2)', marginLeft: 6 }}>{p.action}</span>
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{p.time}</div>
-                  {momentPhotos.get(p.id) && (
-                    <div style={{ marginTop: 10 }}>
-                      <img src={momentPhotos.get(p.id)!.url} alt="" style={{ maxWidth: '100%', maxHeight: 360, borderRadius: 10, objectFit: 'cover', display: 'block' }} />
-                    </div>
-                  )}
+                  {momentPhotos.get(p.id) && (() => {
+                    const media = momentPhotos.get(p.id)!
+                    return (
+                      <div style={{ marginTop: 10, borderRadius: 10, overflow: 'hidden', aspectRatio: '4/5', background: '#000', maxWidth: 400 }}>
+                        {media.media_type === 'video' ? (
+                          <video src={media.url} controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        ) : (
+                          <img src={media.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        )}
+                      </div>
+                    )
+                  })()}
                   <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                     {(p.reactions || []).map(r => (
                       <button key={r.e} onClick={() => toggleReaction(p.id, r.e)}

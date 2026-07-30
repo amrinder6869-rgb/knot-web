@@ -49,6 +49,7 @@ export default function Composer({
   const [posting, setPosting]       = useState(false)
   const [momentPhoto, setMomentPhoto]               = useState<File | null>(null)
   const [momentPhotoPreview, setMomentPhotoPreview] = useState<string | null>(null)
+  const [momentMediaType, setMomentMediaType] = useState<'image' | 'video'>('image')
   const [momentError, setMomentError] = useState('')
   const momentPhotoInputRef = useRef<HTMLInputElement>(null)
 
@@ -131,6 +132,12 @@ export default function Composer({
   function handleMomentPhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    if (file.size > 100 * 1024 * 1024) {
+      setMomentError('File is too large. Maximum size is 100 MB.')
+      return
+    }
+    const isVideo = file.type.startsWith('video/')
+    setMomentMediaType(isVideo ? 'video' : 'image')
     setMomentPhoto(file)
     setMomentPhotoPreview(URL.createObjectURL(file))
   }
@@ -157,22 +164,24 @@ export default function Composer({
     }
 
     if (momentPhoto) {
-      const compressed = await compressImage(momentPhoto)
-      const ext = compressed.name.split('.').pop()
-      const path = `${knotId}/${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
-      const { error: uploadError } = await supabase.storage.from('knot-photos').upload(path, compressed)
+      const isVideo = momentMediaType === 'video'
+      const uploadFile = isVideo ? momentPhoto : await compressImage(momentPhoto)
+      const ext = uploadFile.name.split('.').pop()
+      const storagePath = `${knotId}/${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
+      const { error: uploadError } = await supabase.storage.from('knot-photos').upload(storagePath, uploadFile)
       if (uploadError) {
-        setMomentError('Post shared, but the photo failed to upload.')
+        setMomentError('Post shared, but the media failed to upload.')
       } else {
         const { error: photoInsertError } = await supabase.from('photos').insert({
           knot_id:      knotId,
           post_id:      newPost.id,
           uploaded_by:  user.id,
-          storage_path: path,
-          file_name:    compressed.name,
-          file_size:    compressed.size,
+          storage_path: storagePath,
+          file_name:    uploadFile.name,
+          file_size:    uploadFile.size,
+          media_type:   momentMediaType,
         })
-        if (photoInsertError) setMomentError('Post shared, but the photo failed to save.')
+        if (photoInsertError) setMomentError('Post shared, but the media failed to save.')
       }
     }
 
@@ -187,6 +196,7 @@ export default function Composer({
     setPosting(false)
     setMomentPhoto(null)
     setMomentPhotoPreview(null)
+    setMomentMediaType('image')
     reset()
     onPosted()
   }
@@ -414,10 +424,14 @@ export default function Composer({
             </div>
           )}
           {momentPhotoPreview && (
-            <div style={{ position: 'relative', marginBottom: 10, display: 'inline-block' }}>
-              <img src={momentPhotoPreview} alt="" style={{ height: 100, borderRadius: 8, objectFit: 'cover', display: 'block' }} />
-              <button onClick={() => { setMomentPhoto(null); setMomentPhotoPreview(null) }}
-                style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>
+            <div style={{ position: 'relative', marginBottom: 10, borderRadius: 10, overflow: 'hidden', aspectRatio: '4/5', background: '#000', maxWidth: 320 }}>
+              {momentMediaType === 'video' ? (
+                <video src={momentPhotoPreview} controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              ) : (
+                <img src={momentPhotoPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              )}
+              <button onClick={() => { setMomentPhoto(null); setMomentPhotoPreview(null); setMomentMediaType('image'); if (momentPhotoInputRef.current) momentPhotoInputRef.current.value = '' }}
+                style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>
                 x
               </button>
             </div>
@@ -431,10 +445,10 @@ export default function Composer({
               placeholder="Share a moment with the group..."
               autoFocus
               style={{ flex: 1, background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit' }} />
-            <input type="file" accept="image/*" ref={momentPhotoInputRef} onChange={handleMomentPhotoSelect} style={{ display: 'none' }} />
+            <input type="file" accept="image/*,video/*" ref={momentPhotoInputRef} onChange={handleMomentPhotoSelect} style={{ display: 'none' }} />
             <button onClick={() => momentPhotoInputRef.current?.click()}
               style={{ width: 38, height: 38, borderRadius: 8, background: momentPhoto ? 'var(--yellow-soft)' : 'var(--bg3)', border: `1px solid ${momentPhoto ? 'var(--yellow)' : 'var(--border2)'}`, color: momentPhoto ? 'var(--yellow)' : 'var(--text3)', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'inherit' }}
-              title="Add photo">
+              title="Add photo or video">
               P
             </button>
             <button onClick={postMoment} disabled={(!momentText.trim() && !momentPhoto) || posting}
