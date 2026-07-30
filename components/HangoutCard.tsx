@@ -132,6 +132,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
   const [editBillSubmitting, setEditBillSubmitting] = useState(false)
   const [editBillError, setEditBillError] = useState('')
   const [deletingBillId, setDeletingBillId] = useState<string | null>(null)
+  const [livePhotoPosted, setLivePhotoPosted] = useState(false)
 
   // Re-sync local state whenever fresh bundle data arrives from the parent
   useEffect(() => {
@@ -470,6 +471,23 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
     onRefresh()
   }
 
+  async function handleLivePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !currentUser) return
+    try {
+      const compressed = await compressImage(file)
+      const ext = compressed.name.split('.').pop()
+      const storagePath = `moments/${knotId}/${hangout.id}/${Date.now()}.${ext}`
+      const { error: uploadError } = await supabase.storage.from('knot-photos').upload(storagePath, compressed)
+      if (uploadError) return
+      await supabase.from('photos').insert({ knot_id: knotId, hangout_id: hangout.id, uploaded_by: currentUser.id, storage_path: storagePath, caption: `Live from ${hangout.venue_name || hangout.title}` })
+      await supabase.from('posts').insert({ knot_id: knotId, hangout_id: hangout.id, author_id: currentUser.id, content: `Capturing the night at ${hangout.venue_name || hangout.title}`, post_type: 'moment' })
+      setLivePhotoPosted(true)
+      onRefresh()
+    } catch (err) { console.error('Live photo error:', err) }
+  }
+
+
   if (!hangout) return null
 
   const isCreator   = hangout.created_by === currentUser?.id
@@ -665,6 +683,22 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
           currentUserId={currentUser?.id || ''}
           isLive={isLive}
         />
+      )}
+
+      {isLive && !isCancelled && !livePhotoPosted && (
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 14, marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)' }}>Capture the night</span>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.65)' }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Add photo
+            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleLivePhotoUpload} />
+          </label>
+        </div>
+      )}
+      {isLive && !isCancelled && livePhotoPosted && (
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 14, marginBottom: 14 }}>
+          <span style={{ fontSize: 13, color: '#4ade80' }}>Photo added to Memories</span>
+        </div>
       )}
 
       {isDone && !isCancelled && (

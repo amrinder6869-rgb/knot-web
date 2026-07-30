@@ -1,4 +1,9 @@
-'use client'
+const fs = require('fs')
+const path = require('path')
+
+const filePath = path.join('C:\\Users\\amrin\\Documents\\knot-web', 'components', 'PostHangoutLoop.tsx')
+
+const content = `'use client'
 
 import { useState, useEffect } from 'react'
 import { Star, Camera, CheckCircle } from 'lucide-react'
@@ -97,7 +102,7 @@ export function PostHangoutLoop({
     try {
       const compressed = await compressImage(file)
       const ext = compressed.name.split('.').pop()
-      const storagePath = `memories/${knotId}/${hangout.id}/${Date.now()}.${ext}`
+      const storagePath = \`memories/\${knotId}/\${hangout.id}/\${Date.now()}.\${ext}\`
 
       const { error: uploadError } = await supabase.storage
         .from('knot-photos')
@@ -110,14 +115,14 @@ export function PostHangoutLoop({
         hangout_id: hangout.id,
         uploaded_by: currentUserId,
         storage_path: storagePath,
-        caption: `From ${hangout.venue_name || hangout.title}`,
+        caption: \`From \${hangout.venue_name || hangout.title}\`,
       })
 
       await supabase.from('posts').insert({
         knot_id: knotId,
         hangout_id: hangout.id,
         author_id: currentUserId,
-        content: `Added a photo from ${hangout.venue_name || hangout.title}`,
+        content: \`Added a photo from \${hangout.venue_name || hangout.title}\`,
         post_type: 'moment',
       })
 
@@ -165,7 +170,7 @@ export function PostHangoutLoop({
                 disabled={submittingRating}
                 style={{
                   width: 40, height: 40, borderRadius: 10,
-                  border: `1.5px solid ${displayRating && r <= displayRating ? 'var(--yellow)' : 'var(--border)'}`,
+                  border: \`1.5px solid \${displayRating && r <= displayRating ? 'var(--yellow)' : 'var(--border)'}\`,
                   background: displayRating && r <= displayRating ? 'var(--yellow-soft)' : 'var(--bg3)',
                   cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.1s',
                 }}
@@ -238,3 +243,8 @@ export function PostHangoutLoop({
     </div>
   )
 }
+`
+
+fs.writeFileSync(filePath, content, 'utf8')
+console.log('PostHangoutLoop.tsx rewritten.')
+console.log('Run: node sprint2b-live-nudge.js next, then npm run build')
