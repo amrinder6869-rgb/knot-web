@@ -60,6 +60,7 @@ export default function Dashboard() {
   const [knots, setKnots]                   = useState<any[]>([])
   const [knotsLoading, setKnotsLoading]     = useState(true)
   const [knotMembers, setKnotMembers]       = useState<any[]>([])
+  const [recentMedia, setRecentMedia]       = useState<{ id: string; url: string; media_type: string }[]>([])
   const [editName, setEditName]             = useState('')
   const [editBudget, setEditBudget]         = useState('mid')
   const [savingProfile, setSavingProfile]   = useState(false)
@@ -135,7 +136,24 @@ await loadKnotMembers(startKnot.id, data.user.id)
     }
   }
 
-async function switchKnot(k: any) {
+  async function loadRecentMedia(knotId: string) {
+    const { data } = await supabase
+      .from('photos')
+      .select('id, storage_path, media_type')
+      .eq('knot_id', knotId)
+      .order('created_at', { ascending: false })
+      .limit(6)
+    if (!data) { setRecentMedia([]); return }
+    const withUrls = await Promise.all(
+      data.map(async (p: any) => {
+        const url = await getSignedUrl(p.storage_path)
+        return { id: p.id, url: url ?? '', media_type: p.media_type ?? 'image' }
+      })
+    )
+    setRecentMedia(withUrls.filter(p => p.url))
+  }
+
+  async function switchKnot(k: any) {
   setShowHome(false)
   setActiveKnot(k)
   localStorage.setItem('active_knot_id', k.id)
@@ -145,6 +163,7 @@ async function switchKnot(k: any) {
     setShowKnotList(false)
     setActive('feed')
     await loadKnotMembers(k.id)
+    await loadRecentMedia(k.id)
   }
 
   async function signOut() {
@@ -430,7 +449,15 @@ async function switchKnot(k: any) {
                   <button onClick={() => setActive('memories')} style={{ background: 'none', border: 'none', color: 'var(--yellow)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>See all</button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
-                  {[1,2,3,4,5,6].map(i => (
+                  {recentMedia.length > 0 ? recentMedia.map(p => (
+                    <div key={p.id} onClick={() => setActive('memories')} style={{ aspectRatio: '1', borderRadius: 6, overflow: 'hidden', background: '#000', cursor: 'pointer', border: '1px solid var(--border)' }}>
+                      {p.media_type === 'video' ? (
+                        <video src={p.url} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      ) : (
+                        <img src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      )}
+                    </div>
+                  )) : [1,2,3,4,5,6].map(i => (
                     <div key={i} onClick={() => setActive('memories')} style={{ aspectRatio: '1', borderRadius: 6, background: 'var(--bg3)', cursor: 'pointer', border: '1px solid var(--border)' }} />
                   ))}
                 </div>
