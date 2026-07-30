@@ -107,6 +107,7 @@ if (savedShowHome === 'false' && savedKnot) {
   setActiveKnot(startKnot)
 }
 await loadKnotMembers(startKnot.id, data.user.id)
+      await loadRecentMedia(startKnot.id)
       } else {
         setShowHome(false)
       }
@@ -153,6 +154,7 @@ await loadKnotMembers(startKnot.id, data.user.id)
     setRecentMedia(withUrls.filter(p => p.url))
   }
 
+  
   async function switchKnot(k: any) {
   setShowHome(false)
   setActiveKnot(k)
@@ -262,11 +264,6 @@ await loadKnotMembers(startKnot.id, data.user.id)
             kn<span style={{ color: 'var(--yellow)' }}>o</span>t
           </span>
         </div>
-
-        <button onClick={() => { setShowHome(true); setActiveKnot(null); localStorage.setItem('show_home', 'true') }}
-          style={{ padding: '6px 14px', background: showHome ? 'var(--yellow)' : 'var(--bg3)', border: `1px solid ${showHome ? 'var(--yellow)' : 'var(--border)'}`, borderRadius: 8, color: showHome ? '#111' : 'var(--text2)', fontSize: 13, fontWeight: showHome ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
-          Home
-        </button>
 
         <div style={{ position: 'relative', flex: 1 }}>
           <button onClick={() => setShowKnotList(!showKnotList)}
@@ -402,22 +399,18 @@ await loadKnotMembers(startKnot.id, data.user.id)
                 <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: 'var(--text)' }}>About</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13, color: 'var(--text2)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 20 }}>{activeKnot.emoji}</span>
+                    <span style={{ fontWeight: 600, color: 'var(--text)' }}>{activeKnot.name}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ color: 'var(--yellow)' }}>⊕</span>
                     <span>Private · Invite only</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ color: 'var(--yellow)' }}>⊕</span>
-                    <span>No algorithm · Chronological</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ color: 'var(--yellow)' }}>⊕</span>
-                    <span>No ads · Ever</span>
+                    <span>{activeKnot.count} member{activeKnot.count !== 1 ? 's' : ''}</span>
                   </div>
                 </div>
-                <button onClick={() => setActive('members')}
-                  style={{ width: '100%', marginTop: 14, padding: '9px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Invite someone
-                </button>
               </div>
 
               <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
