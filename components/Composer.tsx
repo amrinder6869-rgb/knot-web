@@ -59,6 +59,7 @@ export default function Composer({
   const [whereMode, setWhereMode]         = useState<'none' | 'tbd' | 'discover' | 'manual' | 'home' | 'search' | 'online'>('none')
   const [selectedVenue, setSelectedVenue] = useState<any>(null)
   const [meetingUrl, setMeetingUrl] = useState('')
+  const [creatingRoom, setCreatingRoom] = useState(false)
   const [manualVenue, setManualVenue]     = useState('')
   const [venueSearch, setVenueSearch]     = useState('')
   const [venueResults, setVenueResults]   = useState<any[]>([])
@@ -231,6 +232,26 @@ export default function Composer({
     setSearchingVenue(false)
   }
 
+
+  async function createDailyRoom(hangoutId: string): Promise<string | null> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return null
+      const res = await fetch('/api/daily/create-room', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + session.access_token,
+        },
+        body: JSON.stringify({ hangoutId }),
+      })
+      const data = await res.json()
+      return data.url || null
+    } catch {
+      return null
+    }
+  }
+
   async function postHangout() {
     if (!currentUser || creating) return
     setCreating(true)
@@ -292,6 +313,13 @@ export default function Composer({
       setHangoutError('Could not create the hangout. Please try again.')
       setCreating(false)
       return
+    }
+
+    if (whereMode === 'online' && !meetingUrl.trim()) {
+      const dailyUrl = await createDailyRoom(h.id)
+      if (dailyUrl) {
+        await supabase.from('hangouts').update({ meeting_url: dailyUrl }).eq('id', h.id)
+      }
     }
 
     const actorName = currentUser.name || 'Someone'
@@ -647,12 +675,10 @@ export default function Composer({
 
             {whereMode === 'online' && (
               <div>
-                <input
-                  value={meetingUrl}
-                  onChange={e => setMeetingUrl(e.target.value)}
-                  placeholder="Paste a Zoom, Meet, or FaceTime link (optional)"
-                  style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 6 }}
-                />
+                <div style={{ padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, marginBottom: 6 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Video call included</div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)' }}>A Daily.co room will be created automatically. Members join directly inside the app.</div>
+                </div>
                 <button onClick={() => { setWhereMode('none'); setMeetingUrl('') }} style={{ width: '100%', padding: '8px', background: 'transparent', border: '1px dashed var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
                   Cancel
                 </button>

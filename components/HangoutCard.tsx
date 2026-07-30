@@ -7,6 +7,7 @@ import BillSplitForm from '@/components/BillSplitForm'
 import { CrewSection } from '@/components/CrewSection'
 import { PostHangoutLoop } from '@/components/PostHangoutLoop'
 import { PreOrderCard } from '@/components/PreOrderCard'
+import { DailyCall } from '@/components/DailyCall'
 
 function timeAgo(date: string) {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
@@ -137,6 +138,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
   const [briefSubmitting, setBriefSubmitting] = useState(false)
   const [myBriefId, setMyBriefId] = useState<string | null>(null)
   const [livePhotoPosted, setLivePhotoPosted] = useState(false)
+  const [showDailyCall, setShowDailyCall] = useState(false)
 
   // Re-sync local state whenever fresh bundle data arrives from the parent
   useEffect(() => {
@@ -704,7 +706,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         )}
 
         {hangout.meeting_url && (isConfirmed || isLive) && (
-          <a href={hangout.meeting_url} target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: isLive ? 'rgba(74,222,128,0.15)' : 'var(--sage-soft)', border: `1px solid ${isLive ? 'rgba(74,222,128,0.3)' : 'var(--sage-dim)'}`, borderRadius: 8, color: isLive ? '#4ade80' : 'var(--sage)', fontSize: 12, fontWeight: 700, textDecoration: 'none', fontFamily: 'inherit' }}>Join call</a>
+          <button onClick={() => setShowDailyCall(true)} style={{ padding: '8px 14px', background: isLive ? 'rgba(74,222,128,0.15)' : 'var(--sage-soft)', border: `1px solid ${isLive ? 'rgba(74,222,128,0.3)' : 'var(--sage-dim)'}`, borderRadius: 8, color: isLive ? '#4ade80' : 'var(--sage)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Join call</button>
         )}
         {hangout.venue_maps_url && (isConfirmed || isLive) && (
           <a href={hangout.venue_maps_url} target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.65)' : 'var(--text2)', fontSize: 12, textDecoration: 'none', fontFamily: 'inherit' }}>Directions</a>
@@ -758,6 +760,13 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
           knotId={knotId}
           currentUserId={currentUser?.id || ''}
           isLive={isLive}
+        />
+      )}
+
+      {isLive && showDailyCall && hangout.meeting_url && (
+        <DailyCall
+          roomUrl={hangout.meeting_url}
+          onLeave={() => setShowDailyCall(false)}
         />
       )}
 
