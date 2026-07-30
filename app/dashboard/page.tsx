@@ -88,11 +88,18 @@ export default function Dashboard() {
       if (memberships && memberships.length > 0) {
         const knotIds = memberships.map((m: any) => m.knots.id)
         const { data: memberCounts } = await supabase.from('knot_members').select('knot_id').in('knot_id', knotIds)
-        const knotList = memberships.map((m: any) => {
+        const knotListRaw = memberships.map((m: any) => {
           const k = m.knots
           const count = (memberCounts || []).filter((mc: any) => mc.knot_id === k.id).length
           return { id: k.id, name: k.name, emoji: k.emoji, count: count || 1, created_by: k.created_by, cover_url: k.cover_url || null }
         })
+        const knotList = await Promise.all(knotListRaw.map(async (k: any) => {
+          if (k.cover_url && !k.cover_url.startsWith('http')) {
+            const signed = await getSignedUrl(k.cover_url)
+            return { ...k, cover_url: signed ?? null }
+          }
+          return k
+        }))
         setKnots(knotList)
 const savedKnotId = localStorage.getItem('active_knot_id')
 const savedKnot = savedKnotId ? knotList.find(k => k.id === savedKnotId) : null
