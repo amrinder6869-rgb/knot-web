@@ -281,17 +281,15 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
       photoUrl = signedUrl ?? ''
     }
     const parts = [newComment.trim(), commentLocation ? `${commentLocation}` : ''].filter(Boolean)
-    const { data: newC, error } = await supabase
+    const { error } = await supabase
       .from('comments')
       .insert({ post_id: post.id, author_id: currentUser.id, content: parts.join(' ') || null, photo_path: photoPath })
-      .select()
-      .single()
     if (error) {
       setActionError('Could not post comment.')
       setSubmitting(false)
       return
     }
-    setComments(prev => [...prev, { ...newC, photo_url: photoUrl, profiles: { name: currentUser.name } }])
+    setComments(prev => [...prev, { id: crypto.randomUUID(), post_id: post.id, author_id: currentUser.id, content: parts.join(' ') || null, photo_path: photoPath, created_at: new Date().toISOString(), photo_url: photoUrl, profiles: { name: currentUser.name } }])
     setNewComment('')
     setCommentPhoto(null)
     setCommentPhotoPreview(null)
