@@ -56,8 +56,9 @@ export default function Composer({
   const [scheduledFor, setScheduledFor]   = useState<Date | null>(null)
   const [recurrenceDay, setRecurrenceDay] = useState(5)
   const [recurrenceTime, setRecurrenceTime] = useState('19:00')
-  const [whereMode, setWhereMode]         = useState<'none' | 'tbd' | 'discover' | 'manual' | 'home' | 'search'>('none')
+  const [whereMode, setWhereMode]         = useState<'none' | 'tbd' | 'discover' | 'manual' | 'home' | 'search' | 'online'>('none')
   const [selectedVenue, setSelectedVenue] = useState<any>(null)
+  const [meetingUrl, setMeetingUrl] = useState('')
   const [manualVenue, setManualVenue]     = useState('')
   const [venueSearch, setVenueSearch]     = useState('')
   const [venueResults, setVenueResults]   = useState<any[]>([])
@@ -90,6 +91,7 @@ export default function Composer({
     setVenueResults([])
     setHangoutTitle('')
     setHangoutError('')
+    setMeetingUrl('')
     setBriefNote('')
     setBriefVibe('')
     setBriefBudget('')
@@ -97,6 +99,7 @@ export default function Composer({
 
   function getVenueName() {
     if (whereMode === 'home') return 'Someone\'s place'
+    if (whereMode === 'online') return 'Online hangout'
     if (whereMode === 'manual') return manualVenue
     return selectedVenue?.name || ''
   }
@@ -271,6 +274,7 @@ export default function Composer({
       venue_booking_url: getVenueBookingUrl(),
       venue_place_id:    selectedVenue?.place_id || selectedVenue?.fsq_id || null,
       venue_category:     selectedVenue?.category_id || null,
+      meeting_url:       whereMode === 'online' ? (meetingUrl.trim() || null) : null,
       venue_lat:         getVenueCoords().lat,
       venue_lng:         getVenueCoords().lng,
       scheduled_for:     startTime,
@@ -543,6 +547,7 @@ export default function Composer({
                   { id: 'home', label: "Someone's place" },
                   { id: 'search', label: 'Search a place' },
                   { id: 'discover', label: 'Browse Discover' },
+                  { id: 'online', label: 'Online / Virtual' },
                 ] as { id: string, label: string }[]).map(({ id, label }) => (
                   <button key={id}
                     onClick={() => {
@@ -550,6 +555,7 @@ export default function Composer({
                       else if (id === 'home') setWhereMode('home')
                       else if (id === 'search') setWhereMode('search')
                       else if (id === 'discover') setWhereMode('discover')
+                      else if (id === 'online') setWhereMode('online')
                     }}
                     style={{
                       padding: '6px 14px', borderRadius: 6,
@@ -634,6 +640,21 @@ export default function Composer({
                 </div>
                 <button onClick={() => { setSelectedVenue(null); setWhereMode('discover') }} style={{ padding: '4px 10px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text2)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
                   Change
+                </button>
+              </div>
+            )}
+
+
+            {whereMode === 'online' && (
+              <div>
+                <input
+                  value={meetingUrl}
+                  onChange={e => setMeetingUrl(e.target.value)}
+                  placeholder="Paste a Zoom, Meet, or FaceTime link (optional)"
+                  style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 6 }}
+                />
+                <button onClick={() => { setWhereMode('none'); setMeetingUrl('') }} style={{ width: '100%', padding: '8px', background: 'transparent', border: '1px dashed var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Cancel
                 </button>
               </div>
             )}

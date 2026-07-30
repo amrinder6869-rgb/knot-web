@@ -702,6 +702,10 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         {isLive && isCreator && (
           <button onClick={endHangout} style={{ padding: '8px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: 'rgba(255,255,255,0.65)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>End the night</button>
         )}
+
+        {hangout.meeting_url && (isConfirmed || isLive) && (
+          <a href={hangout.meeting_url} target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: isLive ? 'rgba(74,222,128,0.15)' : 'var(--sage-soft)', border: `1px solid ${isLive ? 'rgba(74,222,128,0.3)' : 'var(--sage-dim)'}`, borderRadius: 8, color: isLive ? '#4ade80' : 'var(--sage)', fontSize: 12, fontWeight: 700, textDecoration: 'none', fontFamily: 'inherit' }}>Join call</a>
+        )}
         {hangout.venue_maps_url && (isConfirmed || isLive) && (
           <a href={hangout.venue_maps_url} target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.65)' : 'var(--text2)', fontSize: 12, textDecoration: 'none', fontFamily: 'inherit' }}>Directions</a>
         )}
@@ -722,6 +726,10 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
             <a href={buildViatorLink(hangout.venue_name)} target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.65)' : 'var(--text2)', fontSize: 12, textDecoration: 'none', fontFamily: 'inherit' }}>Viator</a>
             <a href={buildGetYourGuideLink(hangout.venue_name)} target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.65)' : 'var(--text2)', fontSize: 12, textDecoration: 'none', fontFamily: 'inherit' }}>GetYourGuide</a>
           </>
+        )}
+
+        {(isConfirmed || isLive) && hangout.meeting_url && (
+          <a href="https://www.viator.com/searchResults/all?text=virtual+experiences" target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.65)' : 'var(--text2)', fontSize: 12, textDecoration: 'none', fontFamily: 'inherit' }}>Virtual experiences</a>
         )}
         {isDone && !showBill && bills.length === 0 && (
           <button onClick={() => setShowBill(true)} style={{ padding: '8px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Split the bill</button>
