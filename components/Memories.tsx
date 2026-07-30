@@ -415,7 +415,11 @@ export default function Memories({ members: _members, knotId }: { members: any[]
           <div onClick={e => e.stopPropagation()}
             style={{ maxWidth: 820, width: '100%', background: 'var(--bg)', borderRadius: 16, overflow: 'hidden' }}>
 
-            <img src={viewPhoto.url} alt="" style={{ width: '100%', maxHeight: '55vh', objectFit: 'contain', background: '#000', display: 'block' }} />
+            {viewPhoto.media_type === 'video' ? (
+                <video src={viewPhoto.url} controls playsInline style={{ width: '100%', maxHeight: '55vh', objectFit: 'contain', background: '#000', display: 'block' }} />
+              ) : (
+                <img src={viewPhoto.url} alt="" style={{ width: '100%', maxHeight: '55vh', objectFit: 'contain', background: '#000', display: 'block' }} />
+              )}
 
             <div style={{ padding: 16 }}>
 
@@ -588,7 +592,11 @@ export default function Memories({ members: _members, knotId }: { members: any[]
             {h.photos.map((p: any) => (
               <div key={p.id} onClick={() => setViewPhoto(p)}
                 style={{ aspectRatio: '1', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', background: 'var(--bg3)', border: '1px solid var(--border)', position: 'relative' }}>
-                <img src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                {p.media_type === 'video' ? (
+                  <video src={p.url} playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                ) : (
+                  <img src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                )}
                 {p.caption && (
                   <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 8px', background: 'rgba(0,0,0,0.55)', fontSize: 11, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {p.caption}
@@ -609,7 +617,11 @@ export default function Memories({ members: _members, knotId }: { members: any[]
             {ungrouped.map((p: any) => (
               <div key={p.id} onClick={() => setViewPhoto(p)}
                 style={{ aspectRatio: '1', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', background: 'var(--bg3)', border: '1px solid var(--border)', position: 'relative' }}>
-                <img src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                {p.media_type === 'video' ? (
+                  <video src={p.url} playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                ) : (
+                  <img src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                )}
                 {p.caption && (
                   <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 8px', background: 'rgba(0,0,0,0.55)', fontSize: 11, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {p.caption}

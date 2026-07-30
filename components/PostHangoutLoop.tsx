@@ -29,13 +29,13 @@ export function PostHangoutLoop({
   const [photoPosted, setPhotoPosted] = useState(false)
   const [photoError, setPhotoError] = useState('')
 
-  const [hangoutPhotos, setHangoutPhotos] = useState<{ id: string; url: string }[]>([])
+  const [hangoutPhotos, setHangoutPhotos] = useState<{ id: string; url: string; media_type: string }[]>([])
 
   useEffect(() => {
     async function fetchPhotos() {
       const { data } = await supabase
         .from('photos')
-        .select('id, storage_path')
+        .select('id, storage_path, media_type')
         .eq('hangout_id', hangout.id)
         .order('created_at', { ascending: false })
         .limit(6)
@@ -43,7 +43,7 @@ export function PostHangoutLoop({
       const withUrls = await Promise.all(
         data.map(async (p: any) => {
           const url = await getSignedUrl(p.storage_path)
-          return { id: p.id, url: url ?? '' }
+          return { id: p.id, url: url ?? '', media_type: p.media_type ?? 'image' }
         })
       )
       setHangoutPhotos(withUrls.filter(p => p.url))
@@ -91,17 +91,19 @@ export function PostHangoutLoop({
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file || !currentUserId) return
+    if (file.size > 100 * 1024 * 1024) { setPhotoError('File is too large. Maximum size is 100 MB.'); return }
     setPhotoUploading(true)
     setPhotoError('')
 
     try {
-      const compressed = await compressImage(file)
-      const ext = compressed.name.split('.').pop()
+      const isVideo = file.type.startsWith('video/')
+      const uploadFile = isVideo ? file : await compressImage(file)
+      const ext = uploadFile.name.split('.').pop()
       const storagePath = `memories/${knotId}/${hangout.id}/${Date.now()}.${ext}`
 
       const { error: uploadError } = await supabase.storage
         .from('knot-photos')
-        .upload(storagePath, compressed)
+        .upload(storagePath, uploadFile)
 
       if (uploadError) { setPhotoError('Upload failed. Try again.'); setPhotoUploading(false); return }
 
@@ -110,6 +112,7 @@ export function PostHangoutLoop({
         hangout_id: hangout.id,
         uploaded_by: currentUserId,
         storage_path: storagePath,
+        media_type: isVideo ? 'video' : 'image',
         caption: `From ${hangout.venue_name || hangout.title}`,
       })
 
@@ -190,12 +193,16 @@ export function PostHangoutLoop({
       {hangoutPhotos.length > 0 && (
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
-            Photos from this hangout
+            Media from this hangout
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginBottom: 12 }}>
             {hangoutPhotos.map(p => (
-              <div key={p.id} style={{ aspectRatio: '1', borderRadius: 8, overflow: 'hidden', background: 'var(--bg3)' }}>
-                <img src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <div key={p.id} style={{ aspectRatio: '1', borderRadius: 8, overflow: 'hidden', background: '#000', position: 'relative' }}>
+                {p.media_type === 'video' ? (
+                  <video src={p.url} playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                ) : (
+                  <img src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                )}
               </div>
             ))}
           </div>
@@ -214,7 +221,7 @@ export function PostHangoutLoop({
 
       {!photoPosted ? (
         <div>
-          <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>Add a photo to Memories</div>
+          <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>Add a photo or video to Memories</div>
           {photoError && <div style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 8 }}>{photoError}</div>}
           <label style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -225,14 +232,14 @@ export function PostHangoutLoop({
             opacity: photoUploading ? 0.6 : 1,
           }}>
             <Camera size={14} strokeWidth={2} />
-            {photoUploading ? 'Uploading...' : 'Upload photo'}
-            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoUpload} disabled={photoUploading} />
+            {photoUploading ? 'Uploading...' : 'Upload photo or video'}
+            <input type="file" accept="image/*,video/*" style={{ display: 'none' }} onChange={handlePhotoUpload} disabled={photoUploading} />
           </label>
         </div>
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <CheckCircle size={16} color="#4ade80" strokeWidth={2} />
-          <span style={{ fontSize: 13, color: 'var(--text2)' }}>Photo added to Memories</span>
+          <span style={{ fontSize: 13, color: 'var(--text2)' }}>Added to Memories</span>
         </div>
       )}
     </div>
