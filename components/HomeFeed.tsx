@@ -51,7 +51,7 @@ export default function HomeFeed({ knots, onSelectKnot }: { knots: any[], onSele
         .limit(40),
       supabase
         .from('photos')
-        .select('*, profiles:uploaded_by(name), knots:knot_id(id, name, emoji)')
+        .select('id, storage_path, media_type, caption, created_at, post_id, hangout_id, knot_id, uploaded_by, profiles:uploaded_by(name), knots:knot_id(id, name, emoji)')
         .in('knot_id', knotIds)
         .order('created_at', { ascending: false })
         .limit(40),
@@ -59,7 +59,7 @@ export default function HomeFeed({ knots, onSelectKnot }: { knots: any[], onSele
 
     const photosWithUrls = await Promise.all((photos || []).map(async (p: any) => {
       const signedUrl = await getSignedUrl(p.storage_path)
-      return { ...p, url: signedUrl ?? '' }
+      return { ...p, url: signedUrl ?? '', media_type: p.media_type ?? 'image' }
     }))
 
     const photoGroups = groupPhotos(photosWithUrls).map(group => ({
@@ -124,13 +124,19 @@ export default function HomeFeed({ knots, onSelectKnot }: { knots: any[], onSele
             {item._type === 'photo_group' && (
               <>
                 {item.photos.length === 1 ? (
-                  <div style={{ width: '100%', aspectRatio: '16/9', overflow: 'hidden' }}>
-                    <img src={item.photos[0].url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  <div style={{ width: '100%', aspectRatio: item.photos[0].media_type === 'video' ? '16/9' : '4/5', overflow: 'hidden', background: '#000' }}>
+                    {item.photos[0].media_type === 'video' ? (
+                      <video src={item.photos[0].url} controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    ) : (
+                      <img src={item.photos[0].url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    )}
                   </div>
                 ) : item.photos.length === 2 ? (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, aspectRatio: '16/9' }}>
                     {item.photos.slice(0, 2).map((p: any) => (
-                      <img key={p.id} src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      p.media_type === 'video'
+                        ? <video key={p.id} src={p.url} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        : <img key={p.id} src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                     ))}
                   </div>
                 ) : item.photos.length === 3 ? (
