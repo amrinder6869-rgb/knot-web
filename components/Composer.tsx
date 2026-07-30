@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import { ImageIcon } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { notifyKnotMembers } from '@/lib/notifications'
 import Discover from '@/components/Discover'
@@ -447,9 +448,9 @@ export default function Composer({
               style={{ flex: 1, background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit' }} />
             <input type="file" accept="image/*,video/*" ref={momentPhotoInputRef} onChange={handleMomentPhotoSelect} style={{ display: 'none' }} />
             <button onClick={() => momentPhotoInputRef.current?.click()}
-              style={{ width: 38, height: 38, borderRadius: 8, background: momentPhoto ? 'var(--yellow-soft)' : 'var(--bg3)', border: `1px solid ${momentPhoto ? 'var(--yellow)' : 'var(--border2)'}`, color: momentPhoto ? 'var(--yellow)' : 'var(--text3)', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'inherit' }}
+              style={{ width: 38, height: 38, borderRadius: 8, background: momentPhoto ? 'var(--yellow-soft)' : 'var(--bg3)', border: `1px solid ${momentPhoto ? 'var(--yellow)' : 'var(--border2)'}`, color: momentPhoto ? 'var(--yellow)' : 'var(--text3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'inherit' }}
               title="Add photo or video">
-              P
+              <ImageIcon size={16} strokeWidth={2} />
             </button>
             <button onClick={postMoment} disabled={(!momentText.trim() && !momentPhoto) || posting}
               style={{ background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', padding: '9px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (!momentText.trim() && !momentPhoto) || posting ? 0.5 : 1 }}>
