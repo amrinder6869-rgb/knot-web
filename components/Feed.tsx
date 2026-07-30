@@ -572,18 +572,15 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
                     <span style={{ color: 'var(--text2)', marginLeft: 6 }}>{p.action}</span>
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{p.time}</div>
-                  {momentPhotos.get(p.id) && (() => {
-                    const media = momentPhotos.get(p.id)!
-                    return (
-                      <div style={{ marginTop: 10, borderRadius: 10, overflow: 'hidden', aspectRatio: '4/5', background: '#000', maxWidth: 400 }}>
-                        {media.media_type === 'video' ? (
-                          <video src={media.url} controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                        ) : (
-                          <img src={media.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                        )}
-                      </div>
-                    )
-                  })()}
+                  {momentPhotos.get(p.id) ? (
+                    <div style={{ marginTop: 10, borderRadius: 10, overflow: 'hidden', aspectRatio: '4/5', background: '#000', maxWidth: 400 }}>
+                      {momentPhotos.get(p.id)!.media_type === 'video' ? (
+                        <video src={momentPhotos.get(p.id)!.url} controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      ) : (
+                        <img src={momentPhotos.get(p.id)!.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      )}
+                    </div>
+                  ) : null}
                   <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                     {(p.reactions || []).map(r => (
                       <button key={r.e} onClick={() => toggleReaction(p.id, r.e)}

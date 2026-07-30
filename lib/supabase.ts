@@ -5,7 +5,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-export async function getSignedUrl(storagePath: string | null | undefined, expiresIn = 3600): Promise<string | null> {
+export async function getSignedUrl(storagePath: string | null | undefined, expiresIn = 86400): Promise<string | null> {
   if (!storagePath) return null
   // If already a full URL (legacy data), extract the path after /knot-photos/
   let resolvedPath = storagePath
