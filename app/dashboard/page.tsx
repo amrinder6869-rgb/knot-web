@@ -61,6 +61,7 @@ export default function Dashboard() {
   const [knotsLoading, setKnotsLoading]     = useState(true)
   const [knotMembers, setKnotMembers]       = useState<any[]>([])
   const [recentMedia, setRecentMedia]       = useState<{ id: string; url: string; media_type: string }[]>([])
+  const [coverSignedUrl, setCoverSignedUrl] = useState<string | null>(null)
   const [editName, setEditName]             = useState('')
   const [editBudget, setEditBudget]         = useState('mid')
   const [savingProfile, setSavingProfile]   = useState(false)
@@ -125,6 +126,17 @@ await loadKnotMembers(startKnot.id, data.user.id)
   useEffect(() => {
     if (typeof window !== 'undefined') localStorage.setItem('active_tab', active)
   }, [active])
+
+  useEffect(() => {
+    if (!activeKnot?.cover_url) { setCoverSignedUrl(null); return }
+    const raw = activeKnot.cover_url
+    if (raw.startsWith('http')) {
+      // already a full URL — use as-is (legacy or freshly signed)
+      setCoverSignedUrl(raw)
+    } else {
+      getSignedUrl(raw).then(url => setCoverSignedUrl(url ?? null))
+    }
+  }, [activeKnot?.cover_url])
 
   async function loadKnotMembers(knotId: string, userId?: string) {
     const { data } = await supabase
@@ -317,10 +329,10 @@ await loadKnotMembers(startKnot.id, data.user.id)
           {/* COVER BANNER */}
           <div style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--border)' }}>
             <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px 20px 0 20px' }}>
-            <div style={{ height: 180, background: activeKnot.cover_url ? 'transparent' : 'linear-gradient(135deg, #F9F9F9 0%, #F2F2F2 50%, #E8E8E8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', borderRadius: 12 }}>
-              {activeKnot.cover_url ? (<img src={activeKnot.cover_url} alt='' style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', position: 'absolute', top: 0, left: 0 }} />) : (<><div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 30% 50%, rgba(248,189,3,0.2) 0%, transparent 60%)' }} /><div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 70% 50%, rgba(248,189,3,0.1) 0%, transparent 60%)' }} /></>)}
-              {activeKnot.cover_url ? null : <span style={{ fontSize: 64 }}>{activeKnot.emoji}</span>}
-              {activeKnot.created_by === user?.id && (<label style={{ position: 'absolute', bottom: 10, right: 10, padding: '6px 12px', background: 'rgba(0,0,0,0.5)', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{activeKnot.cover_url ? 'Change cover' : '+ Add cover'}<input type='file' accept='image/jpeg,image/png,image/webp' style={{ display: 'none' }} onChange={async (e) => { const file = e.target.files?.[0]; if (!file || !user) return; const ext = (file.name.split('.').pop() || 'jpg').toLowerCase(); const safeType = file.type === 'image/png' ? 'image/png' : file.type === 'image/webp' ? 'image/webp' : 'image/jpeg'; const path = 'covers/' + activeKnot.id + '.' + ext; const { error: upErr } = await supabase.storage.from('knot-photos').upload(path, file, { upsert: true, contentType: safeType }); if (upErr) { alert('Upload failed'); return }; const signedCoverUrl = await getSignedUrl(path); if (!signedCoverUrl) { alert('Could not get cover URL'); return }; await supabase.from('knots').update({ cover_url: path }).eq('id', activeKnot.id); const updated = { ...activeKnot, cover_url: signedCoverUrl }; setActiveKnot(updated); setKnots(ks => ks.map(k => k.id === activeKnot.id ? updated : k)) }} /></label>)}
+            <div style={{ height: 180, background: coverSignedUrl ? 'transparent' : 'linear-gradient(135deg, #F9F9F9 0%, #F2F2F2 50%, #E8E8E8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', borderRadius: 12 }}>
+              {coverSignedUrl ? (<img src={coverSignedUrl} alt='' style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', position: 'absolute', top: 0, left: 0 }} />) : (<><div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 30% 50%, rgba(248,189,3,0.2) 0%, transparent 60%)' }} /><div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 70% 50%, rgba(248,189,3,0.1) 0%, transparent 60%)' }} /></>)}
+              {coverSignedUrl ? null : <span style={{ fontSize: 64 }}>{activeKnot.emoji}</span>}
+              {activeKnot.created_by === user?.id && (<label style={{ position: 'absolute', bottom: 10, right: 10, padding: '6px 12px', background: 'rgba(0,0,0,0.5)', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{activeKnot.cover_url ? 'Change cover' : '+ Add cover'}<input type='file' accept='image/jpeg,image/png,image/webp' style={{ display: 'none' }} onChange={async (e) => { const file = e.target.files?.[0]; if (!file || !user) return; const ext = (file.name.split('.').pop() || 'jpg').toLowerCase(); const safeType = file.type === 'image/png' ? 'image/png' : file.type === 'image/webp' ? 'image/webp' : 'image/jpeg'; const path = 'covers/' + activeKnot.id + '.' + ext; const { error: upErr } = await supabase.storage.from('knot-photos').upload(path, file, { upsert: true, contentType: safeType }); if (upErr) { alert('Upload failed'); return }; await supabase.from('knots').update({ cover_url: path }).eq('id', activeKnot.id); const updated = { ...activeKnot, cover_url: path }; setActiveKnot(updated); setKnots(ks => ks.map(k => k.id === activeKnot.id ? updated : k)) }} /></label>)}
             </div>
             </div>
 
