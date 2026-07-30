@@ -132,6 +132,10 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
   const [editBillSubmitting, setEditBillSubmitting] = useState(false)
   const [editBillError, setEditBillError] = useState('')
   const [deletingBillId, setDeletingBillId] = useState<string | null>(null)
+  const [memberBriefs, setMemberBriefs] = useState<any[]>([])
+  const [myBriefNote, setMyBriefNote] = useState('')
+  const [briefSubmitting, setBriefSubmitting] = useState(false)
+  const [myBriefId, setMyBriefId] = useState<string | null>(null)
   const [livePhotoPosted, setLivePhotoPosted] = useState(false)
 
   // Re-sync local state whenever fresh bundle data arrives from the parent
@@ -142,6 +146,21 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
     setComments(data.comments)
     setBills(data.bills)
   }, [data])
+
+  useEffect(() => {
+    async function fetchBriefs() {
+      const { data } = await supabase
+        .from('hangout_briefs')
+        .select('id, user_id, note, profiles:user_id(name)')
+        .eq('hangout_id', hangout.id)
+        .order('created_at', { ascending: true })
+      if (!data) return
+      setMemberBriefs(data)
+      const mine = data.find((b: any) => b.user_id === currentUser?.id)
+      if (mine) { setMyBriefId(mine.id); setMyBriefNote(mine.note || '') }
+    }
+    fetchBriefs()
+  }, [hangout.id, currentUser?.id])
 
   const myVoteOptionId = options.find(o => o._myVote)?.id || null
   const myRsvpStatus = rsvps.find(r => r.user_id === currentUser?.id)?.status || null
@@ -486,6 +505,24 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
   }
 
 
+  async function submitBrief() {
+    if (!myBriefNote.trim() || !currentUser || briefSubmitting) return
+    setBriefSubmitting(true)
+    try {
+      if (myBriefId) {
+        await supabase.from('hangout_briefs').update({ note: myBriefNote.trim() }).eq('id', myBriefId)
+        setMemberBriefs(prev => prev.map(b => b.id === myBriefId ? { ...b, note: myBriefNote.trim() } : b))
+      } else {
+        const { data } = await supabase.from('hangout_briefs')
+          .insert({ hangout_id: hangout.id, user_id: currentUser.id, knot_id: knotId, note: myBriefNote.trim() })
+          .select('id, user_id, note, profiles:user_id(name)')
+          .single()
+        if (data) { setMyBriefId(data.id); setMemberBriefs(prev => [...prev, data]) }
+      }
+    } catch (err) { console.error('Brief submit error:', err) }
+    setBriefSubmitting(false)
+  }
+
   if (!hangout) return null
 
   const isCreator   = hangout.created_by === currentUser?.id
@@ -568,6 +605,39 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {hangout.brief_vibe && <span style={{ padding: '3px 8px', borderRadius: 20, background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.25)', fontSize: 11, fontWeight: 600, color: '#EAB308' }}>{hangout.brief_vibe}</span>}
             {hangout.brief_budget && <span style={{ padding: '3px 8px', borderRadius: 20, background: 'rgba(148,163,184,0.1)', border: '1px solid rgba(148,163,184,0.2)', fontSize: 11, fontWeight: 600, color: 'var(--text3)' }}>{BRIEF_BUDGET_LABELS[hangout.brief_budget] || hangout.brief_budget}</span>}
+          </div>
+        </div>
+      )}
+
+      {!isCancelled && (isVoting || isConfirmed) && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: subColor, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Group input</div>
+          {memberBriefs.filter(b => b.user_id !== currentUser?.id).map(b => (
+            <div key={b.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
+              <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                {(b.profiles?.name || 'U').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()}
+              </div>
+              <div style={{ flex: 1, background: 'var(--bg3)', border: `1px solid ${borderSep}`, borderRadius: 8, padding: '7px 10px', fontSize: 12, color: textColor, lineHeight: 1.5 }}>
+                <span style={{ fontWeight: 600, color: subColor, marginRight: 6 }}>{b.profiles?.name?.split(' ')[0] || 'Member'}</span>
+                {b.note}
+              </div>
+            </div>
+          ))}
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input
+              value={myBriefNote}
+              onChange={e => setMyBriefNote(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && submitBrief()}
+              placeholder={myBriefId ? 'Update your note...' : 'Add a note for the group...'}
+              style={{ flex: 1, padding: '7px 10px', background: 'var(--bg3)', border: `1px solid ${borderSep}`, borderRadius: 8, color: textColor, fontSize: 12, outline: 'none', fontFamily: 'inherit' }}
+            />
+            <button
+              onClick={submitBrief}
+              disabled={!myBriefNote.trim() || briefSubmitting}
+              style={{ padding: '7px 14px', background: myBriefNote.trim() ? 'var(--yellow)' : 'var(--bg3)', border: 'none', borderRadius: 8, color: myBriefNote.trim() ? '#111' : subColor, fontSize: 12, fontWeight: 700, cursor: myBriefNote.trim() ? 'pointer' : 'default', fontFamily: 'inherit', opacity: briefSubmitting ? 0.5 : 1 }}
+            >
+              {myBriefId ? 'Update' : 'Add'}
+            </button>
           </div>
         </div>
       )}
