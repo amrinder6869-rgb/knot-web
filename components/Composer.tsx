@@ -270,6 +270,7 @@ export default function Composer({
       venue_maps_url:    getVenueMapsUrl(),
       venue_booking_url: getVenueBookingUrl(),
       venue_place_id:    selectedVenue?.place_id || selectedVenue?.fsq_id || null,
+      venue_category:     selectedVenue?.category_id || null,
       venue_lat:         getVenueCoords().lat,
       venue_lng:         getVenueCoords().lng,
       scheduled_for:     startTime,

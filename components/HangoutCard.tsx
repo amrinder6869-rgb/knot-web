@@ -48,6 +48,21 @@ function buildResyLink(venueName: string) {
   return `https://resy.com/cities?query=${q}`
 }
 
+function isActivityVenue(category: string | null | undefined) {
+  const activityIds = ['10000', '18000', '10032']
+  return category ? activityIds.includes(category) : false
+}
+
+function buildViatorLink(venueName: string) {
+  const q = encodeURIComponent(venueName)
+  return `https://www.viator.com/searchResults/all?text=${q}`
+}
+
+function buildGetYourGuideLink(venueName: string) {
+  const q = encodeURIComponent(venueName)
+  return `https://www.getyourguide.com/s/?q=${q}`
+}
+
 const BRIEF_BUDGET_LABELS: Record<string, string> = {
   free: 'Free',
   cheap: 'Cheap',
@@ -614,6 +629,12 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
           <>
             <a href={buildOpenTableLink(hangout.venue_name)} target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.65)' : 'var(--text2)', fontSize: 12, textDecoration: 'none', fontFamily: 'inherit' }}>OpenTable</a>
             <a href={buildResyLink(hangout.venue_name)} target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.65)' : 'var(--text2)', fontSize: 12, textDecoration: 'none', fontFamily: 'inherit' }}>Resy</a>
+          </>
+        )}
+        {(isConfirmed || isLive) && hangout.venue_name && isActivityVenue(hangout.venue_category) && (
+          <>
+            <a href={buildViatorLink(hangout.venue_name)} target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.65)' : 'var(--text2)', fontSize: 12, textDecoration: 'none', fontFamily: 'inherit' }}>Viator</a>
+            <a href={buildGetYourGuideLink(hangout.venue_name)} target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.65)' : 'var(--text2)', fontSize: 12, textDecoration: 'none', fontFamily: 'inherit' }}>GetYourGuide</a>
           </>
         )}
         {isDone && !showBill && bills.length === 0 && (

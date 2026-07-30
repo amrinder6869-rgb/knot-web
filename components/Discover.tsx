@@ -215,7 +215,7 @@ export default function Discover({ members: _members, onVenueSelect }: { members
   function lockVenue(venue: any) {
     setSelected(venue)
     setLocked(true)
-    if (onVenueSelect) onVenueSelect(venue)
+    if (onVenueSelect) onVenueSelect({ ...venue, category_id: category })
   }
 
   const catObj = CATEGORIES.find(c => c.id === category)
