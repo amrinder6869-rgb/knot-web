@@ -51,6 +51,7 @@ export async function GET(request: Request) {
   const category     = searchParams.get('categories')
   const priceLevel   = searchParams.get('price') ? parseInt(searchParams.get('price')!) : null
   const minGroupSize = searchParams.get('min_group') ? parseInt(searchParams.get('min_group')!) : null
+  const openNow      = searchParams.get('open_now') === '1'
 
   if (!ll || !category) return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
 
@@ -76,6 +77,7 @@ export async function GET(request: Request) {
     key: apiKey,
   })
   if (priceLevel) params.set('maxprice', String(priceLevel))
+  if (openNow) params.set('opennow', 'true')
 
   try {
     const body = await httpsGet(

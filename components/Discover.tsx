@@ -39,6 +39,7 @@ export default function Discover({ members: _members, onVenueSelect }: { members
   const [category, setCategory] = useState<string|null>(null)
   const [budget, setBudget]     = useState<number|null>(2)
   const [groupSize, setGroupSize] = useState<number>(4)
+  const [openNow, setOpenNow]       = useState<boolean>(false)
   const [merchants, setMerchants] = useState<Record<string, any>>({})
   const [specials, setSpecials] = useState<Record<string, any>>({})
   const [venues, setVenues]     = useState<any[]>([])
@@ -157,6 +158,7 @@ export default function Discover({ members: _members, onVenueSelect }: { members
     const params = new URLSearchParams({ ll: `${loc.lat},${loc.lng}`, categories: category, limit: '10' })
     if (budget) params.set('price', String(budget))
     if (groupSize) params.set('min_group', String(groupSize))
+    if (openNow) params.set('open_now', '1')
     try {
       const res  = await fetch(`/api/venues?${params}`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
@@ -165,7 +167,10 @@ export default function Discover({ members: _members, onVenueSelect }: { members
       if (data.error) {
         setError('Could not load venues. Please try again.')
       } else if (data.results && data.results.length > 0) {
-        setVenues(data.results)
+        const filtered = openNow
+          ? data.results.filter((v: any) => v.closed_bucket === 'VeryLikelyOpen')
+          : data.results
+        setVenues(filtered.length > 0 ? filtered : data.results)
         const placeIds = data.results.map((v: any) => v.fsq_id).filter(Boolean)
         enrichWithMerchants(placeIds)
       } else {
@@ -332,6 +337,27 @@ export default function Discover({ members: _members, onVenueSelect }: { members
               <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{b.label}</div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Open now toggle */}
+      <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 2 }}>Availability</div>
+          <div style={{ fontSize: 13, color: 'var(--text2)' }}>Only show places open right now</div>
+        </div>
+        <div onClick={() => setOpenNow(v => !v)} style={{
+          width: 44, height: 24, borderRadius: 12, cursor: 'pointer', flexShrink: 0,
+          background: openNow ? 'var(--yellow)' : 'var(--bg3)',
+          border: `1px solid ${openNow ? 'var(--yellow)' : 'var(--border2)'}`,
+          position: 'relative', transition: 'background 0.2s'
+        }}>
+          <div style={{
+            position: 'absolute', top: 3, left: openNow ? 22 : 3,
+            width: 16, height: 16, borderRadius: '50%',
+            background: openNow ? '#111' : 'var(--text3)',
+            transition: 'left 0.2s'
+          }} />
         </div>
       </div>
 
