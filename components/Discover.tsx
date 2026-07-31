@@ -174,7 +174,7 @@ export default function Discover({ members: _members, onVenueSelect }: { members
         const placeIds = data.results.map((v: any) => v.fsq_id).filter(Boolean)
         enrichWithMerchants(placeIds)
       } else {
-        setError('No venues found nearby. Try a different category or location.')
+        setError(openNow ? 'No open venues found right now. Try turning off the Open now filter.' : 'No venues found nearby. Try a different category or location.')
       }
     } catch {
       setError('Failed to fetch venues. Please try again.')

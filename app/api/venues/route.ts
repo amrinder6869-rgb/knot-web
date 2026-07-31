@@ -71,9 +71,13 @@ export async function GET(request: Request) {
   const types = CATEGORY_TO_TYPES[category] || ['establishment']
   const type = types[0]
 
+  // Use larger radius for categories that are less dense in suburban areas
+  const sparseCategories = new Set(['18000', '10032', '10000'])
+  const radius = sparseCategories.has(category) ? '15000' : '8000'
+
   const params = new URLSearchParams({
     location: `${lat},${lng}`,
-    radius: '8000',
+    radius,
     key: apiKey,
   })
   if (priceLevel) params.set('maxprice', String(priceLevel))
