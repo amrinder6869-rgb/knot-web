@@ -1,4 +1,9 @@
-import { NextResponse } from 'next/server'
+const fs = require('fs')
+const path = require('path')
+
+const filePath = path.join('C:\\Users\\amrin\\Documents\\knot-web', 'app', 'api', 'place-photo', 'route.ts')
+
+const content = `import { NextResponse } from 'next/server'
 import https from 'https'
 import http from 'http'
 
@@ -27,7 +32,7 @@ export async function GET(request: Request) {
   if (!apiKey) return NextResponse.json({ error: 'Not configured' }, { status: 500 })
 
   try {
-    const url = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${encodeURIComponent(ref)}&key=${apiKey}`
+    const url = \`https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=\${encodeURIComponent(ref)}&key=\${apiKey}\`
     const buffer = await fetchFollowingRedirects(url)
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
@@ -39,3 +44,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Failed to fetch photo' }, { status: 500 })
   }
 }
+`
+
+fs.writeFileSync(filePath, content, 'utf8')
+console.log('Done. Run: npm run build')
