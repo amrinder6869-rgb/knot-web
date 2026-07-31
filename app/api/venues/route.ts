@@ -20,18 +20,18 @@ function httpsGet(url: string): Promise<string> {
   })
 }
 
-const CATEGORY_TO_TYPE: Record<string, string> = {
-  '13000': 'restaurant',
-  '13003': 'bar',
-  '10000': 'museum',
-  '18000': 'park',
-  '13059': 'cafe',
-  '10032': 'bowling_alley',
-  '13049': 'meal_takeaway',
-  '13029': 'restaurant',
+const CATEGORY_TO_TYPES: Record<string, string[]> = {
+  '13000': ['restaurant'],
+  '13003': ['bar', 'night_club'],
+  '10000': ['museum', 'art_gallery', 'tourist_attraction'],
+  '18000': ['park', 'campground', 'natural_feature', 'stadium'],
+  '13059': ['cafe'],
+  '10032': ['bowling_alley', 'amusement_park', 'gym', 'movie_theater', 'stadium', 'casino'],
+  '13049': ['meal_takeaway', 'meal_delivery'],
+  '13029': ['restaurant'],
 }
 
-const ALLOWED_CATEGORIES = new Set(Object.keys(CATEGORY_TO_TYPE))
+const ALLOWED_CATEGORIES = new Set(Object.keys(CATEGORY_TO_TYPES))
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
@@ -68,27 +68,45 @@ export async function GET(request: Request) {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY
   if (!apiKey) return NextResponse.json({ error: 'API key not configured' }, { status: 500 })
 
-  const type = CATEGORY_TO_TYPE[category]
+  const types = CATEGORY_TO_TYPES[category] || ['establishment']
+  const type = types[0]
 
   const params = new URLSearchParams({
     location: `${lat},${lng}`,
     radius: '8000',
-    type,
     key: apiKey,
   })
   if (priceLevel) params.set('maxprice', String(priceLevel))
   if (openNow) params.set('opennow', 'true')
 
   try {
-    const body = await httpsGet(
-      `https://maps.googleapis.com/maps/api/place/nearbysearch/json?${params}`
-    )
-    const data = JSON.parse(body)
+    // Fetch all types in parallel and merge results
+    const allResults: any[] = []
+    const seenIds = new Set<string>()
 
-    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS')
-      return NextResponse.json({ error: 'Places API error' }, { status: 400 })
+    await Promise.all(types.map(async (t: string) => {
+      const typeParams = new URLSearchParams(params)
+      typeParams.set('type', t)
+      try {
+        const body = await httpsGet(
+          `https://maps.googleapis.com/maps/api/place/nearbysearch/json?${typeParams}`
+        )
+        const data = JSON.parse(body)
+        if (data.status === 'OK' || data.status === 'ZERO_RESULTS') {
+          for (const r of (data.results || [])) {
+            if (!seenIds.has(r.place_id)) {
+              seenIds.add(r.place_id)
+              allResults.push(r)
+            }
+          }
+        }
+      } catch {}
+    }))
 
-    let rawResults = (data.results || [])
+    if (allResults.length === 0)
+      return NextResponse.json({ results: [] })
+
+    let rawResults = allResults
       .sort((a: any, b: any) => (b.rating || 0) - (a.rating || 0))
 
     // Filter by price level if specified
