@@ -104,7 +104,7 @@ export function PreOrderCard({ hangout, knotId, currentUserId, isLive = false }:
       .select('*')
       .eq('place_id', hangout.venue_place_id)
       .eq('active', true)
-      .single()
+      .maybeSingle()
 
     if (!m) { setLoading(false); return }
     setMerchant(m)
@@ -122,7 +122,7 @@ export function PreOrderCard({ hangout, knotId, currentUserId, isLive = false }:
       .from('hangout_orders')
       .select('*, order_items(*, menu_item:menu_item_id(name, price), profile:user_id(name))')
       .eq('hangout_id', hangout.id)
-      .single()
+      .maybeSingle()
 
     if (existingOrder) {
       setOrder(existingOrder)

@@ -1,6 +1,50 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+const ROOM_TTL_SECONDS = 60 * 60 * 24 * 7 // 7 days
+
+async function fetchRoom(apiKey: string, roomName: string) {
+  const res = await fetch(`https://api.daily.co/v1/rooms/${encodeURIComponent(roomName)}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  })
+  if (res.status === 404) return null
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err?.info || err?.error || 'Failed to fetch room')
+  }
+  return res.json()
+}
+
+async function createRoom(apiKey: string, roomName: string) {
+  const res = await fetch('https://api.daily.co/v1/rooms', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      name: roomName,
+      properties: {
+        enable_chat: true,
+        enable_knocking: false,
+        start_audio_off: false,
+        start_video_off: false,
+        exp: Math.floor(Date.now() / 1000) + ROOM_TTL_SECONDS,
+      },
+    }),
+  })
+
+  if (res.ok) return res.json()
+
+  const err = await res.json().catch(() => ({}))
+  // Race: another client created it — fetch existing
+  if (err.error === 'invalid-request-error' && String(err.info || '').includes('already exists')) {
+    const existing = await fetchRoom(apiKey, roomName)
+    if (existing) return existing
+  }
+  throw new Error(err?.info || err?.error || 'Failed to create room')
+}
+
 export async function POST(request: Request) {
   const authHeader = request.headers.get('authorization')
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
@@ -19,41 +63,22 @@ export async function POST(request: Request) {
   const { hangoutId } = await request.json()
   if (!hangoutId) return NextResponse.json({ error: 'Missing hangoutId' }, { status: 400 })
 
-  try {
-    const response = await fetch('https://api.daily.co/v1/rooms', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        name: `knot-${hangoutId}`,
-        properties: {
-          enable_chat: true,
-          enable_knocking: false,
-          start_audio_off: false,
-          start_video_off: false,
-          exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24,
-        },
-      }),
-    })
+  const roomName = `knot-${hangoutId}`
 
-    if (!response.ok) {
-      const err = await response.json()
-      // Room may already exist — fetch it instead
-      if (err.error === 'invalid-request-error' && err.info?.includes('already exists')) {
-        const existing = await fetch(`https://api.daily.co/v1/rooms/knot-${hangoutId}`, {
-          headers: { 'Authorization': `Bearer ${apiKey}` },
-        })
-        const room = await existing.json()
-        return NextResponse.json({ url: room.url })
-      }
+  try {
+    // Prefer an existing live room; recreate if it expired / was deleted
+    let room = await fetchRoom(apiKey, roomName)
+    if (!room) {
+      room = await createRoom(apiKey, roomName)
+    }
+
+    if (!room?.url) {
       return NextResponse.json({ error: 'Failed to create room' }, { status: 500 })
     }
 
-    const room = await response.json()
-    return NextResponse.json({ url: room.url })
-  } catch (err) {
-    return NextResponse.json({ error: 'Failed to create room' }, { status: 500 })
+    return NextResponse.json({ url: room.url, name: room.name })
+  } catch (err: any) {
+    console.error('Daily create-room error:', err)
+    return NextResponse.json({ error: err?.message || 'Failed to create room' }, { status: 500 })
   }
 }

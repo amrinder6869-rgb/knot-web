@@ -151,6 +151,8 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
   const [livePhotoPosted, setLivePhotoPosted] = useState(false)
   const [showDailyCall, setShowDailyCall] = useState(false)
   const [showTravelMenu, setShowTravelMenu] = useState(false)
+  const [joiningCall, setJoiningCall] = useState(false)
+  const [callRoomUrl, setCallRoomUrl] = useState<string | null>(null)
 
   // Re-sync local state whenever fresh bundle data arrives from the parent
   useEffect(() => {
@@ -223,6 +225,42 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
 
   const myVoteOptionId = options.find(o => o._myVote)?.id || null
   const myRsvpStatus = rsvps.find(r => r.user_id === currentUser?.id)?.status || null
+
+  async function ensureAndJoinCall() {
+    if (joiningCall) return
+    setJoiningCall(true)
+    setActionError('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setActionError('Sign in to join the call.')
+        return
+      }
+      const res = await fetch('/api/daily/create-room', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + session.access_token,
+        },
+        body: JSON.stringify({ hangoutId: hangout.id }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.url) {
+        setActionError(data.error || 'Could not start the call room. Try again.')
+        return
+      }
+      if (data.url !== hangout.meeting_url) {
+        await supabase.from('hangouts').update({ meeting_url: data.url }).eq('id', hangout.id)
+        setHangout((h: any) => ({ ...h, meeting_url: data.url }))
+      }
+      setCallRoomUrl(data.url)
+      setShowDailyCall(true)
+    } catch {
+      setActionError('Could not start the call room. Try again.')
+    } finally {
+      setJoiningCall(false)
+    }
+  }
 
   async function castVote(optionId: string) {
     if (!currentUser || myVoteOptionId) return
@@ -774,8 +812,13 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
           <button onClick={endHangout} style={{ padding: '8px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: 'rgba(255,255,255,0.65)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>End the night</button>
         )}
 
-        {hangout.meeting_url && (isConfirmed || isLive) && (
-          <button onClick={() => setShowDailyCall(true)} style={{ padding: '8px 14px', background: isLive ? 'rgba(74,222,128,0.15)' : 'var(--sage-soft)', border: `1px solid ${isLive ? 'rgba(74,222,128,0.3)' : 'var(--sage-dim)'}`, borderRadius: 8, color: isLive ? '#4ade80' : 'var(--sage)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Join call</button>
+        {(isConfirmed || isLive) && hangout.meeting_url && (
+          <button
+            onClick={ensureAndJoinCall}
+            disabled={joiningCall}
+            style={{ padding: '8px 14px', background: isLive ? 'rgba(74,222,128,0.15)' : 'var(--sage-soft)', border: `1px solid ${isLive ? 'rgba(74,222,128,0.3)' : 'var(--sage-dim)'}`, borderRadius: 8, color: isLive ? '#4ade80' : 'var(--sage)', fontSize: 12, fontWeight: 700, cursor: joiningCall ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: joiningCall ? 0.7 : 1 }}>
+            {joiningCall ? 'Starting call...' : 'Join call'}
+          </button>
         )}
 
         {(isConfirmed || isLive) && !hangout.meeting_url && (hangout.venue_maps_url || hangout.venue_name || hangout.venue_address) && (
@@ -855,10 +898,11 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         />
       )}
 
-      {showDailyCall && hangout.meeting_url && (
+      {showDailyCall && (callRoomUrl || hangout.meeting_url) && (
         <DailyCall
-          roomUrl={hangout.meeting_url}
-          onLeave={() => setShowDailyCall(false)}
+          key={callRoomUrl || hangout.meeting_url}
+          roomUrl={callRoomUrl || hangout.meeting_url}
+          onLeave={() => { setShowDailyCall(false); setCallRoomUrl(null) }}
         />
       )}
 
