@@ -1,6 +1,7 @@
 'use client'
 import { useState, useMemo, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { compressImage } from '@/lib/compressImage'
 
 type Member = { id: string; name: string }
 type SplitLine = { user_id: string; amount: number }
@@ -140,16 +141,17 @@ export default function BillSplitForm({
     setOcrItems([])
 
     try {
+      const compressed = await compressImage(file)
       const reader = new FileReader()
       const base64 = await new Promise<string>((resolve, reject) => {
         reader.onload = () => resolve((reader.result as string).split(',')[1])
         reader.onerror = reject
-        reader.readAsDataURL(file)
+        reader.readAsDataURL(compressed)
       })
       const res = await fetch('/api/parse-receipt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageBase64: base64, mediaType: file.type }),
+        body: JSON.stringify({ imageBase64: base64, mediaType: compressed.type }),
       })
       if (res.ok) {
         const parsed = await res.json()
