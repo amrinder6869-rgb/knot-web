@@ -557,7 +557,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
                 {viewPhoto.uploaded_by === user?.id && (
                   <button onClick={() => deletePhoto(viewPhoto)}
-                    style={{ padding: '6px 14px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, color: 'var(--yellow)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    style={{ padding: '6px 14px', background: 'var(--danger-soft)', border: '1px solid var(--danger-dim)', borderRadius: 8, color: 'var(--danger)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
                     Delete photo
                   </button>
                 )}
