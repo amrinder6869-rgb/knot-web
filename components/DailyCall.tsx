@@ -21,10 +21,18 @@ export function DailyCall({ roomUrl, onLeave }: DailyCallProps) {
     if (!el || !roomUrl) return
 
     let destroyed = false
+    let callFrame: ReturnType<typeof DailyIframe.createFrame> | null = null
     setError('')
     setJoined(false)
 
-    let callFrame: ReturnType<typeof DailyIframe.createFrame>
+    // Destroy any leftover call instance for this page before creating a new one
+    try {
+      const existing = DailyIframe.getCallInstance?.()
+      if (existing && !existing.isDestroyed?.()) {
+        existing.destroy().catch(() => {})
+      }
+    } catch { /* ignore */ }
+
     try {
       callFrame = DailyIframe.createFrame(el, {
         iframeStyle: {
@@ -43,38 +51,62 @@ export function DailyCall({ roomUrl, onLeave }: DailyCallProps) {
 
     frameRef.current = callFrame
 
-    callFrame
-      .join({ url: roomUrl })
-      .then(() => {
-        if (!destroyed) setJoined(true)
-      })
-      .catch((err: any) => {
-        console.error('Daily join error:', err)
-        if (!destroyed) {
-          setError(err?.errorMsg || err?.message || 'Could not join the call. Try opening the link instead.')
-        }
-      })
-
     const onLeft = () => {
-      try { callFrame.destroy() } catch { /* already destroyed */ }
       frameRef.current = null
       onLeaveRef.current()
     }
+
+    const onError = (ev: any) => {
+      const msg = ev?.errorMsg || ev?.error?.msg || ev?.message || ''
+      // RTCRtpSender setParameters race is noisy but usually recovers; surface real join failures
+      if (/does not exist/i.test(msg) || /not found/i.test(msg)) {
+        if (!destroyed) setError(msg || 'The meeting room was not found.')
+      }
+    }
+
     callFrame.on('left-meeting', onLeft)
+    callFrame.on('error', onError)
+
+    // Small delay lets the iframe attach tracks before join — reduces RTCRtpSender races
+    const joinTimer = window.setTimeout(() => {
+      if (destroyed || !callFrame) return
+      callFrame
+        .join({ url: roomUrl })
+        .then(() => {
+          if (!destroyed) setJoined(true)
+        })
+        .catch((err: any) => {
+          console.error('Daily join error:', err)
+          if (!destroyed) {
+            const msg = err?.errorMsg || err?.message || 'Could not join the call. Try opening the link instead.'
+            setError(msg)
+          }
+        })
+    }, 150)
 
     return () => {
       destroyed = true
-      try {
-        callFrame.off('left-meeting', onLeft)
-        callFrame.destroy()
-      } catch { /* already destroyed */ }
+      window.clearTimeout(joinTimer)
+      const frame = callFrame
+      callFrame = null
       frameRef.current = null
+      if (!frame) return
+      ;(async () => {
+        try {
+          frame.off('left-meeting', onLeft)
+          frame.off('error', onError)
+          if (!frame.isDestroyed?.()) {
+            try { await frame.leave() } catch { /* already left */ }
+            try { await frame.destroy() } catch { /* already destroyed */ }
+          }
+        } catch { /* ignore cleanup races */ }
+      })()
     }
   }, [roomUrl])
 
   function leaveCall() {
     const frame = frameRef.current
-    if (frame) {
+    if (frame && !frame.isDestroyed?.()) {
       frame.leave().catch(() => onLeaveRef.current())
     } else {
       onLeaveRef.current()

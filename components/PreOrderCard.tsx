@@ -95,17 +95,28 @@ export function PreOrderCard({ hangout, knotId, currentUserId, isLive = false }:
 
   useEffect(() => {
     if (!hangout.venue_place_id) { setLoading(false); return }
-    loadMerchantData()
-  }, [hangout.id])
+    let cancelled = false
+    loadMerchantData().then(() => { if (cancelled) return })
+    return () => { cancelled = true }
+  }, [hangout.id, hangout.venue_place_id])
 
   async function loadMerchantData() {
-    const { data: m } = await supabase
+    // Use limit(1) — never .single()/.maybeSingle() — so 0 or many merchants
+    // never produce a PostgREST 406 in the browser network log.
+    const { data: rows, error } = await supabase
       .from('merchants')
       .select('*')
       .eq('place_id', hangout.venue_place_id)
       .eq('active', true)
-      .maybeSingle()
+      .limit(1)
 
+    if (error) {
+      console.warn('Merchant lookup failed:', error.message)
+      setLoading(false)
+      return
+    }
+
+    const m = rows?.[0]
     if (!m) { setLoading(false); return }
     setMerchant(m)
 
@@ -118,12 +129,13 @@ export function PreOrderCard({ hangout, knotId, currentUserId, isLive = false }:
 
     setMenuItems(items || [])
 
-    const { data: existingOrder } = await supabase
+    const { data: orderRows } = await supabase
       .from('hangout_orders')
       .select('*, order_items(*, menu_item:menu_item_id(name, price), profile:user_id(name))')
       .eq('hangout_id', hangout.id)
-      .maybeSingle()
+      .limit(1)
 
+    const existingOrder = orderRows?.[0]
     if (existingOrder) {
       setOrder(existingOrder)
       setAllOrderItems(existingOrder.order_items || [])
