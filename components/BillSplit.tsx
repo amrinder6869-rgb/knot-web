@@ -1,9 +1,23 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
-import BillSplitForm from '@/components/BillSplitForm'
+import BillSplitForm, { BillCategory } from '@/components/BillSplitForm'
 import LedgerView from '@/components/LedgerView'
 import { computeNetBalances, simplifyDebts, Bill, BillSplit as BillSplitRow, Settlement, Member } from '@/lib/ledger'
+
+const CATEGORIES: { id: string; label: string; icon: string }[] = [
+  { id: 'all',           label: 'All',           icon: '' },
+  { id: 'dinner',        label: 'Dinner',        icon: String.fromCodePoint(0x1F37D) },
+  { id: 'drinks',        label: 'Drinks',        icon: String.fromCodePoint(0x1F37A) },
+  { id: 'transport',     label: 'Transport',     icon: String.fromCodePoint(0x1F697) },
+  { id: 'accommodation', label: 'Stay',          icon: String.fromCodePoint(0x1F3E8) },
+  { id: 'activities',    label: 'Activities',    icon: String.fromCodePoint(0x1F3A8) },
+  { id: 'other',         label: 'Other',         icon: String.fromCodePoint(0x1F4CB) },
+]
+
+function getCatIcon(cat: string) {
+  return CATEGORIES.find(c => c.id === cat)?.icon || String.fromCodePoint(0x1F4CB)
+}
 
 function timeAgo(date: string) {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
@@ -18,21 +32,27 @@ function getInitials(name: string) {
 }
 
 export default function BillSplit({ members, knotId, currentUser }: { members: any[], knotId?: string, currentUser?: any }) {
-  const [view, setView] = useState<'ledger' | 'activity'>('ledger')
-  const [bills, setBills]           = useState<any[]>([])
+  const [view, setView]           = useState<'ledger' | 'activity'>('ledger')
+  const [bills, setBills]         = useState<any[]>([])
   const [settlements, setSettlements] = useState<any[]>([])
-  const [loading, setLoading]       = useState(true)
-  const [loadError, setLoadError]   = useState('')
-  const [showAdd, setShowAdd]       = useState(false)
-  const [adding, setAdding]         = useState(false)
-  const [addError, setAddError]     = useState('')
-  const [undoingId, setUndoingId]   = useState<string | null>(null)
-  const [undoError, setUndoError]   = useState('')
-  const [editingBillId, setEditingBillId] = useState<string | null>(null)
-  const [editSubmitting, setEditSubmitting] = useState(false)
-  const [editError, setEditError]   = useState('')
-  const [deletingBillId, setDeletingBillId] = useState<string | null>(null)
-  const [deleteError, setDeleteError] = useState('')
+  const [loading, setLoading]     = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [showAdd, setShowAdd]     = useState(false)
+  const [adding, setAdding]       = useState(false)
+  const [addError, setAddError]   = useState('')
+  const [undoingId, setUndoingId] = useState<string | null>(null)
+  const [undoError, setUndoError] = useState('')
+  const [editingBillId, setEditingBillId]     = useState<string | null>(null)
+  const [editSubmitting, setEditSubmitting]   = useState(false)
+  const [editError, setEditError]             = useState('')
+  const [deletingBillId, setDeletingBillId]   = useState<string | null>(null)
+  const [deleteError, setDeleteError]         = useState('')
+  const [remindingId, setRemindingId]         = useState<string | null>(null)
+  const [remindError, setRemindError]         = useState('')
+
+  // Filters
+  const [search, setSearch]         = useState('')
+  const [filterCat, setFilterCat]   = useState('all')
 
   useEffect(() => {
     if (knotId) loadAll()
@@ -62,11 +82,10 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
     }
 
     const withSplits = await Promise.all((billData || []).map(async (bill: any) => {
-      const { data: splitData, error: splitsErr } = await supabase
+      const { data: splitData } = await supabase
         .from('bill_splits')
         .select('*, profiles:user_id(name)')
         .eq('bill_id', bill.id)
-      if (splitsErr) return { ...bill, splits: [] }
       return { ...bill, splits: splitData || [] }
     }))
 
@@ -75,14 +94,24 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
     setLoading(false)
   }
 
-  async function handleAddBill(desc: string, amount: number, splits: { user_id: string; amount: number }[]) {
+  async function handleAddBill(
+    desc: string, amount: number, splits: { user_id: string; amount: number }[],
+    category: BillCategory, note: string, photoUrl: string,
+    isRecurring: boolean, recurringInterval: string
+  ) {
     if (!knotId || !currentUser) return
+    if (splits.length === 0) { setAddError('Cannot split with no members selected.'); return }
     setAdding(true)
     setAddError('')
 
     const { data: bill, error: billInsertError } = await supabase
       .from('bills')
-      .insert({ knot_id: knotId, added_by: currentUser.id, total_amount: amount, description: desc, split_type: 'custom' })
+      .insert({
+        knot_id: knotId, added_by: currentUser.id,
+        total_amount: amount, description: desc, split_type: 'custom',
+        category, note: note || null, photo_url: photoUrl || null,
+        is_recurring: isRecurring, recurring_interval: isRecurring ? recurringInterval : null,
+      })
       .select().single()
 
     if (billInsertError || !bill) {
@@ -96,43 +125,38 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
     )
     if (splitsError) setAddError('Bill added, but the split failed to save.')
 
-    const { error: postError } = await supabase.from('posts').insert({
+    await supabase.from('posts').insert({
       knot_id:   knotId,
-      author_id: currentUser.id,
-      content:   `added a bill \u2014 $${amount.toFixed(2)} for ${desc}, split ${splits.length} ways`,
+      content:   `added a bill ${String.fromCodePoint(0x2014)} $${amount.toFixed(2)} for ${desc}, split ${splits.length} ways`,
       post_type: 'bill',
     })
-    if (postError && !splitsError) setAddError('Bill saved, but it could not be posted to the feed.')
 
     setAdding(false)
     if (!splitsError) setShowAdd(false)
     await loadAll()
   }
 
-  async function handleEditBill(billId: string, desc: string, amount: number, splits: { user_id: string; amount: number }[]) {
+  async function handleEditBill(
+    billId: string, desc: string, amount: number, splits: { user_id: string; amount: number }[],
+    category: BillCategory, note: string, photoUrl: string,
+    isRecurring: boolean, recurringInterval: string
+  ) {
     if (!currentUser) return
     setEditSubmitting(true)
     setEditError('')
 
     const { error: updateError } = await supabase
       .from('bills')
-      .update({ description: desc, total_amount: amount })
-      .eq('id', billId)
-      .eq('added_by', currentUser.id)
+      .update({
+        description: desc, total_amount: amount,
+        category, note: note || null, photo_url: photoUrl || null,
+        is_recurring: isRecurring, recurring_interval: isRecurring ? recurringInterval : null,
+      })
+      .eq('id', billId).eq('added_by', currentUser.id)
 
-    if (updateError) {
-      setEditError('Could not update the bill. Please try again.')
-      setEditSubmitting(false)
-      return
-    }
+    if (updateError) { setEditError('Could not update the bill.'); setEditSubmitting(false); return }
 
-    const { error: deleteSplitsError } = await supabase.from('bill_splits').delete().eq('bill_id', billId)
-    if (deleteSplitsError) {
-      setEditError('Bill updated, but the old split could not be replaced.')
-      setEditSubmitting(false)
-      return
-    }
-
+    await supabase.from('bill_splits').delete().eq('bill_id', billId)
     const { error: insertSplitsError } = await supabase.from('bill_splits').insert(
       splits.map(s => ({ bill_id: billId, user_id: s.user_id, amount: s.amount, settled: s.user_id === currentUser.id }))
     )
@@ -148,12 +172,26 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
     setDeletingBillId(billId)
     setDeleteError('')
     const { error } = await supabase.from('bills').delete().eq('id', billId).eq('added_by', currentUser?.id)
-    if (error) {
-      setDeleteError('Could not delete the bill. Please try again.')
-      setDeletingBillId(null)
-      return
-    }
+    if (error) { setDeleteError('Could not delete the bill.'); setDeletingBillId(null); return }
     setDeletingBillId(null)
+    await loadAll()
+  }
+
+  async function sendReminder(splitId: string, memberName: string, billDesc: string, amount: number) {
+    setRemindingId(splitId)
+    setRemindError('')
+    const { error } = await supabase
+      .from('bill_splits')
+      .update({ reminder_sent_at: new Date().toISOString() })
+      .eq('id', splitId)
+    if (error) { setRemindError('Could not send reminder.'); setRemindingId(null); return }
+    // Post a gentle nudge to feed
+    await supabase.from('posts').insert({
+      knot_id: knotId,
+      content: `sent a reminder to ${memberName} for $${amount.toFixed(2)} (${billDesc})`,
+      post_type: 'bill',
+    })
+    setRemindingId(null)
     await loadAll()
   }
 
@@ -173,31 +211,37 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
     setUndoingId(settlementId)
     setUndoError('')
     const { error } = await supabase.from('settlements').delete().eq('id', settlementId)
-    if (error) {
-      setUndoError('Could not undo the settlement. Please try again.')
-      setUndoingId(null)
-      return
-    }
+    if (error) { setUndoError('Could not undo the settlement.'); setUndoingId(null); return }
     setUndoingId(null)
     await loadAll()
   }
-
-  if (loading) return <div style={{ color: 'var(--text2)', fontSize: 13, padding: '20px 0' }}>Loading...</div>
 
   const memberList: Member[] = members.map(m => ({ id: m.id, name: m.name }))
   const billsForLedger: Bill[] = bills.map(b => ({ id: b.id, added_by: b.added_by, total_amount: parseFloat(b.total_amount) }))
   const splitsForLedger: BillSplitRow[] = bills.flatMap(b => (b.splits || []).map((s: any) => ({ bill_id: b.id, user_id: s.user_id, amount: parseFloat(s.amount) })))
   const settlementsForLedger: Settlement[] = settlements.map(s => ({ from_user_id: s.from_user_id, to_user_id: s.to_user_id, amount: parseFloat(s.amount) }))
 
-  const balances = computeNetBalances(billsForLedger, splitsForLedger, settlementsForLedger, memberList)
-  const simplified = simplifyDebts(balances, memberList)
-
+  const balances = useMemo(() => computeNetBalances(billsForLedger, splitsForLedger, settlementsForLedger, memberList), [bills, settlements])
+  const simplified = useMemo(() => simplifyDebts(balances, memberList), [balances])
   const myBalance = balances.get(currentUser?.id) || 0
   const undoableIds = latestSettlementIdsByPair(settlements)
+
+  // Filtered bills for activity view
+  const filteredBills = useMemo(() => {
+    return bills.filter(b => {
+      const matchCat = filterCat === 'all' || b.category === filterCat
+      const q = search.toLowerCase()
+      const matchSearch = !q || b.description?.toLowerCase().includes(q) || b.note?.toLowerCase().includes(q)
+      return matchCat && matchSearch
+    })
+  }, [bills, filterCat, search])
+
+  if (loading) return <div style={{ color: 'var(--text2)', fontSize: 13, padding: '20px 0' }}>Loading...</div>
 
   return (
     <div style={{ maxWidth: 720 }}>
 
+      {/* Header with running balance summary */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 700 }}>Bills</div>
@@ -214,12 +258,9 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
         </button>
       </div>
 
-      {loadError && (
-        <div className="error-banner" style={{ marginBottom: 16 }}>
-          {loadError}
-        </div>
-      )}
+      {loadError && <div className="error-banner" style={{ marginBottom: 16 }}>{loadError}</div>}
 
+      {/* View toggle */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
         {(['ledger', 'activity'] as const).map(v => (
           <button key={v} onClick={() => setView(v)}
@@ -236,6 +277,7 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
         ))}
       </div>
 
+      {/* Add bill form */}
       {showAdd && (
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--yellow)', borderRadius: 12, padding: 16, marginBottom: 20 }}>
           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Add a bill</div>
@@ -243,7 +285,9 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
             members={memberList}
             submitting={adding}
             error={addError}
-            onSubmit={handleAddBill}
+            onSubmit={(desc, amount, splits, category, note, photoUrl, isRecurring, recurringInterval) =>
+              handleAddBill(desc, amount, splits, category, note, photoUrl, isRecurring, recurringInterval)
+            }
             onCancel={() => { setShowAdd(false); setAddError('') }}
           />
         </div>
@@ -255,18 +299,37 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
 
       {view === 'activity' && (
         <div>
-          {undoError && (
+          {/* Search and filter */}
+          <input
+            value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search bills..."
+            style={{ width: '100%', padding: '8px 12px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 10 }}
+          />
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+            {CATEGORIES.map(cat => (
+              <button key={cat.id} onClick={() => setFilterCat(cat.id)}
+                style={{
+                  padding: '4px 10px', borderRadius: 20,
+                  border: `1px solid ${filterCat === cat.id ? 'var(--yellow)' : 'var(--border2)'}`,
+                  background: filterCat === cat.id ? 'var(--yellow-soft)' : 'transparent',
+                  color: filterCat === cat.id ? 'var(--yellow)' : 'var(--text3)',
+                  fontSize: 11, cursor: 'pointer', fontFamily: 'inherit',
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  fontWeight: filterCat === cat.id ? 700 : 400,
+                }}>
+                {cat.icon && <span>{cat.icon}</span>}
+                <span>{cat.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {(undoError || remindError || deleteError) && (
             <div className="error-banner" style={{ marginBottom: 16 }}>
-              {undoError}
-            </div>
-          )}
-          {deleteError && (
-            <div className="error-banner" style={{ marginBottom: 16 }}>
-              {deleteError}
+              {undoError || remindError || deleteError}
             </div>
           )}
 
-          {settlements.length > 0 && (
+          {settlements.length > 0 && filterCat === 'all' && !search && (
             <div style={{ marginBottom: 24 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>Settlements</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -283,7 +346,7 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
                       <span style={{ fontSize: 11, color: 'var(--text3)' }}>{timeAgo(s.created_at)}</span>
                       {canUndo && (
                         <button onClick={() => undoSettlement(s.id)} disabled={undoingId === s.id}
-                          style={{ padding: '5px 10px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--text3)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: undoingId === s.id ? 0.5 : 1, whiteSpace: 'nowrap' }}>
+                          style={{ padding: '5px 10px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--text3)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: undoingId === s.id ? 0.5 : 1 }}>
                           {undoingId === s.id ? '...' : 'Undo'}
                         </button>
                       )}
@@ -294,23 +357,25 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
             </div>
           )}
 
-          {bills.length === 0 ? (
+          {filteredBills.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text2)' }}>
-              <div style={{ fontWeight: 600, marginBottom: 6 }}>No bills yet</div>
-              <div style={{ fontSize: 13, color: 'var(--text3)' }}>Bills from hangouts and standalone expenses show up here.</div>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>{bills.length === 0 ? 'No bills yet' : 'No results'}</div>
+              <div style={{ fontSize: 13, color: 'var(--text3)' }}>
+                {bills.length === 0 ? 'Bills from hangouts and standalone expenses show up here.' : 'Try a different search or category.'}
+              </div>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {bills.map((bill: any) => {
+              {filteredBills.map((bill: any) => {
                 const settledCount = bill.splits?.filter((s: any) => s.settled).length || 0
                 const progress = bill.splits?.length > 0 ? Math.round(settledCount / bill.splits.length * 100) : 0
                 const linkedHangout = bill.hangouts?.venue_name || bill.hangouts?.title
                 const isMine = bill.added_by === currentUser?.id
                 const isEditing = editingBillId === bill.id
+                const catIcon = getCatIcon(bill.category || 'other')
 
                 return (
                   <div key={bill.id} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
-
                     {isEditing ? (
                       <div>
                         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Edit bill</div>
@@ -319,10 +384,17 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
                           defaultSelectedIds={bill.splits?.map((s: any) => s.user_id)}
                           defaultDesc={bill.description}
                           defaultAmount={parseFloat(bill.total_amount)}
+                          defaultCategory={bill.category || 'other'}
+                          defaultNote={bill.note || ''}
+                          defaultPhotoUrl={bill.photo_url || ''}
+                          defaultIsRecurring={bill.is_recurring || false}
+                          defaultRecurringInterval={bill.recurring_interval || 'monthly'}
                           submitLabel="Save changes"
                           submitting={editSubmitting}
                           error={editError}
-                          onSubmit={(desc, amount, splits) => handleEditBill(bill.id, desc, amount, splits)}
+                          onSubmit={(desc, amount, splits, category, note, photoUrl, isRecurring, recurringInterval) =>
+                            handleEditBill(bill.id, desc, amount, splits, category, note, photoUrl, isRecurring, recurringInterval)
+                          }
                           onCancel={() => { setEditingBillId(null); setEditError('') }}
                         />
                       </div>
@@ -330,27 +402,55 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
                       <>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                           <div>
-                            <div style={{ fontSize: 16, fontWeight: 700 }}>${parseFloat(bill.total_amount).toFixed(2)}</div>
-                            <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>{bill.description} · {timeAgo(bill.created_at)}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ fontSize: 15 }}>{catIcon}</span>
+                              <span style={{ fontSize: 16, fontWeight: 700 }}>${parseFloat(bill.total_amount).toFixed(2)}</span>
+                              {bill.is_recurring && (
+                                <span style={{ fontSize: 10, padding: '2px 6px', background: 'var(--yellow-soft)', color: 'var(--yellow)', borderRadius: 4, fontWeight: 700, letterSpacing: '0.04em' }}>
+                                  {(bill.recurring_interval || 'recurring').toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>{bill.description} {String.fromCodePoint(0x00B7)} {timeAgo(bill.created_at)}</div>
                             {linkedHangout && <div style={{ fontSize: 12, color: 'var(--yellow)', marginTop: 2 }}>From {linkedHangout}</div>}
                             <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Paid by {bill.profiles?.name || 'someone'}</div>
+                            {bill.note && <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4, fontStyle: 'italic' }}>{bill.note}</div>}
                           </div>
-                          <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 6, background: progress === 100 ? 'var(--sage-soft)' : 'var(--amber-soft)', color: progress === 100 ? 'var(--sage)' : 'var(--amber)', fontWeight: 600 }}>
+                          <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 6, background: progress === 100 ? 'var(--sage-soft)' : 'var(--amber-soft)', color: progress === 100 ? 'var(--sage)' : 'var(--amber)', fontWeight: 600, whiteSpace: 'nowrap' }}>
                             {progress === 100 ? 'All settled' : `${settledCount}/${bill.splits?.length} settled`}
                           </span>
                         </div>
 
+                        {bill.photo_url && (
+                          <div style={{ marginBottom: 12 }}>
+                            <img src={bill.photo_url} alt="Receipt" style={{ height: 80, borderRadius: 8, objectFit: 'cover' }} />
+                          </div>
+                        )}
+
                         {bill.splits?.map((split: any) => {
                           const isMe = split.user_id === currentUser?.id
+                          const isTreasurer = isMine
+                          const splitKey = split.id
+                          const canRemind = isTreasurer && !split.settled && !isMe
                           return (
                             <div key={split.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
                               <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                 {getInitials(split.profiles?.name || 'U')}
                               </div>
                               <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{split.profiles?.name || 'Unknown'}{isMe ? ' (you)' : ''}</span>
+                              {split.settled && <span style={{ fontSize: 10, color: 'var(--sage)', fontWeight: 700 }}>Settled</span>}
                               <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text3)' }}>
                                 ${parseFloat(split.amount).toFixed(2)}
                               </span>
+                              {canRemind && (
+                                <button
+                                  onClick={() => sendReminder(splitKey, split.profiles?.name || 'them', bill.description, parseFloat(split.amount))}
+                                  disabled={remindingId === splitKey}
+                                  title="Send reminder"
+                                  style={{ padding: '4px 8px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--text3)', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit', opacity: remindingId === splitKey ? 0.5 : 1 }}>
+                                  {remindingId === splitKey ? '...' : String.fromCodePoint(0x1F514)}
+                                </button>
+                              )}
                             </div>
                           )
                         })}
