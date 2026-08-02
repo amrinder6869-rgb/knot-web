@@ -3,6 +3,14 @@ import { useState, useRef, useEffect } from 'react'
 import { ImageIcon } from 'lucide-react'
 import { supabase, getSignedUrl } from '@/lib/supabase'
 import { compressImage } from '@/lib/compressImage'
+import ReactionBar from '@/components/ReactionBar'
+import {
+  aggregateReactions,
+  legacyHeartEmojis,
+  normalizeReactionEmoji,
+  toggleReactionLocal,
+  type ReactionCount,
+} from '@/lib/reactions'
 
 function timeAgo(date: string) {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
@@ -21,14 +29,16 @@ type PostCommentsProps = {
   currentUser: any
   initialComments: any[]
   onCommentAdded?: () => void
+  dark?: boolean
 }
 
-export default function PostComments({ postId, currentUser, initialComments, onCommentAdded }: PostCommentsProps) {
+export default function PostComments({ postId, currentUser, initialComments, onCommentAdded, dark = false }: PostCommentsProps) {
   const [comments, setComments]   = useState<any[]>(initialComments)
   const [showComments, setShowComments] = useState(initialComments.length > 0)
   const [newComment, setNewComment]     = useState('')
   const [submitting, setSubmitting]     = useState(false)
   const [error, setError]               = useState('')
+  const [reactionsByComment, setReactionsByComment] = useState<Record<string, ReactionCount[]>>({})
 
   const [commentPhoto, setCommentPhoto]               = useState<File | null>(null)
   const [commentPhotoPreview, setCommentPhotoPreview] = useState<string | null>(null)
@@ -44,11 +54,58 @@ export default function PostComments({ postId, currentUser, initialComments, onC
     if (initialComments.length > 0) setShowComments(true)
   }, [initialComments])
 
+  useEffect(() => {
+    const ids = comments.map(c => c.id).filter(Boolean)
+    if (ids.length === 0) { setReactionsByComment({}); return }
+    let cancelled = false
+    async function load() {
+      const { data } = await supabase
+        .from('comment_reactions')
+        .select('comment_id, emoji, user_id')
+        .in('comment_id', ids)
+      if (cancelled) return
+      const byComment: Record<string, { emoji: string; user_id: string }[]> = {}
+      ;(data || []).forEach((r: any) => {
+        if (!byComment[r.comment_id]) byComment[r.comment_id] = []
+        byComment[r.comment_id].push({ emoji: r.emoji, user_id: r.user_id })
+      })
+      const next: Record<string, ReactionCount[]> = {}
+      Object.keys(byComment).forEach(id => {
+        next[id] = aggregateReactions(byComment[id], currentUser?.id)
+      })
+      setReactionsByComment(next)
+    }
+    load()
+    return () => { cancelled = true }
+  }, [comments, currentUser?.id])
+
   function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     setCommentPhoto(file)
     setCommentPhotoPreview(URL.createObjectURL(file))
+  }
+
+  async function toggleCommentReaction(commentId: string, emoji: string) {
+    if (!currentUser?.id) return
+    const normalized = normalizeReactionEmoji(emoji)
+    const current = reactionsByComment[commentId] || []
+    const existing = current.find(r => r.e === normalized && r.mine)
+    if (existing) {
+      await supabase.from('comment_reactions').delete()
+        .eq('comment_id', commentId).eq('user_id', currentUser.id).in('emoji', legacyHeartEmojis(normalized))
+    } else {
+      const { error: insertError } = await supabase.from('comment_reactions')
+        .insert({ comment_id: commentId, user_id: currentUser.id, emoji: normalized })
+      if (insertError) {
+        setError('Could not save reaction. Make sure comment reactions are enabled.')
+        return
+      }
+    }
+    setReactionsByComment(prev => ({
+      ...prev,
+      [commentId]: toggleReactionLocal(prev[commentId] || [], normalized),
+    }))
   }
 
   async function addComment() {
@@ -105,63 +162,49 @@ export default function PostComments({ postId, currentUser, initialComments, onC
   }
 
   async function saveEdit(commentId: string) {
-    if (!currentUser || editSaving) return
+    if (!editText.trim() || editSaving) return
     setEditSaving(true)
     setError('')
     const { error: updateError } = await supabase
       .from('comments')
-      .update({ content: editText.trim() || null })
+      .update({ content: editText.trim() })
       .eq('id', commentId)
-      .eq('author_id', currentUser.id)
-
     if (updateError) {
-      setError('Could not save comment.')
+      setError('Could not update comment.')
       setEditSaving(false)
       return
     }
-
-    setComments(prev => prev.map(c => c.id === commentId ? { ...c, content: editText.trim() || null } : c))
+    setComments(prev => prev.map(c => c.id === commentId ? { ...c, content: editText.trim() } : c))
     setEditingId(null)
     setEditText('')
     setEditSaving(false)
   }
 
   async function deleteComment(c: any) {
-    if (!currentUser) return
     if (!confirm('Delete this comment? This cannot be undone.')) return
     setDeletingId(c.id)
     setError('')
-
-    if (c.photo_path) {
-      const { error: storageError } = await supabase.storage.from('knot-photos').remove([c.photo_path])
-      if (storageError) {
-        setError('Could not delete the comment photo. Comment was not removed.')
-        setDeletingId(null)
-        return
-      }
-    }
-
-    const { error: deleteError } = await supabase
-      .from('comments')
-      .delete()
-      .eq('id', c.id)
-      .eq('author_id', currentUser.id)
-
+    const { error: deleteError } = await supabase.from('comments').delete().eq('id', c.id)
     if (deleteError) {
       setError('Could not delete comment.')
       setDeletingId(null)
       return
     }
-
     setComments(prev => prev.filter(x => x.id !== c.id))
     if (editingId === c.id) cancelEdit()
     setDeletingId(null)
   }
 
+  const muted = dark ? 'rgba(255,255,255,0.55)' : 'var(--text3)'
+  const textColor = dark ? 'rgba(255,255,255,0.9)' : 'var(--text)'
+  const subColor = dark ? 'rgba(255,255,255,0.55)' : 'var(--text2)'
+  const inputBg = dark ? 'rgba(255,255,255,0.06)' : 'var(--bg3)'
+  const borderSep = dark ? 'rgba(255,255,255,0.12)' : 'var(--border2)'
+
   return (
     <div style={{ marginTop: 10 }}>
       <button onClick={() => setShowComments(s => !s)}
-        style={{ background: 'none', border: 'none', padding: 0, fontSize: 12, color: 'var(--text3)', cursor: 'pointer', fontFamily: 'inherit' }}>
+        style={{ background: 'none', border: 'none', padding: 0, fontSize: 12, color: muted, cursor: 'pointer', fontFamily: 'inherit' }}>
         {comments.length > 0 ? `${comments.length} comment${comments.length > 1 ? 's' : ''}` : 'Add a comment'}
       </button>
 
@@ -173,17 +216,17 @@ export default function PostComments({ postId, currentUser, initialComments, onC
                 {getInitials(c.profiles?.name || 'U')}
               </div>
               <div style={{ flex: 1 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{c.profiles?.name || 'Someone'}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: textColor }}>{c.profiles?.name || 'Someone'}</span>
                 {editingId === c.id ? (
                   <div style={{ marginTop: 6 }}>
                     <input
                       value={editText}
                       onChange={e => setEditText(e.target.value)}
-                      style={{ width: '100%', padding: '7px 10px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 12, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 6 }}
+                      style={{ width: '100%', padding: '7px 10px', background: inputBg, border: `1px solid ${borderSep}`, borderRadius: 8, color: textColor, fontSize: 12, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 6 }}
                     />
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button onClick={cancelEdit}
-                        style={{ padding: '5px 10px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--text3)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        style={{ padding: '5px 10px', background: 'transparent', border: `1px solid ${borderSep}`, borderRadius: 6, color: muted, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
                         Cancel
                       </button>
                       <button onClick={() => saveEdit(c.id)} disabled={editSaving}
@@ -194,18 +237,24 @@ export default function PostComments({ postId, currentUser, initialComments, onC
                   </div>
                 ) : (
                   <>
-                    {c.content && <span style={{ fontSize: 12, color: 'var(--text2)', marginLeft: 6 }}>{c.content}</span>}
+                    {c.content && <span style={{ fontSize: 12, color: subColor, marginLeft: 6 }}>{c.content}</span>}
                     {c.photo_url && (
                       <div style={{ marginTop: 6 }}>
                         <img src={c.photo_url} alt="" style={{ maxWidth: '100%', maxHeight: 220, borderRadius: 8, objectFit: 'cover', display: 'block' }} />
                       </div>
                     )}
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 2 }}>
-                      <div style={{ fontSize: 10, color: 'var(--text3)' }}>{timeAgo(c.created_at)}</div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: 10, color: muted }}>{timeAgo(c.created_at)}</div>
+                      <ReactionBar
+                        compact
+                        dark={dark}
+                        reactions={reactionsByComment[c.id] || []}
+                        onToggle={(emoji) => toggleCommentReaction(c.id, emoji)}
+                      />
                       {c.author_id === currentUser?.id && (
                         <>
                           <button onClick={() => startEdit(c)}
-                            style={{ background: 'none', border: 'none', padding: 0, fontSize: 10, color: 'var(--text3)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                            style={{ background: 'none', border: 'none', padding: 0, fontSize: 10, color: muted, cursor: 'pointer', fontFamily: 'inherit' }}>
                             Edit
                           </button>
                           <button onClick={() => deleteComment(c)} disabled={deletingId === c.id}
@@ -241,10 +290,10 @@ export default function PostComments({ postId, currentUser, initialComments, onC
             <input value={newComment} onChange={e => setNewComment(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && !e.shiftKey && addComment()}
               placeholder="Write a comment..."
-              style={{ flex: 1, padding: '7px 10px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 12, outline: 'none', fontFamily: 'inherit' }} />
+              style={{ flex: 1, padding: '7px 10px', background: inputBg, border: `1px solid ${borderSep}`, borderRadius: 8, color: textColor, fontSize: 12, outline: 'none', fontFamily: 'inherit' }} />
             <input type="file" accept="image/*" ref={photoInputRef} onChange={handlePhotoSelect} style={{ display: 'none' }} />
             <button onClick={() => photoInputRef.current?.click()}
-              style={{ width: 30, height: 30, borderRadius: 8, background: commentPhoto ? 'var(--yellow-soft)' : 'var(--bg3)', border: `1px solid ${commentPhoto ? 'var(--yellow)' : 'var(--border2)'}`, color: commentPhoto ? 'var(--yellow)' : 'var(--text3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'inherit' }}
+              style={{ width: 30, height: 30, borderRadius: 8, background: commentPhoto ? 'var(--yellow-soft)' : inputBg, border: `1px solid ${commentPhoto ? 'var(--yellow)' : borderSep}`, color: commentPhoto ? 'var(--yellow)' : muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'inherit' }}
               title="Add photo"
               aria-label="Add photo">
               <ImageIcon size={14} strokeWidth={2} />

@@ -9,6 +9,14 @@ import { CrewSection } from '@/components/CrewSection'
 import { PostHangoutLoop } from '@/components/PostHangoutLoop'
 import { PreOrderCard } from '@/components/PreOrderCard'
 import { DailyCall } from '@/components/DailyCall'
+import ReactionBar from '@/components/ReactionBar'
+import {
+  aggregateReactions,
+  legacyHeartEmojis,
+  normalizeReactionEmoji,
+  toggleReactionLocal,
+  type ReactionCount,
+} from '@/lib/reactions'
 
 function timeAgo(date: string) {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
@@ -91,17 +99,19 @@ type HangoutCardProps = {
   knotId: string
   members: any[]
   onRefresh: () => void
+  onToggleReaction?: (emoji: string) => void
 }
 
-export default function HangoutCard({ post, data, currentUser, knotId, members, onRefresh }: HangoutCardProps) {
+export default function HangoutCard({ post, data, currentUser, knotId, members, onRefresh, onToggleReaction }: HangoutCardProps) {
   const [hangout, setHangout]   = useState<any>(data.hangout)
   const [options, setOptions]   = useState<any[]>(data.options)
   const [rsvps, setRsvps]       = useState<any[]>(data.rsvps)
   const [comments, setComments] = useState<any[]>(data.comments)
   const [bills, setBills]       = useState<any[]>(data.bills)
+  const [commentReactions, setCommentReactions] = useState<Record<string, ReactionCount[]>>({})
 
   const [newComment, setNewComment]     = useState('')
-  const [showComments, setShowComments] = useState(false)
+  const [showComments, setShowComments] = useState((data.comments || []).length > 0)
   const [submitting, setSubmitting]     = useState(false)
   const [actionError, setActionError]   = useState('')
 
@@ -149,7 +159,52 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
     setRsvps(data.rsvps)
     setComments(data.comments)
     setBills(data.bills)
+    if ((data.comments || []).length > 0) setShowComments(true)
   }, [data])
+
+  useEffect(() => {
+    const ids = comments.map(c => c.id).filter(Boolean)
+    if (ids.length === 0) { setCommentReactions({}); return }
+    let cancelled = false
+    async function load() {
+      const { data: rows } = await supabase
+        .from('comment_reactions')
+        .select('comment_id, emoji, user_id')
+        .in('comment_id', ids)
+      if (cancelled) return
+      const byComment: Record<string, { emoji: string; user_id: string }[]> = {}
+      ;(rows || []).forEach((r: any) => {
+        if (!byComment[r.comment_id]) byComment[r.comment_id] = []
+        byComment[r.comment_id].push({ emoji: r.emoji, user_id: r.user_id })
+      })
+      const next: Record<string, ReactionCount[]> = {}
+      Object.keys(byComment).forEach(id => {
+        next[id] = aggregateReactions(byComment[id], currentUser?.id)
+      })
+      setCommentReactions(next)
+    }
+    load()
+    return () => { cancelled = true }
+  }, [comments, currentUser?.id])
+
+  async function toggleCommentReaction(commentId: string, emoji: string) {
+    if (!currentUser?.id) return
+    const normalized = normalizeReactionEmoji(emoji)
+    const current = commentReactions[commentId] || []
+    const existing = current.find(r => r.e === normalized && r.mine)
+    if (existing) {
+      await supabase.from('comment_reactions').delete()
+        .eq('comment_id', commentId).eq('user_id', currentUser.id).in('emoji', legacyHeartEmojis(normalized))
+    } else {
+      const { error } = await supabase.from('comment_reactions')
+        .insert({ comment_id: commentId, user_id: currentUser.id, emoji: normalized })
+      if (error) { setActionError('Could not save reaction.'); return }
+    }
+    setCommentReactions(prev => ({
+      ...prev,
+      [commentId]: toggleReactionLocal(prev[commentId] || [], normalized),
+    }))
+  }
 
   useEffect(() => {
     async function fetchBriefs() {
@@ -598,6 +653,16 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         </div>
       )}
 
+      {onToggleReaction && (
+        <div style={{ marginBottom: 12 }}>
+          <ReactionBar
+            dark={isLive}
+            reactions={post.reactions || []}
+            onToggle={onToggleReaction}
+          />
+        </div>
+      )}
+
       {actionError && (
         <div className="error-banner" style={{ marginBottom: 12 }}>
           {actionError}
@@ -790,7 +855,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         />
       )}
 
-      {isLive && showDailyCall && hangout.meeting_url && (
+      {showDailyCall && hangout.meeting_url && (
         <DailyCall
           roomUrl={hangout.meeting_url}
           onLeave={() => setShowDailyCall(false)}
@@ -968,8 +1033,14 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
                           <img src={c.photo_url} alt="" style={{ maxWidth: '100%', maxHeight: 240, borderRadius: 8, objectFit: 'cover', display: 'block' }} />
                         </div>
                       )}
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 3 }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 3, flexWrap: 'wrap' }}>
                         <div style={{ fontSize: 10, color: subColor }}>{timeAgo(c.created_at)}</div>
+                        <ReactionBar
+                          compact
+                          dark={isLive}
+                          reactions={commentReactions[c.id] || []}
+                          onToggle={(emoji) => toggleCommentReaction(c.id, emoji)}
+                        />
                         {c.author_id === currentUser?.id && (
                           <>
                             <button onClick={() => startEditComment(c)}
