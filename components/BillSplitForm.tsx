@@ -69,7 +69,8 @@ export default function BillSplitForm({
   const [amount, setAmount]     = useState(defaultAmount !== undefined ? String(defaultAmount) : '')
   const [category, setCategory] = useState<BillCategory>(defaultCategory)
   const [note, setNote]         = useState(defaultNote)
-  const [photoUrl, setPhotoUrl] = useState(defaultPhotoUrl)
+  const [photoUrl, setPhotoUrl]       = useState(defaultPhotoUrl)
+  const [previewUrl, setPreviewUrl]   = useState(defaultPhotoUrl)
   const [uploading, setUploading]     = useState(false)
   const [scanning, setScanning]       = useState(false)
   const [uploadError, setUploadError] = useState('')
@@ -139,6 +140,7 @@ export default function BillSplitForm({
     setScanning(true)
     setUploadError('')
     setOcrItems([])
+    setPreviewUrl(URL.createObjectURL(file))
 
     try {
       const compressed = await compressImage(file)
@@ -184,16 +186,19 @@ export default function BillSplitForm({
       {/* SCAN RECEIPT at top */}
       <div style={{ marginBottom: 16 }}>
         {scanning ? (
-          <div style={{ padding: '14px 16px', borderRadius: 10, background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: '50%', border: '2px solid var(--yellow)', borderTopColor: 'transparent', flexShrink: 0, animation: 'spin 0.8s linear infinite' }} />
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--yellow)' }}>Scanning receipt...</div>
-              <div style={{ fontSize: 11, color: 'var(--yellow)', opacity: 0.7, marginTop: 1 }}>Filling in the details for you</div>
+          <div style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', display: 'flex', alignItems: 'center', gap: 12 }}>
+            {previewUrl && <img src={previewUrl} alt="Receipt" style={{ width: 44, height: 44, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--yellow)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', border: '2px solid var(--yellow)', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />
+                Scanning receipt...
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--yellow)', opacity: 0.7, marginTop: 2 }}>Filling in the details for you</div>
             </div>
           </div>
-        ) : photoUrl ? (
+        ) : (photoUrl || previewUrl) ? (
           <div style={{ padding: '10px 12px', borderRadius: 10, background: inputBg, border: `1px solid ${borderCol}`, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <img src={photoUrl} alt="Receipt" style={{ width: 44, height: 44, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
+            <img src={previewUrl || photoUrl} alt="Receipt" style={{ width: 44, height: 44, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: textColor }}>Receipt attached</div>
               {ocrItems.length > 0 && (
@@ -202,7 +207,7 @@ export default function BillSplitForm({
                 </div>
               )}
             </div>
-            <button onClick={() => { setPhotoUrl(''); setOcrItems([]) }}
+            <button onClick={() => { setPhotoUrl(''); setPreviewUrl(''); setOcrItems([]) }}
               style={{ padding: '4px 10px', background: 'transparent', border: `1px solid ${borderCol}`, borderRadius: 6, color: subColor, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
               Remove
             </button>
