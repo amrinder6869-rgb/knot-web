@@ -303,7 +303,7 @@ export default function Members({ members: _members, knotId }: { members: any[],
                         No
                       </button>
                       <button onClick={() => submitVote(nom.id, 'abstain')}
-                        style={{ padding: '8px 12px', borderRadius: 8, border: `1px solid ${myV === 'abstain' ? 'var(--border2)' : 'var(--border2)'}`, background: myV === 'abstain' ? 'var(--bg)' : 'var(--bg3)', color: 'var(--text2)', fontSize: 13, fontWeight: myV === 'abstain' ? 600 : 400, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border2)', background: myV === 'abstain' ? 'var(--bg)' : 'var(--bg3)', color: 'var(--text2)', fontSize: 13, fontWeight: myV === 'abstain' ? 600 : 400, cursor: 'pointer', fontFamily: 'inherit' }}>
                         Abstain
                       </button>
                     </div>
