@@ -4,13 +4,12 @@ import { ImageIcon } from 'lucide-react'
 import { supabase, getSignedUrl } from '@/lib/supabase'
 import { compressImage } from '@/lib/compressImage'
 import ReactionBar from '@/components/ReactionBar'
+import { type ReactionCount } from '@/lib/reactions'
 import {
-  aggregateReactions,
-  legacyHeartEmojis,
-  normalizeReactionEmoji,
-  toggleReactionLocal,
-  type ReactionCount,
-} from '@/lib/reactions'
+  commentReactionsSupported,
+  loadCommentReactions,
+  toggleCommentReactionRemote,
+} from '@/lib/commentReactions'
 
 function timeAgo(date: string) {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
@@ -39,6 +38,7 @@ export default function PostComments({ postId, currentUser, initialComments, onC
   const [submitting, setSubmitting]     = useState(false)
   const [error, setError]               = useState('')
   const [reactionsByComment, setReactionsByComment] = useState<Record<string, ReactionCount[]>>({})
+  const [reactionsEnabled, setReactionsEnabled] = useState(commentReactionsSupported())
 
   const [commentPhoto, setCommentPhoto]               = useState<File | null>(null)
   const [commentPhotoPreview, setCommentPhotoPreview] = useState<string | null>(null)
@@ -59,20 +59,9 @@ export default function PostComments({ postId, currentUser, initialComments, onC
     if (ids.length === 0) { setReactionsByComment({}); return }
     let cancelled = false
     async function load() {
-      const { data } = await supabase
-        .from('comment_reactions')
-        .select('comment_id, emoji, user_id')
-        .in('comment_id', ids)
+      const next = await loadCommentReactions(ids, currentUser?.id)
       if (cancelled) return
-      const byComment: Record<string, { emoji: string; user_id: string }[]> = {}
-      ;(data || []).forEach((r: any) => {
-        if (!byComment[r.comment_id]) byComment[r.comment_id] = []
-        byComment[r.comment_id].push({ emoji: r.emoji, user_id: r.user_id })
-      })
-      const next: Record<string, ReactionCount[]> = {}
-      Object.keys(byComment).forEach(id => {
-        next[id] = aggregateReactions(byComment[id], currentUser?.id)
-      })
+      setReactionsEnabled(commentReactionsSupported())
       setReactionsByComment(next)
     }
     load()
@@ -88,24 +77,14 @@ export default function PostComments({ postId, currentUser, initialComments, onC
 
   async function toggleCommentReaction(commentId: string, emoji: string) {
     if (!currentUser?.id) return
-    const normalized = normalizeReactionEmoji(emoji)
     const current = reactionsByComment[commentId] || []
-    const existing = current.find(r => r.e === normalized && r.mine)
-    if (existing) {
-      await supabase.from('comment_reactions').delete()
-        .eq('comment_id', commentId).eq('user_id', currentUser.id).in('emoji', legacyHeartEmojis(normalized))
-    } else {
-      const { error: insertError } = await supabase.from('comment_reactions')
-        .insert({ comment_id: commentId, user_id: currentUser.id, emoji: normalized })
-      if (insertError) {
-        setError('Could not save reaction. Make sure comment reactions are enabled.')
-        return
-      }
+    const result = await toggleCommentReactionRemote(commentId, emoji, currentUser.id, current)
+    setReactionsEnabled(commentReactionsSupported())
+    if (!result.ok) {
+      setError(result.error || 'Could not save reaction.')
+      return
     }
-    setReactionsByComment(prev => ({
-      ...prev,
-      [commentId]: toggleReactionLocal(prev[commentId] || [], normalized),
-    }))
+    setReactionsByComment(prev => ({ ...prev, [commentId]: result.next }))
   }
 
   async function addComment() {
@@ -245,12 +224,14 @@ export default function PostComments({ postId, currentUser, initialComments, onC
                     )}
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
                       <div style={{ fontSize: 10, color: muted }}>{timeAgo(c.created_at)}</div>
-                      <ReactionBar
-                        compact
-                        dark={dark}
-                        reactions={reactionsByComment[c.id] || []}
-                        onToggle={(emoji) => toggleCommentReaction(c.id, emoji)}
-                      />
+                      {reactionsEnabled && (
+                        <ReactionBar
+                          compact
+                          dark={dark}
+                          reactions={reactionsByComment[c.id] || []}
+                          onToggle={(emoji) => toggleCommentReaction(c.id, emoji)}
+                        />
+                      )}
                       {c.author_id === currentUser?.id && (
                         <>
                           <button onClick={() => startEdit(c)}

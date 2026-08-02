@@ -10,13 +10,12 @@ import { PostHangoutLoop } from '@/components/PostHangoutLoop'
 import { PreOrderCard } from '@/components/PreOrderCard'
 import { DailyCall } from '@/components/DailyCall'
 import ReactionBar from '@/components/ReactionBar'
+import { type ReactionCount } from '@/lib/reactions'
 import {
-  aggregateReactions,
-  legacyHeartEmojis,
-  normalizeReactionEmoji,
-  toggleReactionLocal,
-  type ReactionCount,
-} from '@/lib/reactions'
+  commentReactionsSupported,
+  loadCommentReactions,
+  toggleCommentReactionRemote,
+} from '@/lib/commentReactions'
 
 function timeAgo(date: string) {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
@@ -109,6 +108,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
   const [comments, setComments] = useState<any[]>(data.comments)
   const [bills, setBills]       = useState<any[]>(data.bills)
   const [commentReactions, setCommentReactions] = useState<Record<string, ReactionCount[]>>({})
+  const [commentReactionsEnabled, setCommentReactionsEnabled] = useState(commentReactionsSupported())
 
   const [newComment, setNewComment]     = useState('')
   const [showComments, setShowComments] = useState((data.comments || []).length > 0)
@@ -169,20 +169,9 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
     if (ids.length === 0) { setCommentReactions({}); return }
     let cancelled = false
     async function load() {
-      const { data: rows } = await supabase
-        .from('comment_reactions')
-        .select('comment_id, emoji, user_id')
-        .in('comment_id', ids)
+      const next = await loadCommentReactions(ids, currentUser?.id)
       if (cancelled) return
-      const byComment: Record<string, { emoji: string; user_id: string }[]> = {}
-      ;(rows || []).forEach((r: any) => {
-        if (!byComment[r.comment_id]) byComment[r.comment_id] = []
-        byComment[r.comment_id].push({ emoji: r.emoji, user_id: r.user_id })
-      })
-      const next: Record<string, ReactionCount[]> = {}
-      Object.keys(byComment).forEach(id => {
-        next[id] = aggregateReactions(byComment[id], currentUser?.id)
-      })
+      setCommentReactionsEnabled(commentReactionsSupported())
       setCommentReactions(next)
     }
     load()
@@ -191,21 +180,14 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
 
   async function toggleCommentReaction(commentId: string, emoji: string) {
     if (!currentUser?.id) return
-    const normalized = normalizeReactionEmoji(emoji)
     const current = commentReactions[commentId] || []
-    const existing = current.find(r => r.e === normalized && r.mine)
-    if (existing) {
-      await supabase.from('comment_reactions').delete()
-        .eq('comment_id', commentId).eq('user_id', currentUser.id).in('emoji', legacyHeartEmojis(normalized))
-    } else {
-      const { error } = await supabase.from('comment_reactions')
-        .insert({ comment_id: commentId, user_id: currentUser.id, emoji: normalized })
-      if (error) { setActionError('Could not save reaction.'); return }
+    const result = await toggleCommentReactionRemote(commentId, emoji, currentUser.id, current)
+    setCommentReactionsEnabled(commentReactionsSupported())
+    if (!result.ok) {
+      setActionError(result.error || 'Could not save reaction.')
+      return
     }
-    setCommentReactions(prev => ({
-      ...prev,
-      [commentId]: toggleReactionLocal(prev[commentId] || [], normalized),
-    }))
+    setCommentReactions(prev => ({ ...prev, [commentId]: result.next }))
   }
 
   useEffect(() => {
@@ -1079,12 +1061,14 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
                       )}
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 3, flexWrap: 'wrap' }}>
                         <div style={{ fontSize: 10, color: subColor }}>{timeAgo(c.created_at)}</div>
-                        <ReactionBar
-                          compact
-                          dark={isLive}
-                          reactions={commentReactions[c.id] || []}
-                          onToggle={(emoji) => toggleCommentReaction(c.id, emoji)}
-                        />
+                        {commentReactionsEnabled && (
+                          <ReactionBar
+                            compact
+                            dark={isLive}
+                            reactions={commentReactions[c.id] || []}
+                            onToggle={(emoji) => toggleCommentReaction(c.id, emoji)}
+                          />
+                        )}
                         {c.author_id === currentUser?.id && (
                           <>
                             <button onClick={() => startEditComment(c)}
