@@ -243,7 +243,7 @@ export default function AmongUsLite({ game, members, currentUser, knotId, onEnd,
         <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20 }}>Waiting for players. Need at least 4 to start.</div>
 
         {error && (
-          <div style={{ padding: '10px 14px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 13, color: 'var(--yellow)', marginBottom: 16 }}>
+          <div className="error-banner" style={{ marginBottom: 16 }}>
             {error}
           </div>
         )}
@@ -295,7 +295,7 @@ export default function AmongUsLite({ game, members, currentUser, knotId, onEnd,
       </div>
 
       {error && (
-        <div style={{ padding: '10px 14px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 13, color: 'var(--yellow)', marginBottom: 16 }}>
+        <div className="error-banner" style={{ marginBottom: 16 }}>
           {error}
         </div>
       )}

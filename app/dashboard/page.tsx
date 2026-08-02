@@ -4,6 +4,10 @@ import HomeFeed from '@/components/HomeFeed'
 import HomeEvents from '@/components/HomeEvents'
 import HomeBills from '@/components/HomeBills'
 import { useState, useEffect } from 'react'
+import {
+  MessageCircle, Calendar, Image as ImageIcon, Users, MoreHorizontal,
+  Receipt, Gamepad2, Compass, Lock, Home,
+} from 'lucide-react'
 import { supabase, getSignedUrl } from '@/lib/supabase'
 import Feed from '@/components/Feed'
 import VibesCounter from '@/components/VibesCounter'
@@ -16,19 +20,19 @@ import Games from '@/components/Games'
 import Notifications from '@/components/Notifications'
 
 const TABS = [
-  { id: 'feed',     label: 'Discussion' },
-  { id: 'hangout',  label: 'Tonight' },
-  { id: 'memories', label: 'Media' },
-  { id: 'members',  label: 'Members' },
+  { id: 'feed',     label: 'Feed' },
+  { id: 'hangout',  label: 'Plans' },
+  { id: 'memories', label: 'Photos' },
+  { id: 'members',  label: 'People' },
   { id: 'discover', label: 'Discover' },
 ]
 
 const BOTTOM_NAV = [
-  { id: 'feed',     label: 'Discussion' },
-  { id: 'hangout',  label: 'Tonight' },
-  { id: 'memories', label: 'Media' },
-  { id: 'members',  label: 'Members' },
-  { id: 'more',     label: 'More' },
+  { id: 'feed',     label: 'Feed',    Icon: MessageCircle },
+  { id: 'hangout',  label: 'Plans',   Icon: Calendar },
+  { id: 'memories', label: 'Photos',  Icon: ImageIcon },
+  { id: 'members',  label: 'People',  Icon: Users },
+  { id: 'more',     label: 'More',    Icon: MoreHorizontal },
 ]
 
 const MEMBER_COLORS = [
@@ -464,11 +468,11 @@ await loadKnotMembers(startKnot.id, data.user.id)
                     <span style={{ fontWeight: 600, color: 'var(--text)' }}>{activeKnot.name}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ color: 'var(--yellow)' }}>⊕</span>
+                    <Lock size={14} color="var(--yellow)" strokeWidth={2} />
                     <span>Private · Invite only</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ color: 'var(--yellow)' }}>⊕</span>
+                    <Users size={14} color="var(--yellow)" strokeWidth={2} />
                     <span>{activeKnot.count} member{activeKnot.count !== 1 ? 's' : ''}</span>
                   </div>
                 </div>
@@ -511,9 +515,13 @@ await loadKnotMembers(startKnot.id, data.user.id)
                         <img src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                       )}
                     </div>
-                  )) : [1,2,3,4,5,6].map(i => (
-                    <div key={i} onClick={() => setActive('memories')} style={{ aspectRatio: '1', borderRadius: 6, background: 'var(--bg3)', cursor: 'pointer', border: '1px solid var(--border)' }} />
-                  ))}
+                  )) : (
+                    <button onClick={() => setActive('memories')}
+                      style={{ gridColumn: '1 / -1', aspectRatio: 'auto', minHeight: 88, borderRadius: 8, background: 'var(--bg3)', border: '1px dashed var(--border2)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, fontFamily: 'inherit', color: 'var(--text3)' }}>
+                      <ImageIcon size={20} strokeWidth={1.75} />
+                      <span style={{ fontSize: 12 }}>No photos yet — add some</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -594,9 +602,10 @@ await loadKnotMembers(startKnot.id, data.user.id)
       {/* BOTTOM NAV + MORE DRAWER — only inside a Knot on mobile */}
       {activeKnot && !showHome && (
         <>
-          <nav className="bottom-nav" style={{ display: 'none', position: 'fixed', bottom: 0, left: 0, right: 0, height: 60, background: 'var(--bg2)', borderTop: '1px solid var(--border)', zIndex: 100, alignItems: 'center', justifyContent: 'space-around', padding: '0 8px' }}>
+          <nav className="bottom-nav" style={{ display: 'none', position: 'fixed', bottom: 0, left: 0, right: 0, height: 60, background: 'var(--bg2)', borderTop: '1px solid var(--border)', zIndex: 100, alignItems: 'center', justifyContent: 'space-around', padding: '0 8px', paddingBottom: 'env(safe-area-inset-bottom, 0)' }}>
             {BOTTOM_NAV.map(n => {
               const isActive = n.id === 'more' ? showMore : active === n.id
+              const Icon = n.Icon
               return (
                 <button key={n.id}
                   onClick={() => {
@@ -604,8 +613,8 @@ await loadKnotMembers(startKnot.id, data.user.id)
                     else { setActive(n.id); setShowMore(false); setShowHome(false) }
                   }}
                   style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '6px 10px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', flex: 1 }}>
-                  <div style={{ width: 20, height: 3, borderRadius: 2, background: isActive ? 'var(--yellow)' : 'transparent', transition: 'all 0.15s' }} />
-                  <span style={{ fontSize: 11, fontWeight: isActive ? 700 : 400, color: isActive ? 'var(--yellow)' : 'var(--text3)' }}>{n.label}</span>
+                  <Icon size={18} strokeWidth={isActive ? 2.4 : 1.8} color={isActive ? 'var(--yellow)' : 'var(--text3)'} />
+                  <span style={{ fontSize: 10, fontWeight: isActive ? 700 : 400, color: isActive ? 'var(--yellow)' : 'var(--text3)' }}>{n.label}</span>
                 </button>
               )
             })}
@@ -616,9 +625,22 @@ await loadKnotMembers(startKnot.id, data.user.id)
               <div onClick={e => e.stopPropagation()}
                 style={{ position: 'absolute', bottom: 60, left: 0, right: 0, background: 'var(--bg2)', borderTop: '1px solid var(--border)', borderRadius: '16px 16px 0 0', padding: 20 }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>Navigate</div>
-                {[{ id: 'split', label: 'Bills' }, { id: 'games', label: 'Games' }, { id: 'discover', label: 'Discover' }].map(n => (
-                  <button key={n.id} onClick={() => { setActive(n.id); setShowMore(false) }}
-                    style={{ width: '100%', padding: '11px 12px', background: active === n.id ? 'var(--yellow-soft)' : 'transparent', border: 'none', borderRadius: 8, color: active === n.id ? 'var(--yellow)' : 'var(--text)', fontSize: 14, fontWeight: active === n.id ? 700 : 400, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', marginBottom: 4 }}>
+                {[
+                  { id: 'home', label: 'Home', Icon: Home },
+                  { id: 'split', label: 'Bills', Icon: Receipt },
+                  { id: 'games', label: 'Games', Icon: Gamepad2 },
+                  { id: 'discover', label: 'Discover', Icon: Compass },
+                ].map(n => (
+                  <button key={n.id} onClick={() => {
+                    if (n.id === 'home') {
+                      setShowHome(true); setShowMore(false)
+                      localStorage.setItem('show_home', 'true')
+                    } else {
+                      setActive(n.id); setShowMore(false)
+                    }
+                  }}
+                    style={{ width: '100%', padding: '11px 12px', background: active === n.id && n.id !== 'home' ? 'var(--yellow-soft)' : 'transparent', border: 'none', borderRadius: 8, color: active === n.id && n.id !== 'home' ? 'var(--yellow)' : 'var(--text)', fontSize: 14, fontWeight: active === n.id && n.id !== 'home' ? 700 : 400, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <n.Icon size={16} strokeWidth={2} />
                     {n.label}
                   </button>
                 ))}

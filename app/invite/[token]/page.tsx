@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, use } from 'react'
+import { AlertCircle, Clock, Lock, ShieldCheck } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
 export default function InvitePage({ params }: { params: Promise<{ token: string }> }) {
@@ -10,6 +11,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
   const [status, setStatus]   = useState<'loading'|'valid'|'expired'|'used'|'joined'|'error'>('loading')
   const [user, setUser]       = useState<any>(null)
   const [joining, setJoining] = useState(false)
+  const [joinError, setJoinError] = useState('')
 
   useEffect(() => {
     async function load() {
@@ -49,13 +51,14 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
       return
     }
     setJoining(true)
+    setJoinError('')
 
     const { error } = await supabase
       .from('knot_members')
       .insert({ knot_id: knot.id, user_id: user.id, role: 'member' })
 
     if (error && !error.message.includes('duplicate')) {
-      alert('Error joining: ' + error.message)
+      setJoinError('Could not join: ' + error.message)
       setJoining(false)
       return
     }
@@ -83,7 +86,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 28 }}>
           <svg width="28" height="28" viewBox="0 0 44 44" fill="none">
             <circle cx="17" cy="17" r="10" stroke="var(--yellow)" strokeWidth="3" fill="none"/>
-            <circle cx="27" cy="27" r="10" stroke="var(--sage)" strokeWidth="3" fill="none"/>
+            <circle cx="27" cy="27" r="10" stroke="var(--yellow)" strokeWidth="3" fill="none" opacity="0.5"/>
           </svg>
           <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.5px' }}>
             kn<span style={{ color: 'var(--yellow)' }}>o</span>t
@@ -96,15 +99,19 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
 
         {status === 'error' && (
           <>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>Ã¢ÂÅ’</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+              <AlertCircle size={36} color="var(--danger)" strokeWidth={1.75} />
+            </div>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Invalid invite</div>
-            <div style={{ fontSize: 13, color: 'var(--text2)' }}>This link doesn't exist or has been removed.</div>
+            <div style={{ fontSize: 13, color: 'var(--text2)' }}>This link doesn&apos;t exist or has been removed.</div>
           </>
         )}
 
         {status === 'expired' && (
           <>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>Ã¢ÂÂ±Ã¯Â¸Â</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+              <Clock size={36} color="var(--amber)" strokeWidth={1.75} />
+            </div>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Invite expired</div>
             <div style={{ fontSize: 13, color: 'var(--text2)' }}>This invite link expired. Ask your friend to send a new one.</div>
           </>
@@ -112,7 +119,9 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
 
         {status === 'used' && (
           <>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>Ã°Å¸â€â€™</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+              <Lock size={36} color="var(--text3)" strokeWidth={1.75} />
+            </div>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Already used</div>
             <div style={{ fontSize: 13, color: 'var(--text2)' }}>This one-time link has already been claimed.</div>
           </>
@@ -121,10 +130,14 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
         {status === 'valid' && invite && knot && (
           <>
             <div style={{ fontSize: 48, marginBottom: 12 }}>{knot.emoji}</div>
-            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>You're invited!</div>
+            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>You&apos;re invited!</div>
             <div style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 24, lineHeight: 1.6 }}>
-              Join <strong style={{ color: 'var(--text)' }}>{knot.name}</strong> on Knot — a private circle for people who actually know each other.
+              Join <strong style={{ color: 'var(--text)' }}>{knot.name}</strong> on Knot — a private circle for people who actually know each other.
             </div>
+
+            {joinError && (
+              <div className="error-banner" style={{ marginBottom: 12, textAlign: 'left' }}>{joinError}</div>
+            )}
 
             {!user ? (
               <>
@@ -147,16 +160,19 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
               </button>
             )}
 
-            <div style={{ marginTop: 16, fontSize: 12, color: 'var(--text3)' }}>
-              Ã°Å¸â€Â Invite-only · one-time link · expires in 48hrs
+            <div style={{ marginTop: 16, fontSize: 12, color: 'var(--text3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <ShieldCheck size={14} strokeWidth={2} />
+              Invite-only · one-time link · expires in 48hrs
             </div>
           </>
         )}
 
         {status === 'joined' && (
           <>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>🙏</div>
-            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: 'var(--sage)' }}>You're in!</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+              <ShieldCheck size={48} color="var(--sage)" strokeWidth={1.5} />
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: 'var(--sage)' }}>You&apos;re in!</div>
             <div style={{ fontSize: 13, color: 'var(--text2)' }}>Taking you to your dashboard...</div>
           </>
         )}

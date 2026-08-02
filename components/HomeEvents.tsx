@@ -40,7 +40,7 @@ export default function HomeEvents({ knots, onOpenKnotTab }: { knots: KnotRef[];
   }
 
   if (loading) return <div style={{ color: 'var(--text2)', fontSize: 13, padding: '20px 0' }}>Loading...</div>
-  if (error) return <div style={{ padding: '10px 14px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 13, color: 'var(--yellow)' }}>{error}</div>
+  if (error) return <div className="error-banner">{error}</div>
 
   const live       = hangouts.filter(h => h.is_live)
   const upcoming   = hangouts.filter(h => !h.is_live && h.status === 'confirmed')

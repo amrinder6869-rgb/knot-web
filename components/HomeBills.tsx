@@ -54,7 +54,7 @@ export default function HomeBills({ knots, currentUser, onOpenKnotTab }: { knots
   }
 
   if (loading) return <div style={{ color: 'var(--text2)', fontSize: 13, padding: '20px 0' }}>Loading...</div>
-  if (error) return <div style={{ padding: '10px 14px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 13, color: 'var(--yellow)' }}>{error}</div>
+  if (error) return <div className="error-banner">{error}</div>
 
   const totalOwed = rows.reduce((sum, r) => sum + r.debts.filter(d => d.to.id === currentUser?.id).reduce((s, d) => s + d.amount, 0), 0)
   const totalOwe  = rows.reduce((sum, r) => sum + r.debts.filter(d => d.from.id === currentUser?.id).reduce((s, d) => s + d.amount, 0), 0)

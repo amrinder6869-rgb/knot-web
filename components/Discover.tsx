@@ -315,11 +315,11 @@ export default function Discover({ members: _members, onVenueSelect }: { members
       {/* Categories */}
       <div style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>What are you in the mood for?</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }} className="cat-grid">
           {CATEGORIES.map(c => (
             <div key={c.id} onClick={() => setCategory(c.id)}
               style={{ padding: '12px 8px', border: `1.5px solid ${category === c.id ? 'var(--yellow)' : 'var(--border)'}`, borderRadius: 12, textAlign: 'center', cursor: 'pointer', background: category === c.id ? 'var(--yellow-soft)' : 'var(--bg2)', transition: 'all 0.15s' }}>
-
+              <div style={{ fontSize: 22, marginBottom: 4, lineHeight: 1 }}>{c.emoji}</div>
               <div style={{ fontSize: 11, fontWeight: 600, color: category === c.id ? 'var(--yellow)' : 'var(--text2)' }}>{c.label}</div>
             </div>
           ))}

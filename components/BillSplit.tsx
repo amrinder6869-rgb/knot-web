@@ -215,7 +215,7 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
       </div>
 
       {loadError && (
-        <div style={{ padding: '10px 14px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 13, color: 'var(--yellow)', marginBottom: 16 }}>
+        <div className="error-banner" style={{ marginBottom: 16 }}>
           {loadError}
         </div>
       )}
@@ -256,12 +256,12 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
       {view === 'activity' && (
         <div>
           {undoError && (
-            <div style={{ padding: '10px 14px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 13, color: 'var(--yellow)', marginBottom: 16 }}>
+            <div className="error-banner" style={{ marginBottom: 16 }}>
               {undoError}
             </div>
           )}
           {deleteError && (
-            <div style={{ padding: '10px 14px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 13, color: 'var(--yellow)', marginBottom: 16 }}>
+            <div className="error-banner" style={{ marginBottom: 16 }}>
               {deleteError}
             </div>
           )}
@@ -362,7 +362,7 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
                               Edit
                             </button>
                             <button onClick={() => handleDeleteBill(bill.id)} disabled={deletingBillId === bill.id}
-                              style={{ padding: '6px 14px', background: 'transparent', border: '1px solid var(--yellow-dim)', borderRadius: 8, color: 'var(--yellow)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', opacity: deletingBillId === bill.id ? 0.5 : 1 }}>
+                              style={{ padding: '6px 14px', background: 'transparent', border: '1px solid var(--danger-dim)', borderRadius: 8, color: 'var(--danger)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', opacity: deletingBillId === bill.id ? 0.5 : 1 }}>
                               {deletingBillId === bill.id ? 'Deleting...' : 'Delete'}
                             </button>
                           </div>

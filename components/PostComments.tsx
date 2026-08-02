@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import { ImageIcon } from 'lucide-react'
 import { supabase, getSignedUrl } from '@/lib/supabase'
 import { compressImage } from '@/lib/compressImage'
 
@@ -24,7 +25,7 @@ type PostCommentsProps = {
 
 export default function PostComments({ postId, currentUser, initialComments, onCommentAdded }: PostCommentsProps) {
   const [comments, setComments]   = useState<any[]>(initialComments)
-  const [showComments, setShowComments] = useState(false)
+  const [showComments, setShowComments] = useState(initialComments.length > 0)
   const [newComment, setNewComment]     = useState('')
   const [submitting, setSubmitting]     = useState(false)
   const [error, setError]               = useState('')
@@ -40,6 +41,7 @@ export default function PostComments({ postId, currentUser, initialComments, onC
 
   useEffect(() => {
     setComments(initialComments)
+    if (initialComments.length > 0) setShowComments(true)
   }, [initialComments])
 
   function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -207,7 +209,7 @@ export default function PostComments({ postId, currentUser, initialComments, onC
                             Edit
                           </button>
                           <button onClick={() => deleteComment(c)} disabled={deletingId === c.id}
-                            style={{ background: 'none', border: 'none', padding: 0, fontSize: 10, color: 'var(--yellow)', cursor: 'pointer', fontFamily: 'inherit', opacity: deletingId === c.id ? 0.5 : 1 }}>
+                            style={{ background: 'none', border: 'none', padding: 0, fontSize: 10, color: 'var(--danger)', cursor: 'pointer', fontFamily: 'inherit', opacity: deletingId === c.id ? 0.5 : 1 }}>
                             {deletingId === c.id ? 'Deleting...' : 'Delete'}
                           </button>
                         </>
@@ -220,7 +222,7 @@ export default function PostComments({ postId, currentUser, initialComments, onC
           ))}
 
           {error && (
-            <div style={{ padding: '6px 10px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 11, color: 'var(--yellow)', marginBottom: 8 }}>
+            <div className="error-banner" style={{ marginBottom: 8, fontSize: 11 }}>
               {error}
             </div>
           )}
@@ -242,9 +244,10 @@ export default function PostComments({ postId, currentUser, initialComments, onC
               style={{ flex: 1, padding: '7px 10px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 12, outline: 'none', fontFamily: 'inherit' }} />
             <input type="file" accept="image/*" ref={photoInputRef} onChange={handlePhotoSelect} style={{ display: 'none' }} />
             <button onClick={() => photoInputRef.current?.click()}
-              style={{ width: 30, height: 30, borderRadius: 8, background: commentPhoto ? 'var(--yellow-soft)' : 'var(--bg3)', border: `1px solid ${commentPhoto ? 'var(--yellow)' : 'var(--border2)'}`, color: commentPhoto ? 'var(--yellow)' : 'var(--text3)', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'inherit' }}
-              title="Add photo">
-              P
+              style={{ width: 30, height: 30, borderRadius: 8, background: commentPhoto ? 'var(--yellow-soft)' : 'var(--bg3)', border: `1px solid ${commentPhoto ? 'var(--yellow)' : 'var(--border2)'}`, color: commentPhoto ? 'var(--yellow)' : 'var(--text3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'inherit' }}
+              title="Add photo"
+              aria-label="Add photo">
+              <ImageIcon size={14} strokeWidth={2} />
             </button>
             <button onClick={addComment} disabled={(!newComment.trim() && !commentPhoto) || submitting}
               style={{ padding: '7px 12px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (!newComment.trim() && !commentPhoto) || submitting ? 0.5 : 1, flexShrink: 0 }}>

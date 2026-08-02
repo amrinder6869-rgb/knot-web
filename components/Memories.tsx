@@ -330,7 +330,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
     <div style={{ maxWidth: 800 }}>
 
       {loadError && (
-        <div style={{ padding: '10px 14px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 13, color: 'var(--yellow)', marginBottom: 16 }}>
+        <div className="error-banner" style={{ marginBottom: 16 }}>
           {loadError}
         </div>
       )}
@@ -424,7 +424,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
             <div style={{ padding: 16 }}>
 
               {(captionError || deleteError) && (
-                <div style={{ padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)', marginBottom: 12 }}>
+                <div className="error-banner" style={{ marginBottom: 12 }}>
                   {captionError || deleteError}
                 </div>
               )}
@@ -474,7 +474,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
                 </div>
 
                 {commentError && (
-                  <div style={{ padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)', marginBottom: 10 }}>
+                  <div className="error-banner" style={{ marginBottom: 10 }}>
                     {commentError}
                   </div>
                 )}

@@ -63,7 +63,7 @@ export default function RewardsShop({ userId, userName, onClose, onRedeemed }: {
 
         <div style={{ padding: '20px 24px' }}>
           {error && (
-            <div style={{ padding: '10px 14px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 13, color: 'var(--yellow)', marginBottom: 16 }}>
+            <div className="error-banner" style={{ marginBottom: 16 }}>
               {error}
             </div>
           )}

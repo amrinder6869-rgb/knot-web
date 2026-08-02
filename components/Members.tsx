@@ -50,7 +50,7 @@ export default function Members({ members: _members, knotId }: { members: any[],
   async function loadMembers() {
     const { data } = await supabase
       .from('knot_members')
-      // budget_tier is intentionally excluded â€” it is private per-user data
+      // budget_tier is intentionally excluded — it is private per-user data
       .select('user_id, role, joined_at, profiles:user_id(id, name)')
       .eq('knot_id', knotId)
     if (data) setKnotMembers(data)
@@ -154,9 +154,9 @@ export default function Members({ members: _members, knotId }: { members: any[],
 
   return (
     <div style={{ maxWidth: 720 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }} className="members-grid">
 
-        {/* Left â€” Members */}
+        {/* Left — Members */}
         <div>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Members</div>
           {knotMembers.length === 0 ? (
@@ -186,7 +186,7 @@ export default function Members({ members: _members, knotId }: { members: any[],
           })}
         </div>
 
-        {/* Right â€” Invite + Votes */}
+        {/* Right — Invite + Votes */}
         <div>
           {/* Invite */}
           <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, marginBottom: 14 }}>

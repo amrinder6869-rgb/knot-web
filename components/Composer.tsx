@@ -420,7 +420,7 @@ export default function Composer({
       {activeType === 'moment' && (
         <div style={{ padding: 16 }}>
           {momentError && (
-            <div style={{ padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)', marginBottom: 10 }}>
+            <div className="error-banner" style={{ marginBottom: 10 }}>
               {momentError}
             </div>
           )}
@@ -437,19 +437,21 @@ export default function Composer({
               </button>
             </div>
           )}
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>
               {userInitials}
             </div>
-            <input value={momentText} onChange={e => setMomentText(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && postMoment()}
+            <textarea value={momentText} onChange={e => setMomentText(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) postMoment() }}
               placeholder="Share a moment with the group..."
               autoFocus
-              style={{ flex: 1, background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit' }} />
+              rows={2}
+              style={{ flex: 1, background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', resize: 'vertical', minHeight: 44, lineHeight: 1.45 }} />
             <input type="file" accept="image/*,video/*" ref={momentPhotoInputRef} onChange={handleMomentPhotoSelect} style={{ display: 'none' }} />
             <button onClick={() => momentPhotoInputRef.current?.click()}
               style={{ width: 38, height: 38, borderRadius: 8, background: momentPhoto ? 'var(--yellow-soft)' : 'var(--bg3)', border: `1px solid ${momentPhoto ? 'var(--yellow)' : 'var(--border2)'}`, color: momentPhoto ? 'var(--yellow)' : 'var(--text3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'inherit' }}
-              title="Add photo or video">
+              title="Add photo or video"
+              aria-label="Add photo or video">
               <ImageIcon size={16} strokeWidth={2} />
             </button>
             <button onClick={postMoment} disabled={(!momentText.trim() && !momentPhoto) || posting}
@@ -464,7 +466,7 @@ export default function Composer({
         <div style={{ padding: 16 }}>
 
           {hangoutError && (
-            <div style={{ padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)', marginBottom: 12 }}>
+            <div className="error-banner" style={{ marginBottom: 12 }}>
               {hangoutError}
             </div>
           )}

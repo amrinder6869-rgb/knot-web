@@ -154,7 +154,7 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
       <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 24 }}>Play together inside your Knot.</div>
 
       {error && (
-        <div style={{ padding: '10px 14px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 13, color: 'var(--yellow)', marginBottom: 20 }}>
+        <div className="error-banner" style={{ marginBottom: 20 }}>
           {error}
         </div>
       )}
@@ -216,7 +216,7 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
                 )}
                 {g.status === 'waiting' && g.created_by === currentUser?.id && (
                   <button onClick={() => cancelLobby(g)}
-                    style={{ padding: '6px 12px', background: 'transparent', border: '1px solid var(--yellow-dim)', borderRadius: 8, color: 'var(--yellow)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    style={{ padding: '6px 12px', background: 'transparent', border: '1px solid var(--danger-dim)', borderRadius: 8, color: 'var(--danger)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
                     Cancel lobby
                   </button>
                 )}

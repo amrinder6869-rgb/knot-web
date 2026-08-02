@@ -69,7 +69,7 @@ export default function LedgerView({ debts, currentUser, knotId, onSettled }: Le
   return (
     <div>
       {error && (
-        <div style={{ padding: '10px 14px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 13, color: 'var(--yellow)', marginBottom: 14 }}>
+        <div className="error-banner" style={{ marginBottom: 14 }}>
           {error}
         </div>
       )}

@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { DollarSign, HelpCircle, Lock, Gift, ChevronRight } from 'lucide-react'
 import { supabase, getSignedUrl } from '@/lib/supabase'
 
 function timeAgo(date: string) {
@@ -97,7 +98,13 @@ export default function HomeFeed({ knots, onSelectKnot }: { knots: any[], onSele
   if (items.length === 0) return (
     <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text2)' }}>
       <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: 'var(--text)' }}>Nothing here yet</div>
-      <div style={{ fontSize: 13, color: 'var(--text3)' }}>Activity from all your Knots will show up here.</div>
+      <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 16 }}>Open a Knot to post a moment or plan something.</div>
+      {knots[0] && (
+        <button onClick={() => onSelectKnot(knots[0])}
+          style={{ padding: '10px 20px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+          Open {knots[0].name}
+        </button>
+      )}
     </div>
   )
 
@@ -174,7 +181,9 @@ export default function HomeFeed({ knots, onSelectKnot }: { knots: any[], onSele
                       </div>
                       {item.caption && <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 3, fontStyle: 'italic' }}>"{item.caption}"</div>}
                     </div>
-                    <span style={{ fontSize: 12, color: 'var(--yellow)', fontWeight: 700 }}>View</span>
+                    <span style={{ fontSize: 12, color: 'var(--yellow)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                      Open <ChevronRight size={14} strokeWidth={2.5} />
+                    </span>
                   </div>
                 </div>
               </>
@@ -207,8 +216,12 @@ export default function HomeFeed({ knots, onSelectKnot }: { knots: any[], onSele
                   <span style={{ fontSize: 11, color: 'var(--text3)' }}>{timeAgo(item.created_at)}</span>
                 </div>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--bg3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: 'var(--text2)', flexShrink: 0 }}>
-                    {item.content?.startsWith('added a bill') ? '$' : item.content?.startsWith('started a hangout') ? '?' : item.content?.startsWith('locked in') ? '!' : 'T'}
+                  <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--bg3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--text2)' }}>
+                    {item.content?.startsWith('added a bill') ? <DollarSign size={18} strokeWidth={2.2} />
+                      : item.content?.startsWith('started a hangout') ? <HelpCircle size={18} strokeWidth={2.2} />
+                      : item.content?.startsWith('locked in') ? <Lock size={18} strokeWidth={2.2} />
+                      : item.post_type === 'treat' ? <Gift size={18} strokeWidth={2.2} />
+                      : <Gift size={18} strokeWidth={2.2} />}
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14 }}>
@@ -216,7 +229,9 @@ export default function HomeFeed({ knots, onSelectKnot }: { knots: any[], onSele
                       <span style={{ color: 'var(--text2)', marginLeft: 6 }}>{item.content}</span>
                     </div>
                   </div>
-                  <span style={{ fontSize: 12, color: 'var(--yellow)', fontWeight: 700, flexShrink: 0 }}>View</span>
+                  <span style={{ fontSize: 12, color: 'var(--yellow)', fontWeight: 700, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                    Open <ChevronRight size={14} strokeWidth={2.5} />
+                  </span>
                 </div>
               </div>
             )}
@@ -234,7 +249,9 @@ export default function HomeFeed({ knots, onSelectKnot }: { knots: any[], onSele
                     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>{author}</div>
                     <div style={{ fontSize: 15, color: 'var(--text)', lineHeight: 1.55 }}>{item.content}</div>
                   </div>
-                  <span style={{ fontSize: 12, color: 'var(--yellow)', fontWeight: 700, flexShrink: 0 }}>View</span>
+                  <span style={{ fontSize: 12, color: 'var(--yellow)', fontWeight: 700, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                    Open <ChevronRight size={14} strokeWidth={2.5} />
+                  </span>
                 </div>
               </div>
             )}

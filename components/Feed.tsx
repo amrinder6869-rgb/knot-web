@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { Heart } from 'lucide-react'
 import { supabase, getSignedUrl } from '@/lib/supabase'
 import HangoutCard from '@/components/HangoutCard'
 import Composer from '@/components/Composer'
@@ -7,6 +8,17 @@ import { loadHangoutBundle } from '@/lib/hangoutBundle'
 import PostComments from '@/components/PostComments'
 import { computeNetBalances } from '@/lib/ledger'
 import { compressImage } from '@/lib/compressImage'
+
+const HEART = '❤️'
+
+function normalizeReactionEmoji(emoji: string) {
+  if (emoji === 'heart' || emoji === '♥' || emoji === '❤') return HEART
+  return emoji
+}
+
+function displayReaction(emoji: string) {
+  return normalizeReactionEmoji(emoji)
+}
 
 type MomentPhoto = { id: string; storage_path: string; url: string; media_type: string }
 
@@ -129,9 +141,10 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
     const currentAuthUser = (await supabase.auth.getUser()).data.user
     ;(reactionsData || []).forEach((r: any) => {
       if (!reactionsMap[r.post_id]) reactionsMap[r.post_id] = []
-      const existing = reactionsMap[r.post_id].find((x: any) => x.e === r.emoji)
+      const emoji = normalizeReactionEmoji(r.emoji)
+      const existing = reactionsMap[r.post_id].find((x: any) => x.e === emoji)
       if (existing) { existing.n++; if (r.user_id === currentAuthUser?.id) existing.mine = true }
-      else reactionsMap[r.post_id].push({ e: r.emoji, n: 1, mine: r.user_id === currentAuthUser?.id })
+      else reactionsMap[r.post_id].push({ e: emoji, n: 1, mine: r.user_id === currentAuthUser?.id })
     })
 
     const mapped: Post[] = (data || []).map((p: any) => {
@@ -246,26 +259,28 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
   async function toggleReaction(postId: string, emoji: string) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+    const normalized = normalizeReactionEmoji(emoji)
     const post = posts.find(p => p.id === postId)
-    const existing = post?.reactions.find(r => r.e === emoji && r.mine)
+    const existing = post?.reactions.find(r => r.e === normalized && r.mine)
     if (existing) {
+      // Clean up legacy 'heart' rows as well as the normalized emoji
       await supabase.from('reactions').delete()
-        .eq('post_id', postId).eq('user_id', user.id).eq('emoji', emoji)
+        .eq('post_id', postId).eq('user_id', user.id).in('emoji', [normalized, 'heart', '♥', '❤'])
     } else {
-      await supabase.from('reactions').insert({ post_id: postId, user_id: user.id, emoji })
+      await supabase.from('reactions').insert({ post_id: postId, user_id: user.id, emoji: normalized })
     }
     setPosts(ps => ps.map(p => {
       if (p.id !== postId) return p
-      const exists = p.reactions.find(r => r.e === emoji)
+      const exists = p.reactions.find(r => r.e === normalized)
       if (exists) {
         return {
           ...p,
           reactions: p.reactions
-            .map(r => r.e === emoji ? { ...r, n: r.mine ? r.n - 1 : r.n + 1, mine: !r.mine } : r)
+            .map(r => r.e === normalized ? { ...r, n: r.mine ? r.n - 1 : r.n + 1, mine: !r.mine } : r)
             .filter(r => r.n > 0)
         }
       }
-      return { ...p, reactions: [...p.reactions, { e: emoji, n: 1, mine: true }] }
+      return { ...p, reactions: [...p.reactions, { e: normalized, n: 1, mine: true }] }
     }))
   }
 
@@ -458,7 +473,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
       <Composer knotId={knotId} currentUser={currentUser} members={members} onPosted={loadPosts} />
 
       {momentActionError && (
-        <div style={{ padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)', marginBottom: 12 }}>
+        <div className="error-banner" style={{ marginBottom: 12 }}>
           {momentActionError}
         </div>
       )}
@@ -522,7 +537,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
                     <strong style={{ color: 'var(--text)' }}>{p.author}</strong>
                   </div>
                   {editError && (
-                    <div style={{ padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)', marginBottom: 8 }}>
+                    <div className="error-banner" style={{ marginBottom: 8 }}>
                       {editError}
                     </div>
                   )}
@@ -582,17 +597,26 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
                     </div>
                   ) : null}
                   <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                    {(p.reactions || []).map(r => (
+                    {(p.reactions || []).filter(r => r.e !== HEART).map(r => (
                       <button key={r.e} onClick={() => toggleReaction(p.id, r.e)}
                         style={{ padding: '4px 10px', borderRadius: 6, background: r.mine ? 'var(--yellow-dim)' : 'var(--bg3)', border: `1px solid ${r.mine ? 'var(--yellow)' : 'var(--border2)'}`, color: 'var(--text)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
-                        {r.e} {r.n}
+                        {displayReaction(r.e)} {r.n}
                       </button>
                     ))}
-                    <button
-                      onClick={() => toggleReaction(p.id, 'heart')}
-                      style={{ padding: '4px 10px', borderRadius: 6, background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
-                      + React
-                    </button>
+                    {(() => {
+                      const heart = (p.reactions || []).find(r => r.e === HEART)
+                      const mine = !!heart?.mine
+                      const count = heart?.n || 0
+                      return (
+                        <button
+                          onClick={() => toggleReaction(p.id, HEART)}
+                          aria-label={mine ? 'Unlike' : 'Like'}
+                          style={{ padding: '4px 10px', borderRadius: 6, background: mine ? 'var(--rust-soft)' : 'var(--bg3)', border: `1px solid ${mine ? 'var(--rust-dim)' : 'var(--border2)'}`, color: mine ? 'var(--rust)' : 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                          <Heart size={13} fill={mine ? 'currentColor' : 'none'} strokeWidth={2} />
+                          {count > 0 ? count : 'Like'}
+                        </button>
+                      )
+                    })()}
                     {p.author_id === currentUser?.id && (
                       <>
                         <button onClick={() => startEditMoment(p)}
@@ -600,7 +624,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
                           Edit
                         </button>
                         <button onClick={() => deleteMoment(p)} disabled={deletingPostId === p.id}
-                          style={{ padding: '4px 10px', borderRadius: 6, background: 'transparent', border: '1px solid var(--yellow-dim)', color: 'var(--yellow)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', opacity: deletingPostId === p.id ? 0.5 : 1 }}>
+                          style={{ padding: '4px 10px', borderRadius: 6, background: 'transparent', border: '1px solid var(--danger-dim)', color: 'var(--danger)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', opacity: deletingPostId === p.id ? 0.5 : 1 }}>
                           {deletingPostId === p.id ? 'Deleting...' : 'Delete'}
                         </button>
                       </>

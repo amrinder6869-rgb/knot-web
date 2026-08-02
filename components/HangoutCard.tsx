@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { ImageIcon, MapPin, ChevronDown, Navigation } from 'lucide-react'
 import { supabase, getSignedUrl } from '@/lib/supabase'
 import { compressImage } from '@/lib/compressImage'
 import DateTimePicker from '@/components/DateTimePicker'
@@ -139,6 +140,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
   const [myBriefId, setMyBriefId] = useState<string | null>(null)
   const [livePhotoPosted, setLivePhotoPosted] = useState(false)
   const [showDailyCall, setShowDailyCall] = useState(false)
+  const [showTravelMenu, setShowTravelMenu] = useState(false)
 
   // Re-sync local state whenever fresh bundle data arrives from the parent
   useEffect(() => {
@@ -597,7 +599,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
       )}
 
       {actionError && (
-        <div style={{ padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)', marginBottom: 12 }}>
+        <div className="error-banner" style={{ marginBottom: 12 }}>
           {actionError}
         </div>
       )}
@@ -699,7 +701,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
       )}
 
       {!isCancelled && (
-      <div style={{ display: 'flex', gap: 8, marginBottom: isDone || bills.length > 0 || canEditHangout || canCancelHangout ? 14 : 0, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: isDone || bills.length > 0 || canEditHangout || canCancelHangout ? 14 : 0, flexWrap: 'wrap', alignItems: 'center' }}>
         {isConfirmed && isCreator && (
           <button onClick={goLive} style={{ padding: '8px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>We are here</button>
         )}
@@ -710,26 +712,49 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         {hangout.meeting_url && (isConfirmed || isLive) && (
           <button onClick={() => setShowDailyCall(true)} style={{ padding: '8px 14px', background: isLive ? 'rgba(74,222,128,0.15)' : 'var(--sage-soft)', border: `1px solid ${isLive ? 'rgba(74,222,128,0.3)' : 'var(--sage-dim)'}`, borderRadius: 8, color: isLive ? '#4ade80' : 'var(--sage)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Join call</button>
         )}
-        {hangout.venue_maps_url && !hangout.meeting_url && (isConfirmed || isLive) && (
-          <a href={hangout.venue_maps_url} target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.65)' : 'var(--text2)', fontSize: 12, textDecoration: 'none', fontFamily: 'inherit' }}>Directions</a>
-        )}
-        {(isConfirmed || isLive) && !hangout.meeting_url && (hangout.venue_name || hangout.venue_address) && (
-          <>
-            <a href={buildUberLink(hangout.venue_name || '', hangout.venue_address || '')} target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.65)' : 'var(--text2)', fontSize: 12, textDecoration: 'none', fontFamily: 'inherit' }}>Uber</a>
-            <a href={buildLyftLink(hangout.venue_name || '', hangout.venue_address || '')} target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.65)' : 'var(--text2)', fontSize: 12, textDecoration: 'none', fontFamily: 'inherit' }}>Lyft</a>
-          </>
-        )}
-        {(isConfirmed || isLive) && !hangout.meeting_url && hangout.venue_name && (
-          <>
-            <a href={buildOpenTableLink(hangout.venue_name)} target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.65)' : 'var(--text2)', fontSize: 12, textDecoration: 'none', fontFamily: 'inherit' }}>OpenTable</a>
-            <a href={buildResyLink(hangout.venue_name)} target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.65)' : 'var(--text2)', fontSize: 12, textDecoration: 'none', fontFamily: 'inherit' }}>Resy</a>
-          </>
-        )}
-        {(isConfirmed || isLive) && !hangout.meeting_url && hangout.venue_name && isActivityVenue(hangout.venue_category) && (
-          <>
-            <a href={buildViatorLink(hangout.venue_name)} target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.65)' : 'var(--text2)', fontSize: 12, textDecoration: 'none', fontFamily: 'inherit' }}>Viator</a>
-            <a href={buildGetYourGuideLink(hangout.venue_name)} target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.65)' : 'var(--text2)', fontSize: 12, textDecoration: 'none', fontFamily: 'inherit' }}>GetYourGuide</a>
-          </>
+
+        {(isConfirmed || isLive) && !hangout.meeting_url && (hangout.venue_maps_url || hangout.venue_name || hangout.venue_address) && (
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowTravelMenu(v => !v)}
+              style={{ padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.85)' : 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Navigation size={13} strokeWidth={2} />
+              Get there
+              <ChevronDown size={13} strokeWidth={2} />
+            </button>
+            {showTravelMenu && (
+              <div style={{ position: 'absolute', top: '110%', left: 0, zIndex: 40, minWidth: 180, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 6, boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}>
+                {hangout.venue_maps_url && (
+                  <a href={hangout.venue_maps_url} target="_blank" rel="noreferrer" onClick={() => setShowTravelMenu(false)}
+                    style={{ display: 'block', padding: '8px 10px', borderRadius: 8, color: 'var(--text)', fontSize: 13, textDecoration: 'none' }}>Directions</a>
+                )}
+                {(hangout.venue_name || hangout.venue_address) && (
+                  <>
+                    <a href={buildUberLink(hangout.venue_name || '', hangout.venue_address || '')} target="_blank" rel="noreferrer" onClick={() => setShowTravelMenu(false)}
+                      style={{ display: 'block', padding: '8px 10px', borderRadius: 8, color: 'var(--text)', fontSize: 13, textDecoration: 'none' }}>Uber</a>
+                    <a href={buildLyftLink(hangout.venue_name || '', hangout.venue_address || '')} target="_blank" rel="noreferrer" onClick={() => setShowTravelMenu(false)}
+                      style={{ display: 'block', padding: '8px 10px', borderRadius: 8, color: 'var(--text)', fontSize: 13, textDecoration: 'none' }}>Lyft</a>
+                  </>
+                )}
+                {hangout.venue_name && (
+                  <>
+                    <a href={buildOpenTableLink(hangout.venue_name)} target="_blank" rel="noreferrer" onClick={() => setShowTravelMenu(false)}
+                      style={{ display: 'block', padding: '8px 10px', borderRadius: 8, color: 'var(--text)', fontSize: 13, textDecoration: 'none' }}>OpenTable</a>
+                    <a href={buildResyLink(hangout.venue_name)} target="_blank" rel="noreferrer" onClick={() => setShowTravelMenu(false)}
+                      style={{ display: 'block', padding: '8px 10px', borderRadius: 8, color: 'var(--text)', fontSize: 13, textDecoration: 'none' }}>Resy</a>
+                    {isActivityVenue(hangout.venue_category) && (
+                      <>
+                        <a href={buildViatorLink(hangout.venue_name)} target="_blank" rel="noreferrer" onClick={() => setShowTravelMenu(false)}
+                          style={{ display: 'block', padding: '8px 10px', borderRadius: 8, color: 'var(--text)', fontSize: 13, textDecoration: 'none' }}>Viator</a>
+                        <a href={buildGetYourGuideLink(hangout.venue_name)} target="_blank" rel="noreferrer" onClick={() => setShowTravelMenu(false)}
+                          style={{ display: 'block', padding: '8px 10px', borderRadius: 8, color: 'var(--text)', fontSize: 13, textDecoration: 'none' }}>GetYourGuide</a>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         )}
 
         {(isConfirmed || isLive) && hangout.meeting_url && (
@@ -861,7 +886,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
                           Edit
                         </button>
                         <button onClick={() => handleDeleteBill(b.id)} disabled={deletingBillId === b.id}
-                          style={{ padding: '6px 14px', background: 'transparent', border: '1px solid var(--yellow-dim)', borderRadius: 8, color: 'var(--yellow)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', opacity: deletingBillId === b.id ? 0.5 : 1 }}>
+                          style={{ padding: '6px 14px', background: 'transparent', border: '1px solid var(--danger-dim)', borderRadius: 8, color: 'var(--danger)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', opacity: deletingBillId === b.id ? 0.5 : 1 }}>
                           {deletingBillId === b.id ? 'Deleting...' : 'Delete'}
                         </button>
                       </div>
@@ -952,7 +977,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
                               Edit
                             </button>
                             <button onClick={() => deleteComment(c)} disabled={deletingCommentId === c.id}
-                              style={{ background: 'none', border: 'none', padding: 0, fontSize: 10, color: 'var(--yellow)', cursor: 'pointer', fontFamily: 'inherit', opacity: deletingCommentId === c.id ? 0.5 : 1 }}>
+                              style={{ background: 'none', border: 'none', padding: 0, fontSize: 10, color: 'var(--danger)', cursor: 'pointer', fontFamily: 'inherit', opacity: deletingCommentId === c.id ? 0.5 : 1 }}>
                               {deletingCommentId === c.id ? 'Deleting...' : 'Delete'}
                             </button>
                           </>
@@ -993,14 +1018,16 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
                   style={{ flex: 1, padding: '8px 12px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.12)' : 'var(--border2)'}`, borderRadius: 8, color: textColor, fontSize: 12, outline: 'none', fontFamily: 'inherit' }} />
                 <input type="file" accept="image/*" ref={photoInputRef} onChange={handlePhotoSelect} style={{ display: 'none' }} />
                 <button onClick={() => photoInputRef.current?.click()}
-                  style={{ width: 34, height: 34, borderRadius: 8, background: commentPhoto ? 'var(--yellow-soft)' : isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${commentPhoto ? 'var(--yellow)' : borderSep}`, color: commentPhoto ? 'var(--yellow)' : subColor, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'inherit' }}
-                  title="Add photo">
-                  P
+                  style={{ width: 34, height: 34, borderRadius: 8, background: commentPhoto ? 'var(--yellow-soft)' : isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${commentPhoto ? 'var(--yellow)' : borderSep}`, color: commentPhoto ? 'var(--yellow)' : subColor, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'inherit' }}
+                  title="Add photo"
+                  aria-label="Add photo">
+                  <ImageIcon size={15} strokeWidth={2} />
                 </button>
                 <button onClick={() => setShowLocationInput(s => !s)}
-                  style={{ width: 34, height: 34, borderRadius: 8, background: commentLocation ? 'var(--yellow-soft)' : isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${commentLocation ? 'var(--yellow)' : borderSep}`, color: commentLocation ? 'var(--yellow)' : subColor, fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'inherit' }}
-                  title="Add location">
-                  L
+                  style={{ width: 34, height: 34, borderRadius: 8, background: commentLocation ? 'var(--yellow-soft)' : isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${commentLocation ? 'var(--yellow)' : borderSep}`, color: commentLocation ? 'var(--yellow)' : subColor, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'inherit' }}
+                  title="Add location"
+                  aria-label="Add location">
+                  <MapPin size={15} strokeWidth={2} />
                 </button>
                 <button onClick={addComment} disabled={(!newComment.trim() && !commentPhoto && !commentLocation) || submitting}
                   style={{ padding: '8px 14px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (!newComment.trim() && !commentPhoto && !commentLocation) || submitting ? 0.5 : 1, flexShrink: 0 }}>
