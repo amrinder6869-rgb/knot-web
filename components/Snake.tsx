@@ -168,7 +168,7 @@ const SNAKE_HTML = `<!DOCTYPE html>
       try { localStorage.setItem('snake_highscore', highScore); } catch (e) {}
       highScoreEl.innerText = highScore;
     }
-    overlay.querySelector('.overlay-text').innerText = 'Game over \\u2014 tap Start';
+    overlay.querySelector('.overlay-text').innerText = 'Game over — tap Start';
     overlay.style.display = 'flex';
     pauseBtn.disabled = true;
     window.parent.postMessage({ type: 'snake_game_over', score: score }, '*');

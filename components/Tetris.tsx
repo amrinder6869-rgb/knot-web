@@ -181,7 +181,7 @@ const TETRIS_HTML = `<!DOCTYPE html>
 
   function gameOver() {
     running = false;
-    overlay.querySelector('.overlay-text').innerText = 'Game over \\u2014 tap Start';
+    overlay.querySelector('.overlay-text').innerText = 'Game over — tap Start';
     overlay.style.display = 'flex';
     pauseBtn.disabled = true;
     window.parent.postMessage({ type: 'tetris_game_over', score: score, lines: lines }, '*');

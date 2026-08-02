@@ -122,6 +122,10 @@ export default function Memories({ members: _members, knotId }: { members: any[]
   }
 
   async function loadComments(photoId: string) {
+    if (String(photoId).startsWith('comment-')) {
+      setComments([])
+      return
+    }
     const { data, error } = await supabase
       .from('photo_comments')
       .select('*, profiles:user_id(name)')
@@ -133,6 +137,10 @@ export default function Memories({ members: _members, knotId }: { members: any[]
 
   async function addComment() {
     if (!newComment.trim() || !user || !viewPhoto || postingComment) return
+    if (viewPhoto.from_comment) {
+      setCommentError('Comments are not available on comment photos.')
+      return
+    }
     setPostingComment(true)
     setCommentError('')
     const { error } = await supabase.from('photo_comments').insert({
@@ -203,6 +211,10 @@ export default function Memories({ members: _members, knotId }: { members: any[]
 
   async function saveCaption() {
     if (!viewPhoto || !user) return
+    if (viewPhoto.from_comment) {
+      setCaptionError('Captions are not available on comment photos.')
+      return
+    }
     setCaptionError('')
     const { error } = await supabase.from('photos').update({ caption: captionDraft }).eq('id', viewPhoto.id).eq('uploaded_by', user.id)
     if (error) { setCaptionError('Could not save caption.'); return }
@@ -301,6 +313,16 @@ export default function Memories({ members: _members, knotId }: { members: any[]
     if (!user || photo.uploaded_by !== user.id) return
     if (!confirm('Delete this photo?')) return
     setDeleteError('')
+    if (photo.from_comment) {
+      const commentId = String(photo.id).replace(/^comment-/, '')
+      const { error: storageError } = await supabase.storage.from('knot-photos').remove([photo.storage_path])
+      if (storageError) { setDeleteError('Could not delete the photo file.'); return }
+      const { error: dbError } = await supabase.from('comments').update({ photo_path: null }).eq('id', commentId).eq('author_id', user.id)
+      if (dbError) { setDeleteError('Photo file removed, but the record failed to update.'); return }
+      setViewPhoto(null)
+      await loadMemories()
+      return
+    }
     const { error: storageError } = await supabase.storage.from('knot-photos').remove([photo.storage_path])
     if (storageError) { setDeleteError('Could not delete the photo file.'); return }
     const { error: dbError } = await supabase.from('photos').delete().eq('id', photo.id).eq('uploaded_by', user.id)
@@ -454,7 +476,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
                     <span style={{ fontSize: 14, color: viewPhoto.caption ? 'var(--text)' : 'var(--text3)', flex: 1 }}>
                       {viewPhoto.caption || 'No caption'}
                     </span>
-                    {viewPhoto.uploaded_by === user?.id && (
+                    {!viewPhoto.from_comment && viewPhoto.uploaded_by === user?.id && (
                       <button onClick={() => setEditingCaption(true)}
                         style={{ fontSize: 12, padding: '4px 10px', borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--text2)', cursor: 'pointer', fontFamily: 'inherit' }}>
                         {viewPhoto.caption ? 'Edit' : '+ Caption'}
@@ -465,10 +487,10 @@ export default function Memories({ members: _members, knotId }: { members: any[]
               </div>
 
               <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 16 }}>
-                Added by {viewPhoto.profiles?.name || 'someone'} · {formatDate(viewPhoto.created_at)}
+                {viewPhoto.from_comment ? 'From a comment' : 'Added'} by {viewPhoto.profiles?.name || 'someone'} · {formatDate(viewPhoto.created_at)}
               </div>
 
-              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+              {!viewPhoto.from_comment && <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>
                   Comments {comments.length > 0 && <span style={{ color: 'var(--text3)', fontWeight: 400 }}>({comments.length})</span>}
                 </div>
@@ -552,13 +574,13 @@ export default function Memories({ members: _members, knotId }: { members: any[]
                     Post
                   </button>
                 </div>
-              </div>
+              </div>}
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
                 {viewPhoto.uploaded_by === user?.id && (
                   <button onClick={() => deletePhoto(viewPhoto)}
                     style={{ padding: '6px 14px', background: 'var(--danger-soft)', border: '1px solid var(--danger-dim)', borderRadius: 8, color: 'var(--danger)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    Delete photo
+                    {viewPhoto.from_comment ? 'Remove photo' : 'Delete photo'}
                   </button>
                 )}
                 <button onClick={() => setViewPhoto(null)}

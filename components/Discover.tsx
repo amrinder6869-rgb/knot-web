@@ -223,6 +223,8 @@ export default function Discover({ members: _members, onVenueSelect }: { members
     if (onVenueSelect) onVenueSelect({ ...venue, category_id: category })
   }
 
+  const selectingForComposer = Boolean(onVenueSelect)
+
   const catObj = CATEGORIES.find(c => c.id === category)
 
   if (locked && selected) return (
@@ -235,10 +237,15 @@ export default function Discover({ members: _members, onVenueSelect }: { members
         )}
         <div style={{ padding: 24, textAlign: 'center' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', background: 'var(--sage-soft)', borderRadius: 20, fontSize: 12, color: 'var(--sage)', fontWeight: 600, marginBottom: 12 }}>
-            Tonight is locked in
+            {selectingForComposer ? 'Venue selected' : 'Spot saved'}
           </div>
           <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 4, letterSpacing: '-0.5px' }}>{selected.name}</div>
           <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 12 }}>{selected.location?.formatted_address}</div>
+          {!selectingForComposer && (
+            <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 12, lineHeight: 1.5 }}>
+              Open Plans and create a hangout to lock this in with your Knot.
+            </div>
+          )}
           {selected.rating && <div style={{ marginBottom: 12 }}><StarRating rating={selected.rating} /></div>}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 20 }}>
             {selected.price && <span style={{ fontSize: 12, padding: '4px 12px', borderRadius: 20, background: 'var(--sage-soft)', color: 'var(--sage)' }}>{PRICE_MAP[selected.price]}</span>}
@@ -248,12 +255,14 @@ export default function Discover({ members: _members, onVenueSelect }: { members
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
             <button onClick={() => { setLocked(false); setSelected(null) }}
               style={{ padding: '10px 20px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 10, color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-              Change plan
+              Change spot
             </button>
-            <a href={selected.google_maps_url} target="_blank" rel="noreferrer"
-              style={{ padding: '10px 20px', background: 'var(--yellow)', border: 'none', borderRadius: 10, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none' }}>
-              Open in Maps
-            </a>
+            {selected.google_maps_url && (
+              <a href={selected.google_maps_url} target="_blank" rel="noreferrer"
+                style={{ padding: '10px 20px', background: 'var(--yellow)', border: 'none', borderRadius: 10, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none' }}>
+                Open in Maps
+              </a>
+            )}
           </div>
         </div>
       </div>
@@ -476,12 +485,14 @@ export default function Discover({ members: _members, onVenueSelect }: { members
                     <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                       <button onClick={e => { e.stopPropagation(); lockVenue(v) }}
                         style={{ padding: '7px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-                        Lock in tonight
+                        {selectingForComposer ? 'Use this venue' : 'Save this spot'}
                       </button>
-                      <a href={v.google_maps_url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
-                        style={{ padding: '7px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        Maps
-                      </a>
+                      {v.google_maps_url && (
+                        <a href={v.google_maps_url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+                          style={{ padding: '7px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          Maps
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>

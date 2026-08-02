@@ -73,7 +73,7 @@ export default function HomeEvents({ knots, onOpenKnotTab }: { knots: KnotRef[];
     )
   }
 
-  if (hangouts.length === 0) {
+  if (hangouts.length === 0 || (live.length === 0 && upcoming.length === 0 && suggested.length === 0)) {
     return (
       <div style={{ textAlign: 'center', padding: '48px 20px' }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>Nothing planned yet</div>

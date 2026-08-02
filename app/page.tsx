@@ -85,7 +85,7 @@ export default function Home() {
 
       {/* Feature pills */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 48 }}>
-        {['Hangout polls', 'Bill splitting', 'Treat gestures', 'Invite-only', 'Memories vault', 'Trip planning'].map(f => (
+        {['Hangout polls', 'Bill splitting', 'Invite-only', 'Memories vault', 'Games', 'Discover'].map(f => (
           <span key={f} style={{ padding: '6px 14px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 20, fontSize: 13, color: 'var(--text2)', fontWeight: 500 }}>{f}</span>
         ))}
       </div>

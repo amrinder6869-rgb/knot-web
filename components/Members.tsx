@@ -30,6 +30,8 @@ export default function Members({ members: _members, knotId }: { members: any[],
   const [submitted, setSubmitted]       = useState<Record<string, boolean>>({})
   const [showSplinter, setShowSplinter] = useState<Record<string, boolean>>({})
   const [inviteLink, setInviteLink]     = useState('')
+  const [inviteError, setInviteError]   = useState('')
+  const [voteError, setVoteError]       = useState('')
   const [generating, setGenerating]     = useState(false)
   const [user, setUser]                 = useState<any>(null)
   const [loading, setLoading]           = useState(true)
@@ -81,23 +83,34 @@ export default function Members({ members: _members, knotId }: { members: any[],
     }
   }
 
-  async function castVote(nominationId: string, vote: 'yes' | 'no') {
+  async function castVote(nominationId: string, vote: 'yes' | 'no' | 'abstain') {
     if (!user) return
     setMyVote(prev => ({ ...prev, [nominationId]: vote }))
+    setVoteError('')
     if (vote === 'no') setShowNote(prev => ({ ...prev, [nominationId]: true }))
+    else setShowNote(prev => ({ ...prev, [nominationId]: false }))
   }
 
-  async function submitVote(nominationId: string) {
+  async function submitVote(nominationId: string, forcedVote?: 'yes' | 'no' | 'abstain') {
     if (!user) return
-    const vote = myVote[nominationId]
-    const note = anonNote[nominationId] || ''
+    const vote = forcedVote || myVote[nominationId]
+    if (!vote) {
+      setVoteError('Choose Yes, No, or Abstain before submitting.')
+      return
+    }
+    const note = vote === 'abstain' ? '' : (anonNote[nominationId] || '')
+    setVoteError('')
 
     const { error } = await supabase.from('nomination_votes').upsert({
       nomination_id: nominationId, voter_id: user.id, vote, anon_note: note
     })
 
-    if (error) { return }
+    if (error) {
+      setVoteError('Could not submit your vote. Please try again.')
+      return
+    }
 
+    setMyVote(prev => ({ ...prev, [nominationId]: vote }))
     setSubmitted(prev => ({ ...prev, [nominationId]: true }))
     setShowNote(prev => ({ ...prev, [nominationId]: false }))
     if (vote === 'no') setShowSplinter(prev => ({ ...prev, [nominationId]: true }))
@@ -123,12 +136,22 @@ export default function Members({ members: _members, knotId }: { members: any[],
   async function generateInvite() {
     if (!knotId || !user) return
     setGenerating(true)
+    setInviteError('')
+    const token = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : `inv_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+    const expires_at = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
     const { data, error } = await supabase
       .from('invites')
-      .insert({ knot_id: knotId, created_by: user.id })
-      .select().single()
+      .insert({ knot_id: knotId, created_by: user.id, token, expires_at })
+      .select('token')
+      .single()
 
-    if (error) { setGenerating(false); return }
+    if (error || !data?.token) {
+      setInviteError(error?.message || 'Could not generate invite link. Please try again.')
+      setGenerating(false)
+      return
+    }
     const link = `${window.location.origin}/invite/${data.token}`
     setInviteLink(link)
     navigator.clipboard.writeText(link).catch(() => {})
@@ -138,16 +161,35 @@ export default function Members({ members: _members, knotId }: { members: any[],
   async function startSplinter(nominationId: string) {
     if (!knotId || !user) return
     const nom = nominations.find(n => n.id === nominationId)
-    const { data: newKnot } = await supabase
+    const knotName = nom?.nominee_name
+      ? `${String(nom.nominee_name).split(' ')[0]}'s Knot`
+      : 'New Knot'
+    const { data: newKnot, error } = await supabase
       .from('knots')
-      .insert({ name: 'New Knot', emoji: '', created_by: user.id })
-      .select().single()
+      .insert({ name: knotName, emoji: '🔗', created_by: user.id })
+      .select()
+      .single()
 
-    if (newKnot) {
-      await supabase.from('knot_members').insert({ knot_id: newKnot.id, user_id: user.id, role: 'founder' })
-      setShowSplinter(prev => ({ ...prev, [nominationId]: false }))
-      window.location.reload()
+    if (error || !newKnot) {
+      setVoteError('Could not start a new Knot. Please try again.')
+      return
     }
+
+    await supabase.from('knot_members').insert({ knot_id: newKnot.id, user_id: user.id, role: 'founder' })
+    if (nom?.nominee_email) {
+      const token = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `inv_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+      const expires_at = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
+      await supabase.from('invites').insert({
+        knot_id: newKnot.id,
+        created_by: user.id,
+        token,
+        expires_at,
+      })
+    }
+    setShowSplinter(prev => ({ ...prev, [nominationId]: false }))
+    window.location.reload()
   }
 
   if (loading) return <div style={{ color: 'var(--text2)', fontSize: 13, padding: '20px 0' }}>Loading...</div>
@@ -194,13 +236,16 @@ export default function Members({ members: _members, knotId }: { members: any[],
             <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 12, lineHeight: 1.6 }}>
               Generate a one-time link valid for 48 hours.
             </div>
+            {inviteError && (
+              <div className="error-banner" style={{ marginBottom: 10 }}>{inviteError}</div>
+            )}
             {inviteLink ? (
               <div>
                 <div style={{ padding: '8px 10px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, fontSize: 11, color: 'var(--sage)', wordBreak: 'break-all', marginBottom: 8 }}>
                   {inviteLink}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--sage)', marginBottom: 8 }}>Copied to clipboard</div>
-                <button onClick={() => setInviteLink('')}
+                <button onClick={() => { setInviteLink(''); setInviteError('') }}
                   style={{ fontSize: 12, padding: '5px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'inherit' }}>
                   Generate new link
                 </button>
@@ -215,6 +260,9 @@ export default function Members({ members: _members, knotId }: { members: any[],
 
           {/* Pending votes */}
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Pending votes</div>
+          {voteError && (
+            <div className="error-banner" style={{ marginBottom: 12 }}>{voteError}</div>
+          )}
 
           {nominations.length === 0 ? (
             <div style={{ padding: '16px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 13, color: 'var(--text2)', textAlign: 'center' }}>
@@ -254,8 +302,8 @@ export default function Members({ members: _members, knotId }: { members: any[],
                         style={{ flex: 1, padding: '8px', borderRadius: 8, border: `1px solid ${myV === 'no' ? 'var(--yellow)' : 'var(--yellow-dim)'}`, background: myV === 'no' ? 'var(--yellow)' : 'var(--yellow-soft)', color: myV === 'no' ? '#fff' : 'var(--yellow)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                         No
                       </button>
-                      <button onClick={() => submitVote(nom.id)}
-                        style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border2)', background: 'var(--bg3)', color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      <button onClick={() => submitVote(nom.id, 'abstain')}
+                        style={{ padding: '8px 12px', borderRadius: 8, border: `1px solid ${myV === 'abstain' ? 'var(--border2)' : 'var(--border2)'}`, background: myV === 'abstain' ? 'var(--bg)' : 'var(--bg3)', color: 'var(--text2)', fontSize: 13, fontWeight: myV === 'abstain' ? 600 : 400, cursor: 'pointer', fontFamily: 'inherit' }}>
                         Abstain
                       </button>
                     </div>
@@ -269,7 +317,7 @@ export default function Members({ members: _members, knotId }: { members: any[],
                       </div>
                     )}
 
-                    {myV && (
+                    {(myV === 'yes' || myV === 'no') && (
                       <button onClick={() => submitVote(nom.id)}
                         style={{ width: '100%', padding: '9px', borderRadius: 8, border: 'none', background: 'var(--yellow)', color: '#111', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                         Submit vote

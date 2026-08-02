@@ -239,7 +239,7 @@ export default function AmongUsLite({ game, members, currentUser, knotId, onEnd,
   if (game.status === 'waiting') {
     return (
       <div style={{ maxWidth: 600 }}>
-        <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Imposter \u2014 Lobby</div>
+        <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Imposter — Lobby</div>
         <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20 }}>Waiting for players. Need at least 4 to start.</div>
 
         {error && (
@@ -338,7 +338,7 @@ export default function AmongUsLite({ game, members, currentUser, knotId, onEnd,
       {round && round.status === 'voting' && (
         <div>
           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>
-            Vote to eject \u00B7 {votedCount}/{alivePlayers.length} voted
+            Vote to eject · {votedCount}/{alivePlayers.length} voted
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
             {alivePlayers.map(p => {

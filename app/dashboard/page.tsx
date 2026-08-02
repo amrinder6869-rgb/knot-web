@@ -71,6 +71,7 @@ export default function Dashboard() {
   const [savingProfile, setSavingProfile]   = useState(false)
   const [knotError, setKnotError]           = useState('')
   const [avatarError, setAvatarError]       = useState('')
+  const [profileError, setProfileError]     = useState('')
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -80,7 +81,11 @@ export default function Dashboard() {
       const { data: prof } = await supabase
         .from('profiles').select('*').eq('id', data.user.id).single()
       if (prof) {
-        setProfile(prof)
+        const rawAvatar = prof.avatar_url || null
+        const signedAvatar = rawAvatar
+          ? (rawAvatar.startsWith('http') ? rawAvatar : await getSignedUrl(rawAvatar))
+          : null
+        setProfile({ ...prof, avatar_url: signedAvatar || null, avatar_path: rawAvatar })
         setEditName(prof.name || '')
         setEditBudget(prof.budget_tier || 'mid')
       }
@@ -178,7 +183,9 @@ await loadKnotMembers(startKnot.id, data.user.id)
   async function switchKnot(k: any) {
     // HomeFeed (and similar) pass partial knot objects without created_by/cover_url.
     // Always prefer the full knot from memberships state when available.
-    const knot = knots.find(x => x.id === k?.id) || k
+    if (!k?.id) return
+    const knot = knots.find(x => x.id === k.id) || k
+    if (!knot?.id) return
     setShowHome(false)
     setActiveKnot(knot)
     localStorage.setItem('active_knot_id', knot.id)
@@ -242,12 +249,16 @@ await loadKnotMembers(startKnot.id, data.user.id)
   async function renameKnot() {
     if (!newKnotName.trim() || !activeKnot || !user) return
     setKnotError('')
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('knots')
       .update({ name: newKnotName.trim(), emoji: newKnotEmoji })
       .eq('id', activeKnot.id)
       .eq('created_by', user.id)
-    if (error) { setKnotError('Only the founder can rename this Knot.'); return }
+      .select('id')
+    if (error || !data?.length) {
+      setKnotError('Only the founder can rename this Knot.')
+      return
+    }
     const updated = { ...activeKnot, name: newKnotName.trim(), emoji: newKnotEmoji, cover_url: activeKnot.cover_url || null }
     setKnots(ks => ks.map(k => k.id === activeKnot.id ? updated : k))
     setActiveKnot(updated)
@@ -258,26 +269,44 @@ await loadKnotMembers(startKnot.id, data.user.id)
   async function deleteKnot() {
     if (!activeKnot || !user) return
     if (!confirm(`Delete "${activeKnot.name}"? This cannot be undone.`)) return
-    const { error } = await supabase
+    setKnotError('')
+    const { data, error } = await supabase
       .from('knots').delete()
       .eq('id', activeKnot.id)
       .eq('created_by', user.id)
-    if (error) { setKnotError('Only the founder can delete this Knot.'); return }
+      .select('id')
+    if (error || !data?.length) {
+      alert('Only the founder can delete this Knot.')
+      return
+    }
     const remaining = knots.filter(k => k.id !== activeKnot.id)
     setKnots(remaining)
     setActiveKnot(remaining[0] || null)
-    if (remaining[0]) await loadKnotMembers(remaining[0].id)
-    else setKnotMembers([])
+    if (remaining[0]) {
+      await loadKnotMembers(remaining[0].id)
+      await loadRecentMedia(remaining[0].id)
+    } else {
+      setKnotMembers([])
+      setRecentMedia([])
+      setShowHome(true)
+      localStorage.setItem('show_home', 'true')
+      localStorage.removeItem('active_knot_id')
+    }
   }
 
   async function saveProfile() {
     if (!editName.trim() || !user) return
     setSavingProfile(true)
+    setProfileError('')
     const { error } = await supabase
       .from('profiles')
       .update({ name: editName.trim(), budget_tier: editBudget })
       .eq('id', user.id)
-    if (error) { setSavingProfile(false); return }
+    if (error) {
+      setProfileError('Could not save profile. Please try again.')
+      setSavingProfile(false)
+      return
+    }
     setProfile({ ...profile, name: editName.trim(), budget_tier: editBudget })
     setShowProfile(false)
     setSavingProfile(false)
@@ -757,7 +786,7 @@ await loadKnotMembers(startKnot.id, data.user.id)
                     if (upErr) { setAvatarError('Upload failed. Please try again.'); return }
                     const signedUrl = await getSignedUrl(safePath)
                     await supabase.from('profiles').update({ avatar_url: safePath }).eq('id', user.id)
-                    setProfile((p: any) => ({ ...p, avatar_url: signedUrl ?? safePath }))
+                    setProfile((p: any) => ({ ...p, avatar_url: signedUrl || null, avatar_path: safePath }))
                   }} />
               </div>
             </div>
@@ -790,6 +819,10 @@ await loadKnotMembers(startKnot.id, data.user.id)
               ))}
             </div>
             <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 20 }}>Never shown as a number to others</div>
+
+            {profileError && (
+              <div style={{ padding: '8px 12px', background: 'var(--danger-soft)', border: '1px solid var(--danger-dim)', borderRadius: 8, fontSize: 12, color: 'var(--danger)', marginBottom: 12 }}>{profileError}</div>
+            )}
 
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={saveProfile} disabled={savingProfile || !editName.trim()}

@@ -63,11 +63,11 @@ export default function MerchantSignup() {
         ))}
       </div>
 
-      <button onClick={() => setStep('auth')}
+      <button onClick={() => { setAuthMode('signup'); setStep('auth'); setError('') }}
         style={{ width: '100%', padding: '14px', background: '#F8BD03', border: 'none', borderRadius: 10, color: '#111', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 12 }}>
         List my restaurant
       </button>
-      <button onClick={() => { setStep('auth') }}
+      <button onClick={() => { setAuthMode('signin'); setStep('auth'); setError('') }}
         style={{ width: '100%', padding: '12px', background: 'transparent', border: '1px solid #E5E5E5', borderRadius: 10, color: '#555', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
         Already have an account? Sign in
       </button>
@@ -78,7 +78,9 @@ export default function MerchantSignup() {
     <div style={{ maxWidth: 400, margin: '0 auto', padding: '80px 24px' }}>
       <div style={{ marginBottom: 32 }}>
         <h2 style={{ fontSize: 24, fontWeight: 800, color: '#111', marginBottom: 8 }}>{authMode === 'signin' ? 'Sign in to your account' : 'Create your account'}</h2>
-        <p style={{ fontSize: 14, color: '#666' }}>You will set up your restaurant profile in the next step.</p>
+        <p style={{ fontSize: 14, color: '#666' }}>
+          {authMode === 'signin' ? 'Welcome back — continue to your merchant dashboard.' : 'You will set up your restaurant profile in the next step.'}
+        </p>
       </div>
 
       {error && (
@@ -97,17 +99,19 @@ export default function MerchantSignup() {
         <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>Password</label>
         <input value={password} onChange={e => setPassword(e.target.value)}
           type="password" placeholder="At least 8 characters"
-          onKeyDown={e => e.key === 'Enter' && signUp()}
+          onKeyDown={e => e.key === 'Enter' && (authMode === 'signin' ? signIn() : signUp())}
           style={{ width: '100%', padding: '10px 12px', border: '1px solid #E5E5E5', borderRadius: 8, fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
       </div>
 
-      <button onClick={signUp} disabled={loading}
+      <button onClick={authMode === 'signin' ? signIn : signUp} disabled={loading}
         style={{ width: '100%', padding: '12px', background: '#F8BD03', border: 'none', borderRadius: 8, color: '#111', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 10, opacity: loading ? 0.6 : 1 }}>
-        {loading ? 'Creating account...' : 'Create account'}
+        {loading
+          ? (authMode === 'signin' ? 'Signing in...' : 'Creating account...')
+          : (authMode === 'signin' ? 'Sign in' : 'Create account')}
       </button>
-      <button onClick={signIn} disabled={loading}
+      <button onClick={() => { setAuthMode(authMode === 'signin' ? 'signup' : 'signin'); setError('') }} disabled={loading}
         style={{ width: '100%', padding: '12px', background: 'transparent', border: '1px solid #E5E5E5', borderRadius: 8, color: '#555', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', opacity: loading ? 0.6 : 1 }}>
-        Sign in instead
+        {authMode === 'signin' ? 'Need an account? Create one' : 'Sign in instead'}
       </button>
       <button onClick={() => setStep('intro')}
         style={{ width: '100%', padding: '10px', background: 'transparent', border: 'none', color: '#999', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', marginTop: 8 }}>

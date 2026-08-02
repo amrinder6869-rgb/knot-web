@@ -123,7 +123,7 @@ export default function HomeFeed({ knots, onSelectKnot }: { knots: any[], onSele
         return (
           <div key={item._type + item.id}
             style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', transition: 'all 0.15s', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
-            onClick={() => onSelectKnot(knot)}
+            onClick={() => { if (knot?.id) onSelectKnot(knot) }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--yellow)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(248,189,3,0.1)' }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)' }}>
 

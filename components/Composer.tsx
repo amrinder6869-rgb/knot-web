@@ -660,7 +660,7 @@ export default function Composer({
 
             {whereMode === 'tbd' && (
               <div style={{ padding: '8px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span>No venue set \u2014 you will figure it out</span>
+                <span>No venue set — you will figure it out</span>
                 <button onClick={() => setWhereMode('none')} style={{ background: 'none', border: 'none', color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Change</button>
               </div>
             )}
