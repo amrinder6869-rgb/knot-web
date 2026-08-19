@@ -326,6 +326,15 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
   }
 
   const memberList: Member[] = members.map(m => ({ id: m.id, name: m.name }))
+
+  const dietarySummary = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const m of members) {
+      for (const r of (m.dietary_restrictions || [])) counts[r] = (counts[r] || 0) + 1
+    }
+    const parts = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([label, count]) => `${count} ${label}`)
+    return parts.length > 0 ? `Dietary notes: ${parts.join(', ')}` : ''
+  }, [members])
   const billsForLedger: Bill[] = bills.map(b => ({ id: b.id, added_by: b.added_by, total_amount: parseFloat(b.total_amount) }))
   const splitsForLedger: BillSplitRow[] = bills.flatMap(b => (b.splits || []).map((s: any) => ({ bill_id: b.id, user_id: s.user_id, amount: parseFloat(s.amount) })))
   const settlementsForLedger: Settlement[] = settlements.map(s => ({ from_user_id: s.from_user_id, to_user_id: s.to_user_id, amount: parseFloat(s.amount) }))
@@ -386,6 +395,7 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Add a bill</div>
           <BillSplitForm
             members={memberList}
+            restrictionsNote={dietarySummary}
             submitting={adding}
             error={addError}
             onSubmit={(desc, amount, splits, category, note, photoUrl, isRecurring, recurringInterval, receiptHash) =>

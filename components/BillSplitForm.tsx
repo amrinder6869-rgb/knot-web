@@ -28,6 +28,7 @@ type BillSplitFormProps = {
   defaultIsRecurring?: boolean
   defaultRecurringInterval?: string
   expectedHeadcount?: number
+  restrictionsNote?: string
   submitLabel?: string
   submitting?: boolean
   error?: string
@@ -73,6 +74,7 @@ export default function BillSplitForm({
   defaultIsRecurring = false,
   defaultRecurringInterval = 'monthly',
   expectedHeadcount,
+  restrictionsNote,
   submitLabel = 'Post bill',
   submitting = false,
   error = '',
@@ -199,6 +201,12 @@ export default function BillSplitForm({
       {(error || uploadError) && (
         <div style={{ padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)', marginBottom: 12 }}>
           {error || uploadError}
+        </div>
+      )}
+
+      {restrictionsNote && (
+        <div style={{ padding: '8px 12px', background: inputBg, border: `1px solid ${borderCol}`, borderRadius: 8, fontSize: 12, color: subColor, marginBottom: 12 }}>
+          {restrictionsNote}
         </div>
       )}
 

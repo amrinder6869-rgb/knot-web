@@ -54,6 +54,24 @@ const VISIBILITY = [
   { id: 'public',       label: 'Public',       hint: 'Anyone with the link, signed in or not.' },
 ] as const
 
+const DIETARY_OPTIONS = [
+  { id: 'vegetarian',   label: 'Vegetarian' },
+  { id: 'vegan',        label: 'Vegan' },
+  { id: 'halal',        label: 'Halal' },
+  { id: 'kosher',       label: 'Kosher' },
+  { id: 'gluten-free',  label: 'Gluten-free' },
+  { id: 'nut allergy',  label: 'Nut allergy' },
+  { id: 'dairy-free',   label: 'Dairy-free' },
+  { id: 'other',        label: 'Other' },
+] as const
+
+const ACCESSIBILITY_OPTIONS = [
+  { id: 'wheelchair-access',   label: 'Wheelchair access' },
+  { id: 'step-free-entry',     label: 'Step-free entry' },
+  { id: 'accessible-parking',  label: 'Accessible parking' },
+  { id: 'hearing-loop',        label: 'Hearing loop' },
+] as const
+
 const MEMBER_COLORS = [
   { bg: '#2A2A2A', text: '#F8BD03' },
   { bg: '#1A1A1A', text: '#F8BD03' },
@@ -92,6 +110,8 @@ export default function Dashboard() {
   const [editBio, setEditBio]               = useState('')
   const [editCity, setEditCity]             = useState('')
   const [editTier, setEditTier]             = useState<'private' | 'members_only' | 'public'>('private')
+  const [editDietary, setEditDietary]       = useState<string[]>([])
+  const [editAccessibility, setEditAccessibility] = useState<string[]>([])
   const [usernameCheck, setUsernameCheck]   = useState<'idle' | 'checking' | 'free' | 'taken'>('idle')
   const [savingProfile, setSavingProfile]   = useState(false)
   const [knotError, setKnotError]           = useState('')
@@ -126,6 +146,8 @@ export default function Dashboard() {
         setEditBio(prof.bio || '')
         setEditCity(prof.resident_city || '')
         setEditTier(prof.privacy_tier || 'private')
+        setEditDietary(prof.dietary_restrictions || [])
+        setEditAccessibility(prof.accessibility_needs || [])
       }
 
       const { data: memberships } = await supabase
@@ -185,17 +207,19 @@ await loadKnotMembers(startKnot.id, data.user.id)
   async function loadKnotMembers(knotId: string, userId?: string) {
     const { data } = await supabase
       .from('knot_members')
-      .select('user_id, role, profiles:user_id(id, name)')
+      .select('user_id, role, profiles:user_id(id, name, dietary_restrictions, accessibility_needs)')
       .eq('knot_id', knotId)
     if (data) {
       const currentUserId = userId || user?.id
       setKnotMembers(data.map((m: any, i: number) => ({
-        id:       m.user_id,
-        name:     m.profiles?.name || 'Unknown',
-        initials: (m.profiles?.name || 'U').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
-        color:    MEMBER_COLORS[i % MEMBER_COLORS.length].bg,
-        text:     MEMBER_COLORS[i % MEMBER_COLORS.length].text,
-        you:      m.user_id === currentUserId,
+        id:                     m.user_id,
+        name:                   m.profiles?.name || 'Unknown',
+        initials:               (m.profiles?.name || 'U').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
+        color:                  MEMBER_COLORS[i % MEMBER_COLORS.length].bg,
+        text:                   MEMBER_COLORS[i % MEMBER_COLORS.length].text,
+        you:                    m.user_id === currentUserId,
+        dietary_restrictions:   m.profiles?.dietary_restrictions || [],
+        accessibility_needs:    m.profiles?.accessibility_needs || [],
       })))
     }
   }
@@ -400,6 +424,10 @@ await loadKnotMembers(startKnot.id, data.user.id)
     return ''
   }
 
+  function toggleTag(list: string[], setList: (v: string[]) => void, value: string) {
+    setList(list.includes(value) ? list.filter(v => v !== value) : [...list, value])
+  }
+
   async function saveProfile() {
     if (!editName.trim() || !user) return
 
@@ -420,12 +448,14 @@ await loadKnotMembers(startKnot.id, data.user.id)
     setProfileError('')
 
     const patch = {
-      name:          editName.trim(),
-      budget_tier:   editBudget,
-      username:      username || null,
-      bio:           bio || null,
-      resident_city: city || null,
-      privacy_tier:  editTier,
+      name:                  editName.trim(),
+      budget_tier:           editBudget,
+      username:              username || null,
+      bio:                   bio || null,
+      resident_city:         city || null,
+      privacy_tier:          editTier,
+      dietary_restrictions:  editDietary,
+      accessibility_needs:   editAccessibility,
     }
 
     const { error } = await supabase.from('profiles').update(patch).eq('id', user.id)
@@ -1082,6 +1112,37 @@ await loadKnotMembers(startKnot.id, data.user.id)
                 </a>
               )}
               {(!editUsername || editTier === 'private') && <div style={{ marginBottom: 16 }} />}
+            </div>
+
+            {/* RESTRICTIONS */}
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 18, marginBottom: 4 }}>
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 2, fontWeight: 600 }}>Dietary restrictions</div>
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>Shared with organizers and merchants for group orders</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 18 }}>
+                {DIETARY_OPTIONS.map(opt => {
+                  const selected = editDietary.includes(opt.id)
+                  return (
+                    <button key={opt.id} onClick={() => toggleTag(editDietary, setEditDietary, opt.id)}
+                      style={{ padding: '6px 12px', borderRadius: 20, border: `1px solid ${selected ? 'var(--yellow)' : 'var(--border2)'}`, background: selected ? 'var(--yellow-soft)' : 'transparent', color: selected ? 'var(--yellow)' : 'var(--text3)', fontSize: 12, fontWeight: selected ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      {opt.label}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 2, fontWeight: 600 }}>Accessibility needs</div>
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>Helps us filter venues that work for everyone</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
+                {ACCESSIBILITY_OPTIONS.map(opt => {
+                  const selected = editAccessibility.includes(opt.id)
+                  return (
+                    <button key={opt.id} onClick={() => toggleTag(editAccessibility, setEditAccessibility, opt.id)}
+                      style={{ padding: '6px 12px', borderRadius: 20, border: `1px solid ${selected ? 'var(--yellow)' : 'var(--border2)'}`, background: selected ? 'var(--yellow-soft)' : 'transparent', color: selected ? 'var(--yellow)' : 'var(--text3)', fontSize: 12, fontWeight: selected ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      {opt.label}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
             {profileError && (
