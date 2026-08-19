@@ -19,6 +19,7 @@ import Discover from '@/components/Discover'
 import Games from '@/components/Games'
 import Notifications from '@/components/Notifications'
 import { useToast } from '@/components/ToastProvider'
+import DateTimePicker from '@/components/DateTimePicker'
 
 const TABS = [
   { id: 'feed',     label: 'Feed' },
@@ -96,6 +97,15 @@ export default function Dashboard() {
   const [knotError, setKnotError]           = useState('')
   const [avatarError, setAvatarError]       = useState('')
   const [profileError, setProfileError]     = useState('')
+
+  const [showCreateEvent, setShowCreateEvent]     = useState(false)
+  const [eventTitle, setEventTitle]               = useState('')
+  const [eventWhen, setEventWhen]                 = useState<Date | null>(null)
+  const [eventLocation, setEventLocation]         = useState('')
+  const [eventDescription, setEventDescription]   = useState('')
+  const [creatingEvent, setCreatingEvent]         = useState(false)
+  const [eventError, setEventError]               = useState('')
+  const [createdEventLink, setCreatedEventLink]   = useState<string | null>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -320,6 +330,50 @@ await loadKnotMembers(startKnot.id, data.user.id)
       localStorage.setItem('show_home', 'true')
       localStorage.removeItem('active_knot_id')
     }
+  }
+
+  async function createEvent() {
+    if (!eventTitle.trim()) { setEventError('Please enter a title.'); return }
+    if (!eventWhen) { setEventError('Please pick a date and time.'); return }
+    if (!user) return
+    setCreatingEvent(true)
+    setEventError('')
+
+    const token = crypto.randomUUID()
+    const { data, error } = await supabase.from('hangouts').insert({
+      created_by:        user.id,
+      knot_id:            null,
+      title:               eventTitle.trim(),
+      type:                'planned',
+      status:              'confirmed',
+      is_live:             false,
+      scheduled_for:       eventWhen.toISOString(),
+      venue_name:          eventLocation.trim() || null,
+      brief:               eventDescription.trim() || null,
+      is_standalone:       true,
+      standalone_token:    token,
+    }).select('standalone_token').single()
+
+    if (error || !data) {
+      setEventError('Could not create the event. Please try again.')
+      setCreatingEvent(false)
+      return
+    }
+
+    const link = `${window.location.origin}/event/${data.standalone_token}`
+    setCreatedEventLink(link)
+    navigator.clipboard.writeText(link).catch(() => {})
+    setCreatingEvent(false)
+  }
+
+  function closeCreateEvent() {
+    setShowCreateEvent(false)
+    setEventTitle('')
+    setEventWhen(null)
+    setEventLocation('')
+    setEventDescription('')
+    setEventError('')
+    setCreatedEventLink(null)
   }
 
   // Debounced availability hint. Runs through the is_username_available RPC
@@ -681,8 +735,12 @@ await loadKnotMembers(startKnot.id, data.user.id)
               ))}
             </div>
             <button onClick={() => setShowNewKnot(true)}
-              style={{ width: '100%', padding: '10px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ width: '100%', padding: '10px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 8 }}>
               + New Knot
+            </button>
+            <button onClick={() => setShowCreateEvent(true)}
+              style={{ width: '100%', padding: '10px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+              Create event
             </button>
           </div>
         </div>
@@ -790,6 +848,76 @@ await loadKnotMembers(startKnot.id, data.user.id)
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* CREATE EVENT MODAL */}
+      {showCreateEvent && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 400, maxHeight: '90vh', overflowY: 'auto' }}>
+            {createdEventLink ? (
+              <>
+                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, color: 'var(--text)' }}>Event created</div>
+                <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 16 }}>Share this link — anyone with it can view and RSVP.</div>
+                <div style={{ padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, fontSize: 12, color: 'var(--text)', wordBreak: 'break-all', marginBottom: 16 }}>
+                  {createdEventLink}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => { navigator.clipboard.writeText(createdEventLink).catch(() => {}); toast.success('Link copied') }}
+                    style={{ flex: 1, padding: '10px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Copy link
+                  </button>
+                  <button onClick={closeCreateEvent}
+                    style={{ padding: '10px 16px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Done
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, color: 'var(--text)' }}>Create event</div>
+                <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20 }}>A one-time event outside any Knot. Anyone with the link can RSVP.</div>
+
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Title</div>
+                <input value={eventTitle} onChange={e => setEventTitle(e.target.value)}
+                  placeholder="e.g. Rooftop birthday party"
+                  style={{ width: '100%', padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 16 }} />
+
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Date and time</div>
+                <div style={{ marginBottom: 16 }}>
+                  <DateTimePicker value={eventWhen} onChange={setEventWhen} minDate={new Date()} />
+                </div>
+
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Location</div>
+                <input value={eventLocation} onChange={e => setEventLocation(e.target.value)}
+                  placeholder="Address or venue name"
+                  style={{ width: '100%', padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 16 }} />
+
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Description (optional)</div>
+                <textarea value={eventDescription} onChange={e => setEventDescription(e.target.value)}
+                  placeholder="What's the plan?"
+                  rows={3}
+                  style={{ width: '100%', padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical', marginBottom: 16 }} />
+
+                <div style={{ padding: '8px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, fontSize: 12, color: 'var(--text3)', marginBottom: 16 }}>
+                  Invite mode: anyone with the link can view and RSVP.
+                </div>
+
+                {eventError && <div style={{ padding: '8px 12px', background: 'var(--danger-soft)', border: '1px solid var(--danger-dim)', borderRadius: 8, fontSize: 12, color: 'var(--danger)', marginBottom: 12 }}>{eventError}</div>}
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={createEvent} disabled={creatingEvent}
+                    style={{ flex: 1, padding: '10px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: creatingEvent ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: creatingEvent ? 0.6 : 1 }}>
+                    {creatingEvent ? 'Creating...' : 'Create event'}
+                  </button>
+                  <button onClick={closeCreateEvent}
+                    style={{ padding: '10px 16px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

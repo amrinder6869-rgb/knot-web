@@ -10,6 +10,7 @@ import { PostHangoutLoop } from '@/components/PostHangoutLoop'
 import { PreOrderCard } from '@/components/PreOrderCard'
 import { DailyCall } from '@/components/DailyCall'
 import { Skeleton } from '@/components/Skeleton'
+import { useToast } from '@/components/ToastProvider'
 import ReactionBar from '@/components/ReactionBar'
 import { type ReactionCount } from '@/lib/reactions'
 import {
@@ -104,6 +105,7 @@ type HangoutCardProps = {
 }
 
 export default function HangoutCard({ post, data, currentUser, knotId, members, onRefresh, onToggleReaction }: HangoutCardProps) {
+  const toast = useToast()
   const [hangout, setHangout]   = useState<any>(data.hangout)
   const [options, setOptions]   = useState<any[]>(data.options ?? [])
   const [rsvps, setRsvps]       = useState<any[]>(data.rsvps ?? [])
@@ -155,6 +157,8 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
   const [showDailyCall, setShowDailyCall] = useState(false)
   const [showTravelMenu, setShowTravelMenu] = useState(false)
   const [joiningCall, setJoiningCall] = useState(false)
+  const [convertingToKnot, setConvertingToKnot] = useState(false)
+  const [convertedKnotId, setConvertedKnotId] = useState<string | null>(null)
   const [callRoomUrl, setCallRoomUrl] = useState<string | null>(null)
 
   // Re-sync local state whenever fresh bundle data arrives from the parent
@@ -608,6 +612,28 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
     setBriefSubmitting(false)
   }
 
+  async function convertToKnot() {
+    if (convertingToKnot) return
+    setConvertingToKnot(true)
+    setActionError('')
+    const { data, error } = await supabase.rpc('convert_standalone_event_to_knot', {
+      p_hangout_id: hangout.id,
+      p_knot_name:  hangout.title,
+    })
+    if (error || !data?.knot_id) {
+      setActionError(
+        data?.error === 'already_converted' ? 'This event already has a Knot.' : 'Could not create the Knot. Try again.'
+      )
+      setConvertingToKnot(false)
+      return
+    }
+    setConvertedKnotId(data.knot_id)
+    setHangout((prev: any) => ({ ...prev, converted_to_knot_id: data.knot_id }))
+    toast.success('Knot created — the crew is in.')
+    setConvertingToKnot(false)
+    onRefresh()
+  }
+
   if (!hangout) return null
 
   // Surprise mode: hide this card entirely from anyone on the hidden invite
@@ -920,6 +946,23 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
       {isLive && !isCancelled && livePhotoPosted && (
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 14, marginBottom: 14 }}>
           <span style={{ fontSize: 13, color: 'var(--sage)' }}>Added to Memories</span>
+        </div>
+      )}
+
+      {isDone && !isCancelled && hangout.is_standalone && !hangout.converted_to_knot_id && isCreator && (
+        <div style={{ padding: 16, background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 12, marginBottom: 14 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>Turn this into a Knot?</div>
+          <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 12, lineHeight: 1.5 }}>Keep the crew together.</div>
+          {convertedKnotId ? (
+            <a href="/dashboard" style={{ display: 'inline-block', padding: '9px 16px', background: 'var(--yellow)', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+              Open your new Knot →
+            </a>
+          ) : (
+            <button onClick={convertToKnot} disabled={convertingToKnot}
+              style={{ padding: '9px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: convertingToKnot ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: convertingToKnot ? 0.6 : 1 }}>
+              {convertingToKnot ? 'Creating Knot...' : 'Create Knot from this event'}
+            </button>
+          )}
         </div>
       )}
 
