@@ -35,6 +35,23 @@ const BOTTOM_NAV = [
   { id: 'more',     label: 'More',    Icon: MoreHorizontal },
 ]
 
+const USERNAME_RE = /^[A-Za-z0-9_]{3,20}$/
+
+// /[username] lives at the app root, so these would be shadowed by real routes.
+// Keep in sync with profiles_username_not_reserved in
+// supabase/migrations/20260818120000_public_profiles.sql.
+const RESERVED_USERNAMES = new Set([
+  'api', 'auth', 'dashboard', 'invite', 'merchant',
+  'admin', 'settings', 'login', 'logout', 'signup', 'about',
+  'help', 'support', 'terms', 'privacy', 'static', 'public', 'www',
+])
+
+const VISIBILITY = [
+  { id: 'private',      label: 'Private',      hint: 'Only you can open your profile link.' },
+  { id: 'members_only', label: 'Members Only', hint: 'Any signed-in Knot member can see it.' },
+  { id: 'public',       label: 'Public',       hint: 'Anyone with the link, signed in or not.' },
+] as const
+
 const MEMBER_COLORS = [
   { bg: '#2A2A2A', text: '#F8BD03' },
   { bg: '#1A1A1A', text: '#F8BD03' },
@@ -68,6 +85,11 @@ export default function Dashboard() {
   const [coverSignedUrl, setCoverSignedUrl] = useState<string | null>(null)
   const [editName, setEditName]             = useState('')
   const [editBudget, setEditBudget]         = useState('mid')
+  const [editUsername, setEditUsername]     = useState('')
+  const [editBio, setEditBio]               = useState('')
+  const [editCity, setEditCity]             = useState('')
+  const [editTier, setEditTier]             = useState<'private' | 'members_only' | 'public'>('private')
+  const [usernameCheck, setUsernameCheck]   = useState<'idle' | 'checking' | 'free' | 'taken'>('idle')
   const [savingProfile, setSavingProfile]   = useState(false)
   const [knotError, setKnotError]           = useState('')
   const [avatarError, setAvatarError]       = useState('')
@@ -88,6 +110,10 @@ export default function Dashboard() {
         setProfile({ ...prof, avatar_url: signedAvatar || null, avatar_path: rawAvatar })
         setEditName(prof.name || '')
         setEditBudget(prof.budget_tier || 'mid')
+        setEditUsername(prof.username || '')
+        setEditBio(prof.bio || '')
+        setEditCity(prof.resident_city || '')
+        setEditTier(prof.privacy_tier || 'private')
       }
 
       const { data: memberships } = await supabase
@@ -294,20 +320,71 @@ await loadKnotMembers(startKnot.id, data.user.id)
     }
   }
 
+  // Debounced availability hint. Runs through the is_username_available RPC
+  // because profiles rows the viewer can't read would otherwise look free.
+  useEffect(() => {
+    const value = editUsername.trim()
+    if (!value || value === (profile?.username || '') || usernameProblem(value)) {
+      setUsernameCheck('idle')
+      return
+    }
+    setUsernameCheck('checking')
+    let cancelled = false
+    const t = setTimeout(async () => {
+      const { data, error } = await supabase.rpc('is_username_available', { p_username: value })
+      if (cancelled) return
+      setUsernameCheck(error ? 'idle' : data ? 'free' : 'taken')
+    }, 400)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [editUsername, profile?.username])
+
+  function usernameProblem(value: string): string {
+    if (!USERNAME_RE.test(value)) return 'Usernames are 3–20 characters, letters, numbers and underscores only.'
+    if (RESERVED_USERNAMES.has(value.toLowerCase())) return `“${value}” is reserved. Pick another.`
+    return ''
+  }
+
   async function saveProfile() {
     if (!editName.trim() || !user) return
+
+    const username = editUsername.trim()
+    const bio      = editBio.trim()
+    const city     = editCity.trim()
+
+    if (username) {
+      const problem = usernameProblem(username)
+      if (problem) { setProfileError(problem); return }
+    } else if (editTier !== 'private') {
+      setProfileError('Pick a username first — a shared profile needs a link.')
+      return
+    }
+    if (bio.length > 300) { setProfileError('Bio is limited to 300 characters.'); return }
+
     setSavingProfile(true)
     setProfileError('')
-    const { error } = await supabase
-      .from('profiles')
-      .update({ name: editName.trim(), budget_tier: editBudget })
-      .eq('id', user.id)
+
+    const patch = {
+      name:          editName.trim(),
+      budget_tier:   editBudget,
+      username:      username || null,
+      bio:           bio || null,
+      resident_city: city || null,
+      privacy_tier:  editTier,
+    }
+
+    const { error } = await supabase.from('profiles').update(patch).eq('id', user.id)
     if (error) {
-      setProfileError('Could not save profile. Please try again.')
+      // 23505 = unique violation on profiles_username_lower_key. The inline
+      // availability hint is advisory; this is the check that actually holds.
+      setProfileError(
+        error.code === '23505'
+          ? 'That username is already taken.'
+          : 'Could not save profile. Please try again.'
+      )
       setSavingProfile(false)
       return
     }
-    setProfile({ ...profile, name: editName.trim(), budget_tier: editBudget })
+    setProfile({ ...profile, ...patch })
     setShowProfile(false)
     setSavingProfile(false)
   }
@@ -819,6 +896,68 @@ await loadKnotMembers(startKnot.id, data.user.id)
               ))}
             </div>
             <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 20 }}>Never shown as a number to others</div>
+
+            {/* PUBLIC PROFILE SETTINGS */}
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 18, marginBottom: 4 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>Public profile</div>
+              <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 16 }}>
+                Your profile page, shared by link. You control who can open it.
+              </div>
+
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Username</div>
+              <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg3)', border: `1px solid ${usernameCheck === 'taken' ? 'var(--danger-dim)' : 'var(--border2)'}`, borderRadius: 8, paddingLeft: 12, marginBottom: 6 }}>
+                <span style={{ fontSize: 13, color: 'var(--text3)' }}>@</span>
+                <input value={editUsername}
+                  onChange={e => setEditUsername(e.target.value.replace(/[^A-Za-z0-9_]/g, '').slice(0, 20))}
+                  placeholder="yourname"
+                  autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                  style={{ flex: 1, padding: '10px 12px 10px 2px', background: 'transparent', border: 'none', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit' }} />
+                {usernameCheck === 'checking' && <span style={{ fontSize: 11, color: 'var(--text3)', paddingRight: 12 }}>checking…</span>}
+                {usernameCheck === 'free'     && <span style={{ fontSize: 11, color: 'var(--sage)', paddingRight: 12, fontWeight: 600 }}>available</span>}
+                {usernameCheck === 'taken'    && <span style={{ fontSize: 11, color: 'var(--danger)', paddingRight: 12, fontWeight: 600 }}>taken</span>}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 16 }}>
+                {editUsername
+                  ? <>knot.app/{editUsername} · 3–20 characters, letters, numbers and underscores</>
+                  : <>3–20 characters, letters, numbers and underscores</>}
+              </div>
+
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>City</div>
+              <input value={editCity} onChange={e => setEditCity(e.target.value.slice(0, 80))}
+                placeholder="Where you're based"
+                style={{ width: '100%', padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', marginBottom: 16 }} />
+
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Bio</div>
+              <textarea value={editBio} onChange={e => setEditBio(e.target.value.slice(0, 300))}
+                placeholder="A line or two about you"
+                rows={3}
+                style={{ width: '100%', padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', resize: 'vertical', marginBottom: 4 }} />
+              <div style={{ fontSize: 11, color: 'var(--text3)', textAlign: 'right', marginBottom: 16 }}>{editBio.length}/300</div>
+
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8 }}>Who can see your profile</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
+                {VISIBILITY.map(v => (
+                  <div key={v.id} onClick={() => setEditTier(v.id)}
+                    style={{ display: 'flex', gap: 10, padding: '10px 12px', border: `1px solid ${editTier === v.id ? 'var(--yellow)' : 'var(--border2)'}`, borderRadius: 8, cursor: 'pointer', background: editTier === v.id ? 'var(--yellow-soft)' : 'transparent' }}>
+                    <div style={{ width: 15, height: 15, borderRadius: '50%', marginTop: 1, flexShrink: 0, border: `1px solid ${editTier === v.id ? 'var(--yellow)' : 'var(--border2)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {editTier === v.id && <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--yellow)' }} />}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{v.label}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{v.hint}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {editUsername && editTier !== 'private' && (
+                <a href={`/${editUsername}`} target="_blank" rel="noreferrer"
+                  style={{ display: 'inline-block', fontSize: 12, color: 'var(--text2)', fontWeight: 600, marginBottom: 16 }}>
+                  View your profile →
+                </a>
+              )}
+              {(!editUsername || editTier === 'private') && <div style={{ marginBottom: 16 }} />}
+            </div>
 
             {profileError && (
               <div style={{ padding: '8px 12px', background: 'var(--danger-soft)', border: '1px solid var(--danger-dim)', borderRadius: 8, fontSize: 12, color: 'var(--danger)', marginBottom: 12 }}>{profileError}</div>
