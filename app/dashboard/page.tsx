@@ -461,7 +461,7 @@ await loadKnotMembers(startKnot.id, data.user.id)
       {activeKnot && !showHome ? (
         <>
           {/* COVER BANNER */}
-          <div style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ borderBottom: '1px solid var(--border)' }}>
             <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px 20px 0 20px' }}>
             <div style={{ height: 180, background: coverSignedUrl ? 'transparent' : 'linear-gradient(135deg, #F9F9F9 0%, #F2F2F2 50%, #E8E8E8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', borderRadius: 12 }}>
               {coverSignedUrl ? (
@@ -501,7 +501,7 @@ await loadKnotMembers(startKnot.id, data.user.id)
                   <span>·</span>
                   <div style={{ display: 'flex' }}>
                     {knotMembers.slice(0, 4).map((m, i) => (
-                      <div key={m.id} style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 8, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg2)', marginLeft: i > 0 ? -6 : 0 }}>
+                      <div key={m.id} style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 8, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg)', marginLeft: i > 0 ? -6 : 0 }}>
                         {m.initials}
                       </div>
                     ))}

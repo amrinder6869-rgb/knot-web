@@ -78,7 +78,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
     const { data: hangoutData, error: hangoutsFetchError } = await supabase
       .from('hangouts').select('*').eq('knot_id', knotId).order('created_at', { ascending: false })
     if (hangoutsFetchError) setLoadError('Some data failed to load. Try refreshing.')
-    if (hangoutData) setHangouts(hangoutData)
+    setHangouts(hangoutData || [])
 
     const { data: photoData, error: photosFetchError } = await supabase
       .from('photos')

@@ -33,10 +33,11 @@ function getInitials(name: string) {
 
 function BalanceCard({ myBalance, myDebts, currentUserId, onSettleUp }: {
   myBalance: number
-  myDebts: SimplifiedDebt[]
+  myDebts: SimplifiedDebt[] | null | undefined
   currentUserId?: string
   onSettleUp: () => void
 }) {
+  const debts = myDebts ?? []
   const isOwed = myBalance > 0.01
   const isOwing = myBalance < -0.01
   const amountColor = isOwing ? '#DC2626' : '#16A34A'
@@ -46,15 +47,15 @@ function BalanceCard({ myBalance, myDebts, currentUserId, onSettleUp }: {
       <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
         {isOwed ? 'You are owed' : isOwing ? 'You owe' : 'Your balance'}
       </div>
-      <div style={{ fontSize: 40, fontWeight: 800, color: amountColor, letterSpacing: '-1px', marginBottom: myDebts.length > 0 ? 20 : 4 }}>
+      <div style={{ fontSize: 40, fontWeight: 800, color: amountColor, letterSpacing: '-1px', marginBottom: debts.length > 0 ? 20 : 4 }}>
         {isOwing ? '-' : isOwed ? '+' : ''}${Math.abs(myBalance).toFixed(2)}
       </div>
-      {myDebts.length === 0 ? (
+      {debts.length === 0 ? (
         <div style={{ fontSize: 13, color: 'var(--sage)', fontWeight: 600 }}>All settled up</div>
       ) : (
         <>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left', marginBottom: 20 }}>
-            {myDebts.map((d, i) => {
+            {debts.map((d, i) => {
               const iOwe = d.from.id === currentUserId
               const other = iOwe ? d.to : d.from
               return (
@@ -173,6 +174,7 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
 
     await supabase.from('posts').insert({
       knot_id:   knotId,
+      author_id: currentUser.id,
       content:   `added a bill ${String.fromCodePoint(0x2014)} $${amount.toFixed(2)} for ${desc}, split ${splits.length} ways`,
       post_type: 'bill',
     })
@@ -234,6 +236,7 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
     // Post a gentle nudge to feed
     await supabase.from('posts').insert({
       knot_id: knotId,
+      author_id: currentUser?.id,
       content: `sent a reminder to ${memberName} for $${amount.toFixed(2)} (${billDesc})`,
       post_type: 'bill',
     })
@@ -268,9 +271,9 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
   const settlementsForLedger: Settlement[] = settlements.map(s => ({ from_user_id: s.from_user_id, to_user_id: s.to_user_id, amount: parseFloat(s.amount) }))
 
   const balances = useMemo(() => computeNetBalances(billsForLedger, splitsForLedger, settlementsForLedger, memberList), [bills, settlements])
-  const simplified = useMemo(() => simplifyDebts(balances, memberList), [balances])
+  const simplified = useMemo(() => simplifyDebts(balances, memberList) ?? [], [balances])
   const myBalance = balances.get(currentUser?.id) || 0
-  const myDebts = simplified.filter(d => d.from.id === currentUser?.id || d.to.id === currentUser?.id)
+  const myDebts = (simplified ?? []).filter(d => d.from.id === currentUser?.id || d.to.id === currentUser?.id)
   const undoableIds = latestSettlementIdsByPair(settlements)
 
   // Filtered bills for activity view
@@ -407,8 +410,9 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {filteredBills.map((bill: any) => {
-                const settledCount = bill.splits?.filter((s: any) => s.settled).length || 0
-                const progress = bill.splits?.length > 0 ? Math.round(settledCount / bill.splits.length * 100) : 0
+                const billSplits = bill.splits ?? []
+                const settledCount = billSplits.filter((s: any) => s.settled).length || 0
+                const progress = billSplits.length > 0 ? Math.round(settledCount / billSplits.length * 100) : 0
                 const linkedHangout = bill.hangouts?.venue_name || bill.hangouts?.title
                 const isMine = bill.added_by === currentUser?.id
                 const isEditing = editingBillId === bill.id
@@ -421,7 +425,7 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
                         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Edit bill</div>
                         <BillSplitForm
                           members={memberList}
-                          defaultSelectedIds={bill.splits?.map((s: any) => s.user_id)}
+                          defaultSelectedIds={billSplits.map((s: any) => s.user_id)}
                           defaultDesc={bill.description}
                           defaultAmount={parseFloat(bill.total_amount)}
                           defaultCategory={bill.category || 'other'}
@@ -457,7 +461,7 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
                             {bill.note && <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4, fontStyle: 'italic' }}>{bill.note}</div>}
                           </div>
                           <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 6, background: progress === 100 ? 'var(--sage-soft)' : 'var(--amber-soft)', color: progress === 100 ? 'var(--sage)' : 'var(--amber)', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                            {progress === 100 ? 'All settled' : `${settledCount}/${bill.splits?.length} settled`}
+                            {progress === 100 ? 'All settled' : `${settledCount}/${billSplits.length} settled`}
                           </span>
                         </div>
 
@@ -467,7 +471,7 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
                           </div>
                         )}
 
-                        {bill.splits?.map((split: any) => {
+                        {billSplits.map((split: any) => {
                           const isMe = split.user_id === currentUser?.id
                           const isTreasurer = isMine
                           const splitKey = split.id

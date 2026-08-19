@@ -29,10 +29,19 @@ type Post = {
   time: string
   type: string
   reactions: ReactionCount[]
-  author_id: string
+  author_id: string | null
   hangout_id: string | null
   profiles: any
   created_at: string
+}
+
+const CARD_STYLE: React.CSSProperties = {
+  background: '#ffffff',
+  border: '0.5px solid rgba(0,0,0,0.08)',
+  borderRadius: 12,
+  boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+  padding: '14px 16px',
+  marginBottom: 10,
 }
 
 const COLORS = [
@@ -44,9 +53,10 @@ const COLORS = [
   { bg: '#F0EDE8', text: '#7A6B5A' },
 ]
 
-function getColor(str: string) {
+function getColor(str: string | null | undefined) {
+  const s = str || ''
   let hash = 0
-  for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash)
+  for (let i = 0; i < s.length; i++) hash = s.charCodeAt(i) + ((hash << 5) - hash)
   return COLORS[Math.abs(hash) % COLORS.length]
 }
 
@@ -56,7 +66,7 @@ function getInitials(name: string) {
 
 function MomentSkeleton() {
   return (
-    <div style={{ display: 'flex', gap: 12, padding: '16px 0', borderBottom: '1px solid var(--border)' }}>
+    <div style={{ display: 'flex', gap: 12, ...CARD_STYLE }}>
       <Skeleton width={36} height={36} borderRadius={999} />
       <div style={{ flex: 1 }}>
         <Skeleton width="35%" height={12} style={{ marginBottom: 10 }} />
@@ -515,7 +525,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
 
         if (p.type === 'bill') {
           return (
-            <div key={p.id} style={{ display: 'flex', gap: 12, padding: '16px 0', borderBottom: '1px solid var(--border)', alignItems: 'flex-start' }}>
+            <div key={p.id} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', ...CARD_STYLE }}>
               <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--bg3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, color: 'var(--text2)', flexShrink: 0 }}>
                 $
               </div>
@@ -535,7 +545,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
         }
 
         return (
-          <div key={p.id} style={{ display: 'flex', gap: 12, padding: '16px 0', borderBottom: '1px solid var(--border)' }}>
+          <div key={p.id} style={{ display: 'flex', gap: 12, ...CARD_STYLE }}>
             <div style={{ width: 36, height: 36, borderRadius: '50%', background: p.color, color: p.text, fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               {p.initials}
             </div>

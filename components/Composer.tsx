@@ -439,7 +439,7 @@ export default function Composer({
   return (
     <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, marginBottom: 20, overflow: 'hidden' }}>
 
-      <div style={{ display: 'flex', borderBottom: activeType ? '1px solid var(--border)' : 'none' }}>
+      <div style={{ display: 'flex', gap: 4, padding: 4, borderBottom: activeType ? '1px solid var(--border)' : 'none' }}>
         {([
           { type: 'moment' as PostType, label: 'Moment' },
           { type: 'hangout' as PostType, label: "Let's hang" },
@@ -448,11 +448,11 @@ export default function Composer({
             onClick={() => setActiveType(activeType === type ? null : type)}
             style={{
               flex: 1, padding: '14px 8px',
-              background: activeType === type ? 'var(--yellow-soft)' : 'transparent',
+              background: activeType === type ? '#111' : 'transparent',
               border: 'none',
-              borderBottom: activeType === type ? '2px solid var(--yellow)' : '2px solid transparent',
-              color: activeType === type ? 'var(--yellow)' : 'var(--text2)',
-              fontSize: 13, fontWeight: activeType === type ? 700 : 500,
+              borderRadius: 999,
+              color: activeType === type ? '#fff' : 'var(--text2)',
+              fontSize: 13, fontWeight: activeType === type ? 600 : 500,
               cursor: 'pointer', fontFamily: 'inherit',
               transition: 'all 0.15s',
             }}>
@@ -506,17 +506,17 @@ export default function Composer({
 
           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
             <button onClick={() => momentPhotoInputRef.current?.click()}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 20, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
               <ImageIcon size={14} strokeWidth={2} />
               Photo
             </button>
             <button onClick={() => setActiveType('hangout')}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', color: 'var(--yellow)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 20, border: '1px solid var(--border)', background: '#FFFBEE', color: 'var(--yellow)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
               <Calendar size={14} strokeWidth={2} />
               Plan a hangout
             </button>
             <button onClick={() => setShowQuickBill(v => !v)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, background: showQuickBill ? 'var(--yellow-soft)' : 'var(--bg3)', border: `1px solid ${showQuickBill ? 'var(--yellow)' : 'var(--border2)'}`, color: showQuickBill ? 'var(--yellow)' : 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 20, border: `1px solid ${showQuickBill ? 'var(--yellow)' : 'var(--border)'}`, background: showQuickBill ? 'var(--yellow-soft)' : 'transparent', color: showQuickBill ? 'var(--yellow)' : 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
               <Receipt size={14} strokeWidth={2} />
               Add bill
             </button>
