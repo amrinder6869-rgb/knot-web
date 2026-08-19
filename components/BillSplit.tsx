@@ -6,6 +6,7 @@ import LedgerView from '@/components/LedgerView'
 import { computeNetBalances, simplifyDebts, Bill, BillSplit as BillSplitRow, Settlement, Member, SimplifiedDebt } from '@/lib/ledger'
 import { createNotification } from '@/lib/notify'
 import { useToast } from '@/components/ToastProvider'
+import { getRandom, LOADING, EMPTY } from '@/lib/copy'
 
 const CATEGORIES: { id: string; label: string; icon: string }[] = [
   { id: 'all',           label: 'All',           icon: '' },
@@ -374,7 +375,7 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
     })
   }, [bills, filterCat, search])
 
-  if (loading) return <div style={{ color: 'var(--text2)', fontSize: 13, padding: '20px 0' }}>Loading...</div>
+  if (loading) return <div style={{ color: 'var(--text2)', fontSize: 13, padding: '20px 0' }}>{getRandom(LOADING.bills.pool, LOADING.bills.rare)}</div>
 
   return (
     <div style={{ maxWidth: 720 }}>
@@ -491,7 +492,7 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
 
           {filteredBills.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text2)' }}>
-              <div style={{ fontWeight: 600, marginBottom: 6 }}>{bills.length === 0 ? 'No bills yet' : 'No results'}</div>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>{bills.length === 0 ? EMPTY.BILLS : 'No results'}</div>
               <div style={{ fontSize: 13, color: 'var(--text3)' }}>
                 {bills.length === 0 ? 'Bills from hangouts and standalone expenses show up here.' : 'Try a different search or category.'}
               </div>

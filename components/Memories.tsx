@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase, getSignedUrl } from '@/lib/supabase'
 import { compressImage } from '@/lib/compressImage'
+import { getRandom, LOADING, EMPTY } from '@/lib/copy'
 
 const MAX_FILE_SIZE = 15 * 1024 * 1024 // safety net after client-side compression
 const MAX_FILES     = 20
@@ -372,7 +373,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
   }
   const getInitials = (name: string) => name?.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase() || '?'
 
-  if (loading) return <div style={{ color: 'var(--text2)', fontSize: 13, padding: '20px 0' }}>Loading...</div>
+  if (loading) return <div style={{ color: 'var(--text2)', fontSize: 13, padding: '20px 0' }}>{getRandom(LOADING.generic.pool, LOADING.generic.rare)}</div>
 
   return (
     <div style={{ maxWidth: 800 }}>
@@ -627,7 +628,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
 
       {photos.length === 0 && (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text2)' }}>
-          <div style={{ fontWeight: 600, marginBottom: 6 }}>No photos yet</div>
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>{EMPTY.MEMORIES}</div>
           <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 16 }}>Add your first photo from a night out.</div>
           <button onClick={() => fileInputRef.current?.click()}
             style={{ padding: '10px 20px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>

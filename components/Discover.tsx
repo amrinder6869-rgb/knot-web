@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/ToastProvider'
+import { getRandom, LOADING, EMPTY } from '@/lib/copy'
 
 const CATEGORIES = [
   { id: '13000', label: 'Restaurants', emoji: String.fromCodePoint(0x1F374) },
@@ -445,7 +446,7 @@ export default function Discover({ members: _members, onVenueSelect, currentUser
       {/* Search button */}
       <button onClick={searchVenues} disabled={loading || !category}
         style={{ width: '100%', padding: '14px', background: category ? 'var(--yellow)' : 'var(--bg3)', border: 'none', borderRadius: 12, color: category ? '#111' : 'var(--text3)', fontSize: 15, fontWeight: 700, cursor: category ? 'pointer' : 'not-allowed', fontFamily: 'inherit', marginBottom: 24, opacity: loading ? 0.7 : 1, transition: 'all 0.15s' }}>
-        {loading ? 'Finding places...' : `Find ${catObj ? catObj.label : 'places'} nearby`}
+        {loading ? getRandom(LOADING.venues.pool, LOADING.venues.rare) : `Find ${catObj ? catObj.label : 'places'} nearby`}
       </button>
 
       {/* Skeletons */}
@@ -597,7 +598,7 @@ export default function Discover({ members: _members, onVenueSelect, currentUser
       {!loading && searched && venues.length === 0 && !error && (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text2)', fontSize: 14 }}>
   
-          <div style={{ fontWeight: 600, marginBottom: 6 }}>No venues found</div>
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>{EMPTY.DISCOVER}</div>
           <div style={{ fontSize: 13, color: 'var(--text3)' }}>Try a different category or expand your search area.</div>
         </div>
       )}

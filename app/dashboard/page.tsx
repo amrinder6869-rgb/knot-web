@@ -20,6 +20,7 @@ import Games from '@/components/Games'
 import Notifications from '@/components/Notifications'
 import { useToast } from '@/components/ToastProvider'
 import DateTimePicker from '@/components/DateTimePicker'
+import { CONFIRM, TOAST } from '@/lib/copy'
 
 const TABS = [
   { id: 'feed',     label: 'Feed' },
@@ -330,7 +331,7 @@ await loadKnotMembers(startKnot.id, data.user.id)
 
   async function deleteKnot() {
     if (!activeKnot || !user) return
-    if (!confirm(`Delete "${activeKnot.name}"? This cannot be undone.`)) return
+    if (!confirm(CONFIRM.DELETE_KNOT)) return
     setKnotError('')
     const { data, error } = await supabase
       .from('knots').delete()
@@ -341,6 +342,7 @@ await loadKnotMembers(startKnot.id, data.user.id)
       toast.error('Only the founder can delete this Knot.')
       return
     }
+    toast.success(TOAST.KNOT_DELETED)
     const remaining = knots.filter(k => k.id !== activeKnot.id)
     setKnots(remaining)
     setActiveKnot(remaining[0] || null)

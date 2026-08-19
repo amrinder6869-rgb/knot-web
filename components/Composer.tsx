@@ -7,6 +7,7 @@ import Discover from '@/components/Discover'
 import { compressImage } from '@/lib/compressImage'
 import DateTimePicker from '@/components/DateTimePicker'
 import { useToast } from '@/components/ToastProvider'
+import { getRandom, COMPOSER_PLACEHOLDER } from '@/lib/copy'
 
 type PostType = 'moment' | 'hangout'
 type WhenType = 'now' | 'pick' | 'weekly'
@@ -55,6 +56,7 @@ export default function Composer({
 }) {
   const toast = useToast()
   const [activeType, setActiveType] = useState<PostType | null>(null)
+  const [momentPlaceholder] = useState(() => getRandom(COMPOSER_PLACEHOLDER))
 
   const [showQuickBill, setShowQuickBill]   = useState(false)
   const [quickBillDesc, setQuickBillDesc]   = useState('')
@@ -663,7 +665,7 @@ export default function Composer({
             </div>
             <textarea value={momentText} onChange={e => setMomentText(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) postMoment() }}
-              placeholder="Share a moment with the group..."
+              placeholder={momentPlaceholder}
               autoFocus
               rows={2}
               style={{ flex: 1, background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', resize: 'vertical', minHeight: 44, lineHeight: 1.45 }} />

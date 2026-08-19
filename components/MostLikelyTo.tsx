@@ -1,6 +1,7 @@
 ﻿'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getRandom, LOADING } from '@/lib/copy'
 
 const QUESTIONS = [
   "Most likely to show up late tonight?",
@@ -115,7 +116,7 @@ export default function MostLikelyTo({ game, members, currentUser, knotId: _knot
     votes.some((v: any) => v.user_id === p.user_id && v.move_data.question_index === currentQ)
   )
 
-  if (loading) return <div style={{ color: 'var(--text2)', fontSize: 13 }}>Loading game...</div>
+  if (loading) return <div style={{ color: 'var(--text2)', fontSize: 13 }}>{getRandom(LOADING.generic.pool, LOADING.generic.rare)}</div>
 
   // LOBBY
   if (phase === 'lobby') return (

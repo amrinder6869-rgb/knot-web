@@ -16,6 +16,7 @@ import {
   toggleReactionLocal,
   type ReactionCount,
 } from '@/lib/reactions'
+import { getRandom, LOADING, EMPTY } from '@/lib/copy'
 
 type MomentPhoto = { id: string; storage_path: string; url: string; media_type: string }
 
@@ -466,7 +467,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
           style={{ background: 'var(--bg2)', border: `1px solid ${billBalance && Math.abs(billBalance) > 0.01 ? 'var(--yellow)' : 'var(--border)'}`, borderRadius: 12, padding: '14px 16px', cursor: onOpenBills ? 'pointer' : 'default', alignSelf: 'stretch' }}>
           <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Bills</div>
           {billBalance === null ? (
-            <div style={{ fontSize: 12, color: 'var(--text3)' }}>Loading...</div>
+            <div style={{ fontSize: 12, color: 'var(--text3)' }}>{getRandom(LOADING.generic.pool, LOADING.generic.rare)}</div>
           ) : Math.abs(billBalance) < 0.01 ? (
             <>
               <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: 'var(--sage)' }}>Settled up</div>
@@ -504,7 +505,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
 
       {!loading && posts.length === 0 && (
         <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>Nothing here yet</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>{EMPTY.FEED}</div>
           <div style={{ fontSize: 13, color: 'var(--text3)' }}>Post a moment, plan a hangout, or add a bill above.</div>
         </div>
       )}
