@@ -1,6 +1,7 @@
 'use client'
 // Full-screen Vibes rewards shop.
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '@/lib/supabase'
 
 function getInitials(name: string) {
@@ -16,8 +17,10 @@ export default function RewardsShop({ userId, userName, onClose, onRedeemed }: {
   const [loading, setLoading] = useState(true)
   const [redeemingId, setRedeemingId] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => { load() }, [])
+  useEffect(() => setMounted(true), [])
 
   async function load() {
     try {
@@ -55,7 +58,9 @@ export default function RewardsShop({ userId, userName, onClose, onRedeemed }: {
   const ringColors = rewards.filter(r => r.category === 'ring_color')
   const titles = rewards.filter(r => r.category === 'title')
 
-  return (
+  if (!mounted) return null
+
+  return createPortal(
     <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'var(--bg)', overflowY: 'auto' }}>
       <div style={{ maxWidth: 480, margin: '0 auto' }}>
 
@@ -149,6 +154,7 @@ export default function RewardsShop({ userId, userName, onClose, onRedeemed }: {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
