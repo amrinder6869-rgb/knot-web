@@ -84,6 +84,17 @@ export default function Composer({
   const [groupSuggestions, setGroupSuggestions] = useState<any>(null)
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
 
+  const [inviteMode, setInviteMode]       = useState<'all' | 'selected'>('all')
+  const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set())
+  const [surpriseMode, setSurpriseMode]   = useState(false)
+  const [revealAt, setRevealAt]           = useState<Date | null>(null)
+
+  useEffect(() => {
+    if (inviteMode === 'selected' && selectedMemberIds.size === 0 && members.length > 0) {
+      setSelectedMemberIds(new Set(members.map(m => m.id)))
+    }
+  }, [inviteMode, members])
+
   function reset() {
     setActiveType(null)
     setMomentText('')
@@ -106,6 +117,19 @@ export default function Composer({
     setBriefNote('')
     setBriefVibe('')
     setBriefBudget('')
+    setInviteMode('all')
+    setSelectedMemberIds(new Set())
+    setSurpriseMode(false)
+    setRevealAt(null)
+  }
+
+  function toggleSelectedMember(id: string) {
+    setSelectedMemberIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   }
 
   function getVenueName() {
@@ -362,12 +386,46 @@ export default function Composer({
       recurrence,
       recurrence_day:    recurrenceDay_,
       recurrence_time:   recurrenceTime_,
+      invite_mode:       inviteMode,
+      is_surprise:       surpriseMode,
+      reveal_at:         surpriseMode && revealAt ? revealAt.toISOString() : null,
     }).select().single()
 
     if (hangoutInsertError || !h) {
       setHangoutError('Could not create the hangout. Please try again.')
       setCreating(false)
       return
+    }
+
+    if (inviteMode === 'selected') {
+      const includedIds = members.map(m => m.id).filter(id => selectedMemberIds.has(id))
+      const excludedIds = members.map(m => m.id).filter(id => !selectedMemberIds.has(id))
+
+      const includedRows = includedIds.map(uid => ({
+        hangout_id:  h.id,
+        user_id:     uid,
+        invited_by:  authUser.id,
+        status:      'pending',
+        is_surprise: false,
+        reveal_at:   null,
+      }))
+
+      const excludedRows = surpriseMode && revealAt
+        ? excludedIds.map(uid => ({
+            hangout_id:  h.id,
+            user_id:     uid,
+            invited_by:  authUser.id,
+            status:      'pending',
+            is_surprise: true,
+            reveal_at:   revealAt.toISOString(),
+          }))
+        : []
+
+      const inviteRows = [...includedRows, ...excludedRows]
+      if (inviteRows.length > 0) {
+        const { error: inviteError } = await supabase.from('hangout_invites').insert(inviteRows)
+        if (inviteError) setHangoutError('Hangout created, but the guest list failed to save.')
+      }
     }
 
     if (whereMode === 'online' && !meetingUrl.trim()) {
@@ -801,6 +859,63 @@ export default function Composer({
                 <button onClick={() => { setWhereMode('none'); setManualAddress('') }} style={{ width: '100%', padding: '8px', background: 'transparent', border: '1px dashed var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
                   Cancel
                 </button>
+              </div>
+            )}
+          </div>
+
+          {/* GUEST LIST */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Guest list</div>
+            <div style={{ display: 'flex', gap: 6, marginBottom: inviteMode === 'selected' ? 10 : 0 }}>
+              {([
+                { id: 'all' as const, label: 'All members' },
+                { id: 'selected' as const, label: 'Selected members' },
+              ]).map(({ id, label }) => (
+                <button key={id} onClick={() => setInviteMode(id)}
+                  style={{
+                    padding: '6px 14px', borderRadius: 6,
+                    border: `1px solid ${inviteMode === id ? 'var(--yellow)' : 'var(--border2)'}`,
+                    background: inviteMode === id ? 'var(--yellow-soft)' : 'transparent',
+                    color: inviteMode === id ? 'var(--yellow)' : 'var(--text2)',
+                    fontSize: 12, fontWeight: inviteMode === id ? 700 : 500,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {inviteMode === 'selected' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
+                {members.map(m => {
+                  const checked = selectedMemberIds.has(m.id)
+                  return (
+                    <div key={m.id} onClick={() => toggleSelectedMember(m.id)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: checked ? 'var(--yellow-soft)' : 'var(--bg3)', border: `1px solid ${checked ? 'var(--yellow)' : 'var(--border2)'}`, cursor: 'pointer' }}>
+                      <div style={{ width: 16, height: 16, borderRadius: 4, flexShrink: 0, border: `1.5px solid ${checked ? 'var(--yellow)' : 'var(--border2)'}`, background: checked ? 'var(--yellow)' : 'transparent', color: '#111', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {checked ? '✓' : ''}
+                      </div>
+                      <span style={{ fontSize: 13, color: 'var(--text)' }}>{m.name}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8 }}>
+              <button onClick={() => setSurpriseMode(v => !v)}
+                style={{ width: 32, height: 18, borderRadius: 9, border: 'none', cursor: 'pointer', padding: 0, background: surpriseMode ? 'var(--yellow)' : 'var(--border2)', position: 'relative', flexShrink: 0 }}>
+                <span style={{ position: 'absolute', top: 2, left: surpriseMode ? 16 : 2, width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left 0.15s' }} />
+              </button>
+              <span style={{ fontSize: 12, color: 'var(--text)' }}>Surprise mode</span>
+            </div>
+
+            {surpriseMode && (
+              <div style={{ marginTop: 8 }}>
+                <DateTimePicker value={revealAt} onChange={setRevealAt} minDate={new Date()} />
+                <div style={{ marginTop: 8, padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)' }}>
+                  Hidden from selected members until reveal date
+                </div>
               </div>
             )}
           </div>

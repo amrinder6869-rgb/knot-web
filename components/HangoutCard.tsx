@@ -90,6 +90,7 @@ type HangoutCardData = {
   rsvps: any[]
   comments: any[]
   bills: any[]
+  invites: any[]
 }
 
 type HangoutCardProps = {
@@ -108,6 +109,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
   const [rsvps, setRsvps]       = useState<any[]>(data.rsvps ?? [])
   const [comments, setComments] = useState<any[]>(data.comments ?? [])
   const [bills, setBills]       = useState<any[]>(data.bills ?? [])
+  const [invites, setInvites]   = useState<any[]>(data.invites ?? [])
   const [commentReactions, setCommentReactions] = useState<Record<string, ReactionCount[]>>({})
   const [commentReactionsEnabled, setCommentReactionsEnabled] = useState(commentReactionsSupported())
 
@@ -162,6 +164,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
     setRsvps(data.rsvps ?? [])
     setComments(data.comments ?? [])
     setBills(data.bills ?? [])
+    setInvites(data.invites ?? [])
     if ((data.comments || []).length > 0) setShowComments(true)
   }, [data])
 
@@ -607,6 +610,12 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
 
   if (!hangout) return null
 
+  // Surprise mode: hide this card entirely from anyone on the hidden invite
+  // list until their own reveal_at has passed.
+  const myInvite = invites.find((inv: any) => inv.user_id === currentUser?.id)
+  const revealPending = !!(hangout.is_surprise && myInvite?.is_surprise && myInvite.reveal_at && new Date(myInvite.reveal_at) > new Date())
+  if (revealPending) return null
+
   const isCreator   = hangout.created_by === currentUser?.id
   const isCancelled = hangout.status === 'cancelled'
   const isLive      = hangout.is_live && !isCancelled
@@ -639,6 +648,11 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {dotColor && <div style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, boxShadow: `0 0 8px ${dotColor}`, flexShrink: 0, animation: isLive ? 'pulse-dot 1.2s ease-in-out infinite' : 'none' }} />}
           <span style={{ fontSize: 11, fontWeight: 700, color: statusColor, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{statusLabel}</span>
+          {isCreator && hangout.is_surprise && (
+            <span style={{ padding: '2px 8px', borderRadius: 20, background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', fontSize: 10, fontWeight: 700, color: 'var(--yellow)' }}>
+              Surprise mode{hangout.reveal_at ? ` · reveals ${formatDate(hangout.reveal_at)}` : ''}
+            </span>
+          )}
         </div>
         <span style={{ fontSize: 11, color: subColor }}>{timeAgo(post.created_at)}</span>
       </div>

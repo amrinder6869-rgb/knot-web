@@ -51,7 +51,7 @@ export default function Hangout({ members, knotId, currentUser }: { members: any
     const hangoutIds = postData.map((p: any) => p.hangout_id).filter(Boolean)
     const postIds = postData.map((p: any) => p.id)
 
-    const b = await loadHangoutBundle(hangoutIds, postIds)
+    const b = await loadHangoutBundle(hangoutIds, postIds, currentUser?.id)
 
     const sorted = [...postData].sort((a: any, b2: any) => {
       const ha = b.hangoutsById.get(a.hangout_id)
@@ -83,7 +83,8 @@ export default function Hangout({ members, knotId, currentUser }: { members: any
     const rsvps = bundle.rsvpsByHangout.get(post.hangout_id) || []
     const comments = bundle.commentsByPost.get(post.id) || []
     const bills = bundle.billsByHangout.get(post.hangout_id) || []
-    return { hangout, options, rsvps, comments, bills }
+    const invites = bundle.invitesByHangout.get(post.hangout_id) || []
+    return { hangout, options, rsvps, comments, bills, invites }
   }
 
   if (loading) return <div style={{ color: 'var(--text2)', fontSize: 13, padding: '20px 0' }}>Loading...</div>

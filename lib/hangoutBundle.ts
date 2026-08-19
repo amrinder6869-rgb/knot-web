@@ -7,9 +7,10 @@ export type HangoutBundle = {
   rsvpsByHangout: Map<string, any[]>
   commentsByPost: Map<string, any[]>
   billsByHangout: Map<string, any[]>
+  invitesByHangout: Map<string, any[]>
 }
 
-export async function loadHangoutBundle(hangoutIds: string[], postIds: string[]): Promise<HangoutBundle> {
+export async function loadHangoutBundle(hangoutIds: string[], postIds: string[], currentUserId?: string | null): Promise<HangoutBundle> {
   if (hangoutIds.length === 0) {
     return {
       hangoutsById: new Map(),
@@ -18,6 +19,7 @@ export async function loadHangoutBundle(hangoutIds: string[], postIds: string[])
       rsvpsByHangout: new Map(),
       commentsByPost: new Map(),
       billsByHangout: new Map(),
+      invitesByHangout: new Map(),
     }
   }
 
@@ -28,6 +30,7 @@ export async function loadHangoutBundle(hangoutIds: string[], postIds: string[])
     { data: rsvpsData },
     { data: commentsData },
     { data: billsData },
+    { data: invitesData },
   ] = await Promise.all([
     supabase.from('hangouts').select('*, profiles:created_by(name)').in('id', hangoutIds),
     supabase.from('hangout_options').select('*').in('hangout_id', hangoutIds),
@@ -37,6 +40,7 @@ export async function loadHangoutBundle(hangoutIds: string[], postIds: string[])
       ? supabase.from('comments').select('*, profiles:author_id(name)').in('post_id', postIds).order('created_at', { ascending: true })
       : Promise.resolve({ data: [] as any[] }),
     supabase.from('bills').select('*, bill_splits(*, profiles:user_id(name))').in('hangout_id', hangoutIds),
+    supabase.from('hangout_invites').select('*').in('hangout_id', hangoutIds),
   ])
 
   const hangoutsById = new Map<string, any>((hangoutsData || []).map((h: any) => [h.id, h]))
@@ -84,5 +88,26 @@ export async function loadHangoutBundle(hangoutIds: string[], postIds: string[])
     billsByHangout.set(b.hangout_id, list)
   }
 
-  return { hangoutsById, optionsByHangout, votesByHangout, rsvpsByHangout, commentsByPost, billsByHangout }
+  const invitesByHangout = new Map<string, any[]>()
+  for (const inv of invitesData || []) {
+    const list = invitesByHangout.get(inv.hangout_id) || []
+    list.push(inv)
+    invitesByHangout.set(inv.hangout_id, list)
+  }
+
+  // Surprise mode: drop hangouts the current viewer is on the hidden surprise
+  // list for, until their own invite's reveal_at has passed.
+  if (currentUserId) {
+    for (const [hangoutId, invites] of invitesByHangout) {
+      const hiddenForMe = invites.some((inv: any) =>
+        inv.user_id === currentUserId &&
+        inv.is_surprise &&
+        inv.reveal_at &&
+        new Date(inv.reveal_at) > new Date()
+      )
+      if (hiddenForMe) hangoutsById.delete(hangoutId)
+    }
+  }
+
+  return { hangoutsById, optionsByHangout, votesByHangout, rsvpsByHangout, commentsByPost, billsByHangout, invitesByHangout }
 }
