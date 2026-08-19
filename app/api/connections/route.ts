@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createNotification } from '@/lib/notify'
 
 const ALLOWED_TYPES = new Set(['follow', 'connection'])
 
@@ -56,6 +57,22 @@ export async function POST(request: Request) {
       return NextResponse.json(existing)
     }
     return NextResponse.json({ error: 'Could not create connection' }, { status: 500 })
+  }
+
+  if (type === 'follow') {
+    const { data: requesterProfile } = await supabase
+      .from('profiles')
+      .select('name, username')
+      .eq('id', user.id)
+      .single()
+    await createNotification(supabase, {
+      userId: addresseeId,
+      type: 'follow_request',
+      actorId: user.id,
+      entityId: data.id,
+      message: `${requesterProfile?.name || 'Someone'} sent you a follow request`,
+      linkUrl: requesterProfile?.username ? `/${requesterProfile.username}` : null,
+    })
   }
 
   return NextResponse.json(data)

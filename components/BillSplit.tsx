@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import BillSplitForm, { BillCategory } from '@/components/BillSplitForm'
 import LedgerView from '@/components/LedgerView'
 import { computeNetBalances, simplifyDebts, Bill, BillSplit as BillSplitRow, Settlement, Member, SimplifiedDebt } from '@/lib/ledger'
+import { createNotification } from '@/lib/notify'
 
 const CATEGORIES: { id: string; label: string; icon: string }[] = [
   { id: 'all',           label: 'All',           icon: '' },
@@ -225,7 +226,7 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
     await loadAll()
   }
 
-  async function sendReminder(splitId: string, memberName: string, billDesc: string, amount: number) {
+  async function sendReminder(splitId: string, targetUserId: string, memberName: string, billDesc: string, amount: number) {
     setRemindingId(splitId)
     setRemindError('')
     const { error } = await supabase
@@ -240,6 +241,16 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
       content: `sent a reminder to ${memberName} for $${amount.toFixed(2)} (${billDesc})`,
       post_type: 'bill',
     })
+    if (targetUserId) {
+      await createNotification(supabase, {
+        userId: targetUserId,
+        knotId,
+        type: 'bill_reminder',
+        actorId: currentUser?.id,
+        entityId: splitId,
+        message: `Reminder: you owe $${amount.toFixed(2)} for ${billDesc}`,
+      })
+    }
     setRemindingId(null)
     await loadAll()
   }
@@ -488,7 +499,7 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
                               </span>
                               {canRemind && (
                                 <button
-                                  onClick={() => sendReminder(splitKey, split.profiles?.name || 'them', bill.description, parseFloat(split.amount))}
+                                  onClick={() => sendReminder(splitKey, split.user_id, split.profiles?.name || 'them', bill.description, parseFloat(split.amount))}
                                   disabled={remindingId === splitKey}
                                   title="Send reminder"
                                   style={{ padding: '4px 8px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--text3)', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit', opacity: remindingId === splitKey ? 0.5 : 1 }}>

@@ -239,7 +239,7 @@ export default function Composer({
     await notifyKnotMembers({
       knotId,
       actorId: user.id,
-      type: 'new_post',
+      type: 'new_moment',
       message: `${actorName} posted${momentText.trim() ? `: "${momentText.trim().substring(0, 60)}"` : ' a photo'}`,
     })
 
