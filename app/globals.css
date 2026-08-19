@@ -3,15 +3,23 @@
 
 :root {
   color-scheme: light;
-  --bg:          #FFFFFF;
-  --bg2:         #F9F9F9;
+  --bg:          #F5F3EE;
+  --bg2:         #FFFFFF;
   --bg3:         #F2F2F2;
   --bg4:         #E8E8E8;
-  --border:      #E0E0E0;
+  --border:      rgba(0,0,0,0.08);
   --border2:     #D0D0D0;
   --text:        #111111;
   --text2:       #444444;
   --text3:       #888888;
+
+  --card-bg:      #FFFFFF;
+  --card-border:  rgba(0,0,0,0.08);
+  --card-shadow:  0 1px 4px rgba(0,0,0,0.06);
+  --glass-bg:     rgba(255,255,255,0.72);
+  --glass-blur:   16px;
+  --pill-bg:      #111111;
+  --pill-text:    #FFFFFF;
 
   --yellow:      #F8BD03;
   --yellow-dim:  rgba(248,189,3,0.15);
@@ -57,6 +65,11 @@ body {
 @keyframes skeleton-shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }
 
 .error-banner {

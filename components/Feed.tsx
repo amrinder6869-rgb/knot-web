@@ -1,8 +1,9 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase, getSignedUrl } from '@/lib/supabase'
-import HangoutCard from '@/components/HangoutCard'
+import HangoutCard, { HangoutCardSkeleton } from '@/components/HangoutCard'
 import Composer from '@/components/Composer'
+import { Skeleton } from '@/components/Skeleton'
 import { loadHangoutBundle } from '@/lib/hangoutBundle'
 import PostComments from '@/components/PostComments'
 import ReactionBar from '@/components/ReactionBar'
@@ -51,6 +52,19 @@ function getColor(str: string) {
 
 function getInitials(name: string) {
   return (name || 'U').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()
+}
+
+function MomentSkeleton() {
+  return (
+    <div style={{ display: 'flex', gap: 12, padding: '16px 0', borderBottom: '1px solid var(--border)' }}>
+      <Skeleton width={36} height={36} borderRadius={999} />
+      <div style={{ flex: 1 }}>
+        <Skeleton width="35%" height={12} style={{ marginBottom: 10 }} />
+        <Skeleton width="90%" height={12} style={{ marginBottom: 6 }} />
+        <Skeleton width="55%" height={12} />
+      </div>
+    </div>
+  )
 }
 
 function timeAgo(date: string) {
@@ -465,7 +479,11 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
       )}
 
       {loading && (
-        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text3)', fontSize: 13 }}>Loading...</div>
+        <div>
+          <MomentSkeleton />
+          <MomentSkeleton />
+          <HangoutCardSkeleton />
+        </div>
       )}
 
       {!loading && posts.length === 0 && (

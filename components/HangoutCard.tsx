@@ -9,6 +9,7 @@ import { CrewSection } from '@/components/CrewSection'
 import { PostHangoutLoop } from '@/components/PostHangoutLoop'
 import { PreOrderCard } from '@/components/PreOrderCard'
 import { DailyCall } from '@/components/DailyCall'
+import { Skeleton } from '@/components/Skeleton'
 import ReactionBar from '@/components/ReactionBar'
 import { type ReactionCount } from '@/lib/reactions'
 import {
@@ -619,20 +620,24 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
   const authorName  = post.profiles?.name || 'Someone'
   const memberList  = members.map(m => ({ id: m.id, name: m.name }))
 
-  const borderColor = isCancelled ? 'var(--border)' : isLive ? '#4ade80' : isConfirmed ? 'var(--sage)' : isVoting ? 'var(--yellow)' : 'var(--border)'
+  const dotColor    = isLive ? '#EF4444' : isConfirmed ? '#22C55E' : isVoting ? '#F8BD03' : null
+  const borderColor = isLive ? '#111' : 'var(--border)'
+  const borderWidth = isLive ? 1.5 : 1
+  const boxShadow   = isConfirmed && !isCancelled ? '0 0 0 2px #F8BD03' : 'none'
   const statusLabel = isCancelled ? 'Cancelled' : isLive ? 'Live now' : isConfirmed ? 'Confirmed' : isVoting ? 'Vote open' : isDone ? 'Done' : 'Planning'
   const statusColor = isCancelled ? 'var(--text3)' : isLive ? '#4ade80' : isConfirmed ? 'var(--sage)' : isVoting ? 'var(--yellow)' : 'var(--text3)'
-  const cardBg      = isLive ? 'linear-gradient(135deg, #111 0%, #1a1a1a 100%)' : 'var(--bg2)'
+  const cardBg      = isLive ? 'linear-gradient(135deg, #111 0%, #1a1a1a 100%)' : isDone ? 'var(--bg3)' : 'var(--bg2)'
   const textColor   = isLive ? '#fff' : 'var(--text)'
   const subColor    = isLive ? 'rgba(255,255,255,0.45)' : 'var(--text3)'
   const borderSep   = isLive ? 'rgba(255,255,255,0.08)' : 'var(--border)'
+  const cardOpacity = isCancelled ? 0.55 : isDone ? 0.6 : 1
 
   return (
-    <div style={{ background: cardBg, border: `1.5px solid ${borderColor}`, borderRadius: 14, padding: 20, marginBottom: 16, opacity: isCancelled ? 0.55 : 1 }}>
+    <div style={{ background: cardBg, border: `${borderWidth}px solid ${borderColor}`, borderRadius: 14, padding: 20, marginBottom: 16, opacity: cardOpacity, boxShadow }}>
 
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {isLive && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 8px #4ade80', flexShrink: 0 }} />}
+          {dotColor && <div style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, boxShadow: `0 0 8px ${dotColor}`, flexShrink: 0, animation: isLive ? 'pulse-dot 1.2s ease-in-out infinite' : 'none' }} />}
           <span style={{ fontSize: 11, fontWeight: 700, color: statusColor, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{statusLabel}</span>
         </div>
         <span style={{ fontSize: 11, color: subColor }}>{timeAgo(post.created_at)}</span>
@@ -759,7 +764,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         </div>
       )}
 
-      {!isCancelled && (isConfirmed || isLive) && (
+      {!isCancelled && (isVoting || isConfirmed || isLive) && (
         <div style={{ marginBottom: 14 }}>
           {rsvps.length > 0 && (
             <div style={{ display: 'flex', gap: 4, marginBottom: 10, flexWrap: 'wrap' }}>
@@ -1136,6 +1141,26 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
             </div>
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+export function HangoutCardSkeleton() {
+  return (
+    <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 20, marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+        <Skeleton width={8} height={8} borderRadius={999} />
+        <Skeleton width={70} height={10} />
+      </div>
+      <Skeleton width="65%" height={18} style={{ marginBottom: 8 }} />
+      <Skeleton width="40%" height={12} style={{ marginBottom: 18 }} />
+      <div style={{ padding: 12, borderRadius: 10, background: 'var(--yellow-soft)' }}>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <Skeleton width={64} height={26} borderRadius={6} />
+          <Skeleton width={64} height={26} borderRadius={6} />
+          <Skeleton width={64} height={26} borderRadius={6} />
+        </div>
       </div>
     </div>
   )

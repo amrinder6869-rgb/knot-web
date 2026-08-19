@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useToast } from '@/components/ToastProvider'
 
 const CATEGORIES = [
   { id: '13000', label: 'Restaurants', emoji: String.fromCodePoint(0x1F374) },
@@ -36,6 +37,7 @@ function StarRating({ rating }: { rating: number }) {
 }
 
 export default function Discover({ members: _members, onVenueSelect }: { members: any[], onVenueSelect?: (venue: any) => void }) {
+  const toast = useToast()
   const [category, setCategory] = useState<string|null>(null)
   const [budget, setBudget]     = useState<number|null>(2)
   const [groupSize, setGroupSize] = useState<number>(4)
@@ -215,6 +217,10 @@ export default function Discover({ members: _members, onVenueSelect }: { members
     } catch (err) {
       console.error('Merchant enrichment error:', err)
     }
+  }
+
+  function claimSpecial(special: any) {
+    toast.success(`Special claimed — show "${special.title}" at checkout.`)
   }
 
   function lockVenue(venue: any) {
@@ -464,11 +470,6 @@ export default function Discover({ members: _members, onVenueSelect }: { members
                             Knot
                           </span>
                         )}
-                        {specials[v.fsq_id] && (
-                          <span style={{ padding: '2px 7px', borderRadius: 20, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', fontSize: 10, fontWeight: 700, color: '#16A34A', whiteSpace: 'nowrap' }}>
-                            {specials[v.fsq_id].discount_percent}% off groups
-                          </span>
-                        )}
                       </div>
                       <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8 }}>{v.location?.formatted_address}</div>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
@@ -480,6 +481,22 @@ export default function Discover({ members: _members, onVenueSelect }: { members
                         {v.closed_bucket === 'VeryLikelyOpen' && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--sage-soft)', color: 'var(--sage)' }}>Open now</span>}
                         {v.categories?.[0] && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--bg3)', color: 'var(--text3)', textTransform: 'capitalize' }}>{v.categories[0].name}</span>}
                       </div>
+
+                      {specials[v.fsq_id] && (
+                        <div onClick={e => e.stopPropagation()}
+                          style={{ marginTop: 10, padding: '10px 12px', background: '#FFFBEE', border: '1px solid #F8BD03', boxShadow: '0 0 0 1px rgba(248,189,3,0.15)', borderRadius: 10 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: 12, fontWeight: 800, color: '#111' }}>{specials[v.fsq_id].discount_percent}% off for Knot groups</div>
+                              <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{specials[v.fsq_id].title}</div>
+                            </div>
+                            <button onClick={() => claimSpecial(specials[v.fsq_id])}
+                              style={{ padding: '7px 14px', background: '#F8BD03', border: 'none', borderRadius: 8, color: '#111', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                              Claim special
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>

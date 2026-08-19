@@ -18,6 +18,7 @@ import Memories from '@/components/Memories'
 import Discover from '@/components/Discover'
 import Games from '@/components/Games'
 import Notifications from '@/components/Notifications'
+import { useToast } from '@/components/ToastProvider'
 
 const TABS = [
   { id: 'feed',     label: 'Feed' },
@@ -61,6 +62,7 @@ const MEMBER_COLORS = [
 ]
 
 export default function Dashboard() {
+  const toast = useToast()
   const [active, setActive]                 = useState(() => {
     if (typeof window === 'undefined') return 'feed'
     return localStorage.getItem('active_tab') || 'feed'
@@ -232,10 +234,10 @@ await loadKnotMembers(startKnot.id, data.user.id)
     const { error: upErr } = await supabase.storage
       .from('knot-covers')
       .upload(coverPath, file, { upsert: true, contentType: safeType })
-    if (upErr) { alert('Upload failed'); return }
+    if (upErr) { toast.error('Upload failed'); return }
     const publicCoverUrl = `https://vcrnktkttgprbnoyjeff.supabase.co/storage/v1/object/public/knot-covers/${coverPath}`
     const { error: dbErr } = await supabase.from('knots').update({ cover_url: publicCoverUrl }).eq('id', activeKnot.id)
-    if (dbErr) { alert('Could not save cover'); return }
+    if (dbErr) { toast.error('Could not save cover'); return }
     const updated = { ...activeKnot, cover_url: publicCoverUrl }
     setActiveKnot(updated)
     setCoverSignedUrl(publicCoverUrl)
@@ -302,7 +304,7 @@ await loadKnotMembers(startKnot.id, data.user.id)
       .eq('created_by', user.id)
       .select('id')
     if (error || !data?.length) {
-      alert('Only the founder can delete this Knot.')
+      toast.error('Only the founder can delete this Knot.')
       return
     }
     const remaining = knots.filter(k => k.id !== activeKnot.id)
@@ -402,7 +404,7 @@ await loadKnotMembers(startKnot.id, data.user.id)
     <div style={{ minHeight: '100vh', background: 'var(--bg)', fontFamily: 'Manrope, sans-serif' }}>
 
       {/* TOP GLOBAL NAV */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 100, background: 'var(--bg2)', borderBottom: '1px solid var(--border)', height: 52, display: 'flex', alignItems: 'center', padding: '0 20px', gap: 12 }}>
+      <div style={{ position: 'sticky', top: 0, zIndex: 100, background: 'var(--glass-bg)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid var(--border)', height: 52, display: 'flex', alignItems: 'center', padding: '0 20px', gap: 12 }}>
         <div onClick={() => { setShowHome(true); setActiveKnot(null); localStorage.setItem('show_home', 'true') }} style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, cursor: 'pointer' }}>
           <svg width="22" height="22" viewBox="0 0 44 44" fill="none">
             <circle cx="17" cy="17" r="10" stroke="var(--yellow)" strokeWidth="3" fill="none"/>
@@ -422,14 +424,17 @@ await loadKnotMembers(startKnot.id, data.user.id)
           {showKnotList && (
             <div style={{ position: 'absolute', top: '110%', left: 0, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 8, minWidth: 220, zIndex: 200, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
               <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '4px 8px', marginBottom: 4 }}>Your Knots</div>
-              {knots.map(k => (
-                <div key={k.id} onClick={() => switchKnot(k)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, cursor: 'pointer', background: activeKnot?.id === k.id ? 'var(--yellow-soft)' : 'transparent' }}>
-                  <span style={{ fontSize: 16 }}>{k.emoji}</span>
-                  <span style={{ flex: 1, fontSize: 13, fontWeight: activeKnot?.id === k.id ? 600 : 400, color: activeKnot?.id === k.id ? 'var(--yellow)' : 'var(--text)' }}>{k.name}</span>
-                  <span style={{ fontSize: 11, color: 'var(--text3)' }}>{k.count}</span>
-                </div>
-              ))}
+              {knots.map(k => {
+                const isActiveKnot = activeKnot?.id === k.id
+                return (
+                  <div key={k.id} onClick={() => switchKnot(k)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 999, cursor: 'pointer', background: isActiveKnot ? 'var(--pill-bg)' : 'transparent', marginBottom: 2 }}>
+                    <span style={{ fontSize: 16 }}>{k.emoji}</span>
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: isActiveKnot ? 600 : 400, color: isActiveKnot ? 'var(--pill-text)' : 'var(--text)' }}>{k.name}</span>
+                    <span style={{ fontSize: 11, color: isActiveKnot ? 'rgba(255,255,255,0.6)' : 'var(--text3)' }}>{k.count}</span>
+                  </div>
+                )
+              })}
               <div style={{ borderTop: '1px solid var(--border)', marginTop: 6, paddingTop: 6 }}>
                 <div onClick={() => { setShowKnotList(false); setShowNewKnot(true) }}
                   style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--yellow)', fontWeight: 600 }}>
@@ -534,21 +539,13 @@ await loadKnotMembers(startKnot.id, data.user.id)
             </div>
 
             {/* TABS — desktop only */}
-            <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 20px', display: 'flex', gap: 4, borderTop: '1px solid var(--border)' }} className="desktop-only">
-              {TABS.map(t => (
+            <div style={{ maxWidth: 1100, margin: '0 auto', padding: '10px 20px', display: 'flex', gap: 4, borderTop: '1px solid var(--border)' }} className="desktop-only">
+              {[...TABS, { id: 'split', label: 'Bills' }, { id: 'games', label: 'Games' }].map(t => (
                 <button key={t.id} onClick={() => setActive(t.id)}
-                  style={{ padding: '12px 16px', background: 'none', border: 'none', borderBottom: `3px solid ${active === t.id ? 'var(--yellow)' : 'transparent'}`, color: active === t.id ? 'var(--yellow)' : 'var(--text2)', fontSize: 14, fontWeight: active === t.id ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', marginBottom: -1 }}>
+                  style={{ padding: '8px 16px', borderRadius: 999, background: active === t.id ? 'var(--pill-bg)' : 'none', border: 'none', color: active === t.id ? 'var(--pill-text)' : 'var(--text2)', fontSize: 14, fontWeight: active === t.id ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
                   {t.label}
                 </button>
               ))}
-              <button onClick={() => setActive('split')}
-                style={{ padding: '12px 16px', background: 'none', border: 'none', borderBottom: `3px solid ${active === 'split' ? 'var(--yellow)' : 'transparent'}`, color: active === 'split' ? 'var(--yellow)' : 'var(--text2)', fontSize: 14, fontWeight: active === 'split' ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', marginBottom: -1 }}>
-                Bills
-              </button>
-              <button onClick={() => setActive('games')}
-                style={{ padding: '12px 16px', background: 'none', border: 'none', borderBottom: `3px solid ${active === 'games' ? 'var(--yellow)' : 'transparent'}`, color: active === 'games' ? 'var(--yellow)' : 'var(--text2)', fontSize: 14, fontWeight: active === 'games' ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', marginBottom: -1 }}>
-                Games
-              </button>
             </div>
           </div>
 
@@ -708,7 +705,7 @@ await loadKnotMembers(startKnot.id, data.user.id)
       {/* BOTTOM NAV + MORE DRAWER — only inside a Knot on mobile */}
       {activeKnot && !showHome && (
         <>
-          <nav className="bottom-nav" style={{ display: 'none', position: 'fixed', bottom: 0, left: 0, right: 0, height: 60, background: 'var(--bg2)', borderTop: '1px solid var(--border)', zIndex: 100, alignItems: 'center', justifyContent: 'space-around', padding: '0 8px', paddingBottom: 'env(safe-area-inset-bottom, 0)' }}>
+          <nav className="bottom-nav" style={{ display: 'none', position: 'fixed', bottom: 0, left: 0, right: 0, height: 64, background: 'var(--glass-bg)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderTop: '1px solid var(--border)', zIndex: 100, alignItems: 'center', justifyContent: 'space-around', padding: '6px 8px', paddingBottom: 'env(safe-area-inset-bottom, 6px)' }}>
             {BOTTOM_NAV.map(n => {
               const isActive = n.id === 'more' ? showMore : active === n.id
               const Icon = n.Icon
@@ -718,9 +715,9 @@ await loadKnotMembers(startKnot.id, data.user.id)
                     if (n.id === 'more') { setShowMore(!showMore) }
                     else { setActive(n.id); setShowMore(false); setShowHome(false) }
                   }}
-                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '6px 10px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', flex: 1 }}>
-                  <Icon size={18} strokeWidth={isActive ? 2.4 : 1.8} color={isActive ? 'var(--yellow)' : 'var(--text3)'} />
-                  <span style={{ fontSize: 10, fontWeight: isActive ? 700 : 400, color: isActive ? 'var(--yellow)' : 'var(--text3)' }}>{n.label}</span>
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '6px 12px', borderRadius: 999, background: isActive ? 'var(--pill-bg)' : 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                  <Icon size={18} strokeWidth={isActive ? 2.4 : 1.8} color={isActive ? 'var(--pill-text)' : 'var(--text3)'} />
+                  <span style={{ fontSize: 10, fontWeight: isActive ? 700 : 400, color: isActive ? 'var(--pill-text)' : 'var(--text3)' }}>{n.label}</span>
                 </button>
               )
             })}

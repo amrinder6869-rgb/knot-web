@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import BillSplitForm, { BillCategory } from '@/components/BillSplitForm'
 import LedgerView from '@/components/LedgerView'
-import { computeNetBalances, simplifyDebts, Bill, BillSplit as BillSplitRow, Settlement, Member } from '@/lib/ledger'
+import { computeNetBalances, simplifyDebts, Bill, BillSplit as BillSplitRow, Settlement, Member, SimplifiedDebt } from '@/lib/ledger'
 
 const CATEGORIES: { id: string; label: string; icon: string }[] = [
   { id: 'all',           label: 'All',           icon: '' },
@@ -29,6 +29,52 @@ function timeAgo(date: string) {
 
 function getInitials(name: string) {
   return (name || 'U').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()
+}
+
+function BalanceCard({ myBalance, myDebts, currentUserId, onSettleUp }: {
+  myBalance: number
+  myDebts: SimplifiedDebt[]
+  currentUserId?: string
+  onSettleUp: () => void
+}) {
+  const isOwed = myBalance > 0.01
+  const isOwing = myBalance < -0.01
+  const amountColor = isOwing ? '#DC2626' : '#16A34A'
+
+  return (
+    <div style={{ background: '#fff', border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', borderRadius: 16, padding: 24, marginBottom: 20, textAlign: 'center' }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
+        {isOwed ? 'You are owed' : isOwing ? 'You owe' : 'Your balance'}
+      </div>
+      <div style={{ fontSize: 40, fontWeight: 800, color: amountColor, letterSpacing: '-1px', marginBottom: myDebts.length > 0 ? 20 : 4 }}>
+        {isOwing ? '-' : isOwed ? '+' : ''}${Math.abs(myBalance).toFixed(2)}
+      </div>
+      {myDebts.length === 0 ? (
+        <div style={{ fontSize: 13, color: 'var(--sage)', fontWeight: 600 }}>All settled up</div>
+      ) : (
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left', marginBottom: 20 }}>
+            {myDebts.map((d, i) => {
+              const iOwe = d.from.id === currentUserId
+              const other = iOwe ? d.to : d.from
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--bg3)', borderRadius: 10 }}>
+                  <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>{other.name}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: iOwe ? '#DC2626' : '#16A34A' }}>
+                    {iOwe ? '-' : '+'}${d.amount.toFixed(2)}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+          <button onClick={onSettleUp}
+            style={{ width: '100%', padding: '12px', background: '#F8BD03', border: 'none', borderRadius: 10, color: '#111', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            Settle up
+          </button>
+        </>
+      )}
+    </div>
+  )
 }
 
 export default function BillSplit({ members, knotId, currentUser }: { members: any[], knotId?: string, currentUser?: any }) {
@@ -224,6 +270,7 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
   const balances = useMemo(() => computeNetBalances(billsForLedger, splitsForLedger, settlementsForLedger, memberList), [bills, settlements])
   const simplified = useMemo(() => simplifyDebts(balances, memberList), [balances])
   const myBalance = balances.get(currentUser?.id) || 0
+  const myDebts = simplified.filter(d => d.from.id === currentUser?.id || d.to.id === currentUser?.id)
   const undoableIds = latestSettlementIdsByPair(settlements)
 
   // Filtered bills for activity view
@@ -241,22 +288,15 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
   return (
     <div style={{ maxWidth: 720 }}>
 
-      {/* Header with running balance summary */}
+      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <div>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>Bills</div>
-          <div style={{ fontSize: 13, marginTop: 2 }}>
-            {myBalance > 0.01
-              ? <span style={{ color: 'var(--sage)', fontWeight: 600 }}>You are owed ${myBalance.toFixed(2)} total</span>
-              : myBalance < -0.01
-              ? <span style={{ color: 'var(--yellow)', fontWeight: 600 }}>You owe ${Math.abs(myBalance).toFixed(2)} total</span>
-              : <span style={{ color: 'var(--sage)', fontWeight: 600 }}>All settled up</span>}
-          </div>
-        </div>
+        <div style={{ fontSize: 20, fontWeight: 700 }}>Bills</div>
         <button onClick={() => setShowAdd(true)} style={{ background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', padding: '9px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
           Add bill
         </button>
       </div>
+
+      <BalanceCard myBalance={myBalance} myDebts={myDebts} currentUserId={currentUser?.id} onSettleUp={() => setView('ledger')} />
 
       {loadError && <div className="error-banner" style={{ marginBottom: 16 }}>{loadError}</div>}
 

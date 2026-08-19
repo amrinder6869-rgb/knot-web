@@ -1,11 +1,12 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
-import { ImageIcon } from 'lucide-react'
+import { ImageIcon, Calendar, Receipt } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { notifyKnotMembers } from '@/lib/notifications'
 import Discover from '@/components/Discover'
 import { compressImage } from '@/lib/compressImage'
 import DateTimePicker from '@/components/DateTimePicker'
+import { useToast } from '@/components/ToastProvider'
 
 type PostType = 'moment' | 'hangout'
 type WhenType = 'now' | 'pick' | 'weekly'
@@ -44,7 +45,14 @@ export default function Composer({
   members: any[]
   onPosted: () => void
 }) {
+  const toast = useToast()
   const [activeType, setActiveType] = useState<PostType | null>(null)
+
+  const [showQuickBill, setShowQuickBill]   = useState(false)
+  const [quickBillDesc, setQuickBillDesc]   = useState('')
+  const [quickBillAmount, setQuickBillAmount] = useState('')
+  const [quickBillPosting, setQuickBillPosting] = useState(false)
+  const [quickBillError, setQuickBillError] = useState('')
 
   const [momentText, setMomentText] = useState('')
   const [posting, setPosting]       = useState(false)
@@ -199,6 +207,42 @@ export default function Composer({
     setMomentPhotoPreview(null)
     setMomentMediaType('image')
     reset()
+    onPosted()
+  }
+
+  async function postQuickBill() {
+    if (!quickBillDesc.trim() || !quickBillAmount || quickBillPosting) return
+    const amount = parseFloat(quickBillAmount)
+    if (isNaN(amount) || amount <= 0) { setQuickBillError('Enter a valid amount.'); return }
+    setQuickBillPosting(true)
+    setQuickBillError('')
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setQuickBillError('You need to be signed in to add a bill.'); setQuickBillPosting(false); return }
+
+    const splitIds = members.map(m => m.id)
+    const share = amount / splitIds.length
+    const { data: bill, error } = await supabase.from('bills').insert({
+      knot_id: knotId, added_by: user.id, total_amount: amount,
+      description: quickBillDesc.trim(), split_type: 'equal',
+    }).select().single()
+    if (error || !bill) { setQuickBillError('Could not add the bill.'); setQuickBillPosting(false); return }
+
+    const splits = splitIds.map((uid: string) => ({ bill_id: bill.id, user_id: uid, amount: parseFloat(share.toFixed(2)), settled: uid === user.id }))
+    const { error: splitError } = await supabase.from('bill_splits').insert(splits)
+    if (splitError) { setQuickBillError('Bill added, but the split failed to save.'); setQuickBillPosting(false); return }
+
+    await supabase.from('posts').insert({
+      knot_id: knotId,
+      content: `added a bill — $${amount.toFixed(2)} for ${quickBillDesc.trim()}, split ${splitIds.length} ways`,
+      post_type: 'bill',
+    })
+
+    toast.success('Bill added and split with the group.')
+    setQuickBillPosting(false)
+    setQuickBillDesc('')
+    setQuickBillAmount('')
+    setShowQuickBill(false)
     onPosted()
   }
 
@@ -459,6 +503,53 @@ export default function Composer({
               {posting ? '...' : 'Post'}
             </button>
           </div>
+
+          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <button onClick={() => momentPhotoInputRef.current?.click()}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <ImageIcon size={14} strokeWidth={2} />
+              Photo
+            </button>
+            <button onClick={() => setActiveType('hangout')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', color: 'var(--yellow)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <Calendar size={14} strokeWidth={2} />
+              Plan a hangout
+            </button>
+            <button onClick={() => setShowQuickBill(v => !v)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, background: showQuickBill ? 'var(--yellow-soft)' : 'var(--bg3)', border: `1px solid ${showQuickBill ? 'var(--yellow)' : 'var(--border2)'}`, color: showQuickBill ? 'var(--yellow)' : 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <Receipt size={14} strokeWidth={2} />
+              Add bill
+            </button>
+          </div>
+
+          {showQuickBill && (
+            <div style={{ marginTop: 10, padding: 12, background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 10 }}>
+              {quickBillError && (
+                <div className="error-banner" style={{ marginBottom: 8 }}>
+                  {quickBillError}
+                </div>
+              )}
+              <input value={quickBillDesc} onChange={e => setQuickBillDesc(e.target.value)} placeholder="What was the bill for?"
+                style={{ width: '100%', padding: '9px 12px', background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 8 }} />
+              <input type="number" value={quickBillAmount} onChange={e => setQuickBillAmount(e.target.value)} placeholder="Total amount"
+                style={{ width: '100%', padding: '9px 12px', background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 8 }} />
+              {quickBillAmount && !isNaN(parseFloat(quickBillAmount)) && members.length > 0 && (
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 10 }}>
+                  ${(parseFloat(quickBillAmount) / members.length).toFixed(2)} each, split {members.length} ways
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => { setShowQuickBill(false); setQuickBillError('') }}
+                  style={{ padding: '8px 14px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Cancel
+                </button>
+                <button onClick={postQuickBill} disabled={!quickBillDesc.trim() || !quickBillAmount || quickBillPosting}
+                  style={{ flex: 1, padding: '8px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: !quickBillDesc.trim() || !quickBillAmount || quickBillPosting ? 0.5 : 1 }}>
+                  {quickBillPosting ? 'Posting...' : 'Post bill'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
