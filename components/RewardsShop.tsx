@@ -19,15 +19,20 @@ export default function RewardsShop({ userId, userName, onClose, onRedeemed }: {
   useEffect(() => { load() }, [])
 
   async function load() {
-    const [{ data: rewardsData }, { data: profileData }, { data: txData }] = await Promise.all([
-      supabase.from('rewards').select('*').eq('active', true).order('point_cost', { ascending: true }),
-      supabase.from('profiles').select('equipped_ring_color, equipped_title').eq('id', userId).single(),
-      supabase.from('point_transactions').select('amount').eq('user_id', userId),
-    ])
-    setRewards(rewardsData || [])
-    setProfile(profileData || null)
-    setBalance((txData || []).reduce((s: number, t: any) => s + t.amount, 0))
-    setLoading(false)
+    try {
+      const [{ data: rewardsData }, { data: profileData }, { data: txData }] = await Promise.all([
+        supabase.from('rewards').select('*').eq('active', true).order('point_cost', { ascending: true }),
+        supabase.from('profiles').select('equipped_ring_color, equipped_title').eq('id', userId).maybeSingle(),
+        supabase.from('point_transactions').select('amount').eq('user_id', userId),
+      ])
+      setRewards(rewardsData || [])
+      setProfile(profileData || null)
+      setBalance((txData || []).reduce((s: number, t: any) => s + t.amount, 0))
+    } catch (err) {
+      console.error('RewardsShop load error:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function redeem(reward: any) {
