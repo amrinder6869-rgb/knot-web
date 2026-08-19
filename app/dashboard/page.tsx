@@ -634,7 +634,7 @@ await loadKnotMembers(startKnot.id, data.user.id)
           </div>
 
           {/* TWO COLUMN CONTENT */}
-          <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px', paddingBottom: 80, display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, alignItems: 'start' }} className="desktop-layout">
+          <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px', paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 0px))', display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, alignItems: 'start' }} className="desktop-layout">
             <div>
               {active === 'discover'  && <Discover  members={knotMembers} currentUser={profile} />}
               {active === 'feed'      && <Feed      members={knotMembers} knotName={activeKnot.name} knotId={activeKnot?.id} currentUser={profile} onOpenBills={() => setActive('split')} />}
@@ -793,7 +793,7 @@ await loadKnotMembers(startKnot.id, data.user.id)
       {/* BOTTOM NAV + MORE DRAWER — only inside a Knot on mobile */}
       {activeKnot && !showHome && (
         <>
-          <nav className="bottom-nav" style={{ display: 'none', position: 'fixed', bottom: 0, left: 0, right: 0, height: 64, background: 'var(--glass-bg)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderTop: '1px solid var(--border)', zIndex: 100, alignItems: 'center', justifyContent: 'space-around', padding: '6px 8px', paddingBottom: 'env(safe-area-inset-bottom, 6px)' }}>
+          <nav className="bottom-nav" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: 64, background: 'var(--glass-bg)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderTop: '1px solid var(--border)', zIndex: 100, alignItems: 'center', justifyContent: 'space-around', padding: '6px 8px', paddingBottom: 'env(safe-area-inset-bottom, 6px)' }}>
             {BOTTOM_NAV.map(n => {
               const isActive = n.id === 'more' ? showMore : active === n.id
               const Icon = n.Icon
