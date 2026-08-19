@@ -33,12 +33,21 @@ export default function Memories({ members: _members, knotId }: { members: any[]
   const [captionDraft, setCaptionDraft]     = useState('')
   const [captionError, setCaptionError]     = useState('')
   const [deleteError, setDeleteError]       = useState('')
+  const [highlightedPhotoIds, setHighlightedPhotoIds] = useState<Set<string>>(new Set())
+  const [highlightWorkingId, setHighlightWorkingId]   = useState<string | null>(null)
+  const [highlightError, setHighlightError]           = useState('')
   const fileInputRef                        = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => { if (data.user) setUser(data.user) })
     if (knotId) loadMemories()
   }, [knotId])
+
+  useEffect(() => {
+    if (!user) { setHighlightedPhotoIds(new Set()); return }
+    supabase.from('profile_highlights').select('photo_id').eq('profile_id', user.id)
+      .then(({ data }) => setHighlightedPhotoIds(new Set((data || []).map((h: any) => h.photo_id))))
+  }, [user])
 
   useEffect(() => {
     if (viewPhoto) {
@@ -331,6 +340,23 @@ export default function Memories({ members: _members, knotId }: { members: any[]
     await loadMemories()
   }
 
+  async function toggleHighlight(photo: any) {
+    if (!user || photo.from_comment || highlightWorkingId) return
+    setHighlightError('')
+    setHighlightWorkingId(photo.id)
+    const isHighlighted = highlightedPhotoIds.has(photo.id)
+    if (isHighlighted) {
+      const { error } = await supabase.from('profile_highlights').delete().eq('profile_id', user.id).eq('photo_id', photo.id)
+      if (error) { setHighlightError('Could not remove highlight.'); setHighlightWorkingId(null); return }
+      setHighlightedPhotoIds(prev => { const next = new Set(prev); next.delete(photo.id); return next })
+    } else {
+      const { error } = await supabase.from('profile_highlights').insert({ profile_id: user.id, photo_id: photo.id })
+      if (error) { setHighlightError('Could not add highlight.'); setHighlightWorkingId(null); return }
+      setHighlightedPhotoIds(prev => new Set(prev).add(photo.id))
+    }
+    setHighlightWorkingId(null)
+  }
+
   const ungrouped = photos.filter(p => !p.hangout_id)
   const byHangout = hangouts.map(h => ({
     ...h, photos: photos.filter(p => p.hangout_id === h.id)
@@ -354,6 +380,12 @@ export default function Memories({ members: _members, knotId }: { members: any[]
       {loadError && (
         <div className="error-banner" style={{ marginBottom: 16 }}>
           {loadError}
+        </div>
+      )}
+
+      {highlightError && (
+        <div className="error-banner" style={{ marginBottom: 16 }}>
+          {highlightError}
         </div>
       )}
 
@@ -624,6 +656,12 @@ export default function Memories({ members: _members, knotId }: { members: any[]
                     {p.caption}
                   </div>
                 )}
+                {user && !p.from_comment && (
+                  <button onClick={e => { e.stopPropagation(); toggleHighlight(p) }} disabled={highlightWorkingId === p.id}
+                    style={{ position: 'absolute', top: 4, right: 4, padding: '3px 8px', borderRadius: 6, border: 'none', background: highlightedPhotoIds.has(p.id) ? 'var(--yellow)' : 'rgba(0,0,0,0.55)', color: highlightedPhotoIds.has(p.id) ? '#111' : '#fff', fontSize: 10, fontWeight: 700, cursor: highlightWorkingId === p.id ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: highlightWorkingId === p.id ? 0.6 : 1 }}>
+                    {highlightedPhotoIds.has(p.id) ? 'Remove from highlights' : 'Add to highlights'}
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -648,6 +686,12 @@ export default function Memories({ members: _members, knotId }: { members: any[]
                   <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 8px', background: 'rgba(0,0,0,0.55)', fontSize: 11, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {p.caption}
                   </div>
+                )}
+                {user && !p.from_comment && (
+                  <button onClick={e => { e.stopPropagation(); toggleHighlight(p) }} disabled={highlightWorkingId === p.id}
+                    style={{ position: 'absolute', top: 4, right: 4, padding: '3px 8px', borderRadius: 6, border: 'none', background: highlightedPhotoIds.has(p.id) ? 'var(--yellow)' : 'rgba(0,0,0,0.55)', color: highlightedPhotoIds.has(p.id) ? '#111' : '#fff', fontSize: 10, fontWeight: 700, cursor: highlightWorkingId === p.id ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: highlightWorkingId === p.id ? 0.6 : 1 }}>
+                    {highlightedPhotoIds.has(p.id) ? 'Remove from highlights' : 'Add to highlights'}
+                  </button>
                 )}
               </div>
             ))}

@@ -3,23 +3,53 @@
 import { use, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Lock, MapPin, Users, CalendarCheck } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { supabase, getSignedUrl } from '@/lib/supabase'
 
-type PublicProfile = {
-  id: string | null
-  username: string
-  name: string | null
-  bio: string | null
-  resident_city: string | null
-  avatar_url: string | null
-  privacy_tier: 'private' | 'members_only' | 'public'
-  hangouts_attended: number | null
-  hangouts_organised: number | null
-  is_owner: boolean
-  locked: boolean
+type PrivacyTier = 'private' | 'members_only' | 'public'
+
+type Highlight = {
+  id: string
+  photo_id: string
+  storage_path: string | null
+  caption: string | null
+  media_type: string | null
+  sort_order: number
 }
 
-const TIER_BADGE: Record<PublicProfile['privacy_tier'], { label: string; color: string; bg: string; border: string }> = {
+type PlaceVisit = {
+  place_id: string
+  name: string | null
+  lat: number | null
+  lng: number | null
+  count: number
+}
+
+// Shape of the jsonb object returned by the get_public_profile RPC. Field
+// availability differs between the locked and unlocked branches server-side
+// (e.g. locked responses carry `tier`, not `privacy_tier`), so most fields
+// beyond `found`/`locked`/`username`/`name` are optional here.
+type PublicProfile = {
+  found: boolean
+  locked: boolean
+  tier?: PrivacyTier
+  username: string
+  name: string | null
+  bio?: string | null
+  resident_city?: string | null
+  avatar_url?: string | null
+  privacy_tier?: PrivacyTier
+  id?: string | null
+  is_owner?: boolean
+  attended?: number
+  organised?: number
+  followers?: number
+  connections?: number
+  follow_status?: 'pending' | 'accepted' | 'declined' | null
+  highlights?: Highlight[]
+  places?: PlaceVisit[]
+}
+
+const TIER_BADGE: Record<PrivacyTier, { label: string; color: string; bg: string; border: string }> = {
   public:       { label: 'Public',       color: 'var(--sage)',   bg: 'var(--sage-soft)',   border: 'var(--sage-dim)' },
   members_only: { label: 'Members Only', color: 'var(--amber)',  bg: 'var(--amber-soft)',  border: 'var(--border2)' },
   private:      { label: 'Private',      color: 'var(--text2)',  bg: 'var(--bg3)',         border: 'var(--border2)' },
@@ -60,8 +90,9 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
 
       if (error) { setStatus('error'); return }
 
-      const row = (data as PublicProfile[] | null)?.[0]
-      if (!row) { setStatus('notfound'); return }
+      // The RPC returns a single jsonb object, not a row set.
+      const row = data as PublicProfile | null
+      if (!row || !row.found) { setStatus('notfound'); return }
 
       setProfile(row)
       setStatus('ready')
@@ -70,6 +101,10 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
     load()
     return () => { cancelled = true }
   }, [username])
+
+  function updateProfile(patch: Partial<PublicProfile>) {
+    setProfile(p => p ? { ...p, ...patch } : p)
+  }
 
   if (status === 'loading') return <Centered>Loading…</Centered>
 
@@ -87,7 +122,9 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
     </Centered>
   )
 
-  const badge = TIER_BADGE[profile.privacy_tier] ?? TIER_BADGE.private
+  const tier = profile.privacy_tier ?? profile.tier ?? 'private'
+  const badge = TIER_BADGE[tier] ?? TIER_BADGE.private
+  const isOwner = !!profile.is_owner
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', fontFamily: 'Manrope, sans-serif', display: 'flex', justifyContent: 'center', padding: '48px 16px' }}>
@@ -111,14 +148,14 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
 
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 999, background: badge.bg, border: `1px solid ${badge.border}`, fontSize: 11, fontWeight: 600, color: badge.color }}>
-                {profile.privacy_tier !== 'public' && <Lock size={11} />}
+                {tier !== 'public' && <Lock size={11} />}
                 {badge.label}
               </span>
             </div>
           </div>
 
           {profile.locked ? (
-            <LockedState tier={profile.privacy_tier} signedIn={signedIn} />
+            <LockedState tier={tier} signedIn={signedIn} />
           ) : (
             <>
               {profile.resident_city && (
@@ -135,14 +172,27 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
               )}
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 24 }}>
-                <Stat Icon={CalendarCheck} value={profile.hangouts_attended ?? 0} label="Hangouts attended" />
-                <Stat Icon={Users}         value={profile.hangouts_organised ?? 0} label="Hangouts organised" />
+                <Stat Icon={CalendarCheck} value={profile.attended ?? 0} label="Hangouts attended" />
+                <Stat Icon={Users}         value={profile.organised ?? 0} label="Hangouts organised" />
               </div>
+
+              <div style={{ textAlign: 'center', marginTop: 10, fontSize: 12, color: 'var(--text3)' }}>
+                {profile.followers ?? 0} followers · {profile.connections ?? 0} connections
+              </div>
+
+              {!isOwner && tier === 'public' && (
+                <div style={{ display: 'flex', justifyContent: 'center', marginTop: 14 }}>
+                  <FollowButton profile={profile} onChange={updateProfile} />
+                </div>
+              )}
+
+              <HighlightsRow highlights={profile.highlights ?? []} isOwner={isOwner} />
+              <PlacesGrid places={profile.places ?? []} isOwner={isOwner} />
             </>
           )}
         </div>
 
-        {profile.is_owner && (
+        {isOwner && (
           <div style={{ textAlign: 'center', marginTop: 14, fontSize: 12, color: 'var(--text3)' }}>
             This is your profile. Change what others see in{' '}
             <Link href="/dashboard" style={{ color: 'var(--text2)', fontWeight: 600 }}>Profile settings</Link>.
@@ -153,7 +203,162 @@ export default function PublicProfilePage({ params }: { params: Promise<{ userna
   )
 }
 
-function LockedState({ tier, signedIn }: { tier: PublicProfile['privacy_tier']; signedIn: boolean }) {
+function FollowButton({ profile, onChange }: { profile: PublicProfile; onChange: (patch: Partial<PublicProfile>) => void }) {
+  const [working, setWorking] = useState(false)
+  const [error, setError] = useState('')
+
+  async function authHeader(): Promise<Record<string, string> | null> {
+    const { data } = await supabase.auth.getSession()
+    const token = data.session?.access_token
+    if (!token) return null
+    return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+  }
+
+  async function follow() {
+    if (!profile.id || working) return
+    setWorking(true)
+    setError('')
+    const headers = await authHeader()
+    if (!headers) { setError('Sign in to follow.'); setWorking(false); return }
+    const res = await fetch('/api/connections', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ addressee_id: profile.id, type: 'follow' }),
+    })
+    if (!res.ok) { setError('Could not follow. Try again.'); setWorking(false); return }
+    const row = await res.json()
+    onChange({ follow_status: row?.status ?? 'pending' })
+    setWorking(false)
+  }
+
+  async function unfollow() {
+    if (!profile.id || working) return
+    setWorking(true)
+    setError('')
+    const headers = await authHeader()
+    if (!headers) { setError('Sign in to manage follows.'); setWorking(false); return }
+    const res = await fetch('/api/connections', {
+      method: 'DELETE',
+      headers,
+      body: JSON.stringify({ addressee_id: profile.id, type: 'follow' }),
+    })
+    if (!res.ok) { setError('Could not unfollow. Try again.'); setWorking(false); return }
+    onChange({ follow_status: null })
+    setWorking(false)
+  }
+
+  const followStatus = profile.follow_status ?? null
+
+  return (
+    <div style={{ textAlign: 'center' }}>
+      {followStatus === 'accepted' ? (
+        <button onClick={unfollow} disabled={working}
+          style={{ padding: '8px 20px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, fontWeight: 600, cursor: working ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: working ? 0.7 : 1 }}>
+          {working ? 'Working…' : 'Following'}
+        </button>
+      ) : followStatus === 'pending' ? (
+        <button disabled
+          style={{ padding: '8px 20px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 13, fontWeight: 600, cursor: 'not-allowed', fontFamily: 'inherit' }}>
+          Requested
+        </button>
+      ) : (
+        <button onClick={follow} disabled={working}
+          style={{ padding: '8px 20px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: working ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: working ? 0.7 : 1 }}>
+          {working ? 'Working…' : 'Follow'}
+        </button>
+      )}
+      {error && <div style={{ marginTop: 8, fontSize: 12, color: 'var(--danger)' }}>{error}</div>}
+    </div>
+  )
+}
+
+function HighlightsRow({ highlights, isOwner }: { highlights: Highlight[]; isOwner: boolean }) {
+  const [urls, setUrls] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    let cancelled = false
+    if (highlights.length === 0) { setUrls({}); return }
+    Promise.all(highlights.slice(0, 6).map(async h => [h.id, await getSignedUrl(h.storage_path)] as const))
+      .then(entries => {
+        if (cancelled) return
+        const next: Record<string, string> = {}
+        for (const [id, url] of entries) if (url) next[id] = url
+        setUrls(next)
+      })
+    return () => { cancelled = true }
+  }, [highlights])
+
+  if (highlights.length === 0) {
+    if (!isOwner) return null
+    return (
+      <div style={{ marginTop: 24 }}>
+        <SectionLabel>Highlights</SectionLabel>
+        <div style={{ padding: 16, textAlign: 'center', fontSize: 12, color: 'var(--text3)', background: 'var(--bg3)', border: '1px dashed var(--border2)', borderRadius: 12 }}>
+          Pin your favourite memories here
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ marginTop: 24 }}>
+      <SectionLabel>Highlights</SectionLabel>
+      <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }}>
+        {highlights.slice(0, 6).map(h => (
+          <div key={h.id} title={h.caption || undefined}
+            style={{ flex: '0 0 auto', width: 84, height: 84, borderRadius: 12, overflow: 'hidden', background: 'var(--bg3)', border: '1px solid var(--border)' }}>
+            {urls[h.id] && (
+              h.media_type === 'video'
+                ? <video src={urls[h.id]} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                : <img src={urls[h.id]} alt={h.caption || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PlacesGrid({ places, isOwner }: { places: PlaceVisit[]; isOwner: boolean }) {
+  if (places.length === 0) {
+    if (!isOwner) return null
+    return (
+      <div style={{ marginTop: 24 }}>
+        <SectionLabel>Places</SectionLabel>
+        <div style={{ padding: 16, textAlign: 'center', fontSize: 12, color: 'var(--text3)', background: 'var(--bg3)', border: '1px dashed var(--border2)', borderRadius: 12 }}>
+          Places you hang out will show up here
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ marginTop: 24 }}>
+      <SectionLabel>Places</SectionLabel>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        {places.slice(0, 12).map(p => (
+          <div key={p.place_id} style={{ padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <MapPin size={12} color="var(--text3)" style={{ flexShrink: 0 }} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name || 'Unknown venue'}</div>
+              <div style={{ fontSize: 11, color: 'var(--text3)' }}>{p.count} visit{p.count !== 1 ? 's' : ''}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 10 }}>
+      {children}
+    </div>
+  )
+}
+
+function LockedState({ tier, signedIn }: { tier: PrivacyTier; signedIn: boolean }) {
   const membersOnlyNeedsSignIn = tier === 'members_only' && !signedIn
 
   return (
