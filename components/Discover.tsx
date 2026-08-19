@@ -9,9 +9,12 @@ const CATEGORIES = [
   { id: '10000', label: 'Arts & Culture', emoji: String.fromCodePoint(0x1F3AD) },
   { id: '18000', label: 'Outdoors', emoji: String.fromCodePoint(0x1F33F) },
   { id: '13059', label: 'Cafes', emoji: String.fromCodePoint(0x2615) },
-  { id: '10032', label: 'Activities', emoji: String.fromCodePoint(0x1F3B3) },
+  { id: '10032', label: 'Entertainment', emoji: String.fromCodePoint(0x1F3AC) },
   { id: '13049', label: 'Fast & Casual', emoji: String.fromCodePoint(0x1F32E) },
   { id: '13029', label: 'Asian', emoji: String.fromCodePoint(0x1F35C) },
+  { id: '10024', label: 'Movies', emoji: String.fromCodePoint(0x1F3A5) },
+  { id: '18008', label: 'Sports', emoji: String.fromCodePoint(0x1F3C6) },
+  { id: '10041', label: 'Nightlife', emoji: String.fromCodePoint(0x1F578) },
 ]
 
 const BUDGETS = [
@@ -43,6 +46,7 @@ export default function Discover({ members: _members, onVenueSelect, currentUser
   const [groupSize, setGroupSize] = useState<number>(4)
   const [openNow, setOpenNow]       = useState<boolean>(false)
   const [wheelchairOnly, setWheelchairOnly] = useState<boolean>(false)
+  const [searchedGroupSize, setSearchedGroupSize] = useState<number|null>(null)
   const [merchants, setMerchants] = useState<Record<string, any>>({})
   const [specials, setSpecials] = useState<Record<string, any>>({})
   const [venues, setVenues]     = useState<any[]>([])
@@ -162,6 +166,7 @@ export default function Discover({ members: _members, onVenueSelect, currentUser
     if (budget) params.set('price', String(budget))
     if (groupSize) params.set('min_group', String(groupSize))
     if (openNow) params.set('open_now', '1')
+    setSearchedGroupSize(groupSize || null)
     try {
       const res  = await fetch(`/api/venues?${params}`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
@@ -245,6 +250,11 @@ export default function Discover({ members: _members, onVenueSelect, currentUser
   const displayedVenues = wheelchairOnly
     ? venues.filter(v => v.wheelchair_accessible !== false)
     : venues
+
+  // Top 3 by rating_count from the same results — no extra API call.
+  const trendingVenues = [...displayedVenues]
+    .sort((a, b) => (b.rating_count || 0) - (a.rating_count || 0))
+    .slice(0, 3)
 
   if (locked && selected) return (
     <div style={{ maxWidth: 600 }}>
@@ -450,6 +460,32 @@ export default function Discover({ members: _members, onVenueSelect, currentUser
       {/* Results */}
       {!loading && searched && venues.length > 0 && (
         <div>
+          {trendingVenues.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>Most visited nearby</div>
+              <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }}>
+                {trendingVenues.map(v => (
+                  <div key={v.fsq_id} onClick={() => setSelected(selected?.fsq_id === v.fsq_id ? null : v)}
+                    style={{ flex: '0 0 auto', width: 140, background: 'var(--bg2)', border: `1.5px solid ${selected?.fsq_id === v.fsq_id ? 'var(--yellow)' : 'var(--border)'}`, borderRadius: 12, overflow: 'hidden', cursor: 'pointer' }}>
+                    <div style={{ width: '100%', height: 80, background: 'var(--bg3)' }}>
+                      {v.photo_url ? (
+                        <img src={v.photo_url} alt={v.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      ) : (
+                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>
+                          {catObj?.emoji || String.fromCodePoint(0x1F4CD)}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ padding: '8px 10px' }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.name}</div>
+                      {v.rating_count && <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{v.rating_count.toLocaleString()} reviews</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {(currentUser?.dietary_restrictions?.length > 0) && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
               <span style={{ fontSize: 11, color: 'var(--text3)' }}>Your restrictions:</span>
@@ -469,7 +505,7 @@ export default function Discover({ members: _members, onVenueSelect, currentUser
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {displayedVenues.map((v, idx) => (
+            {displayedVenues.map((v) => (
               <div key={v.fsq_id}
                 style={{ background: 'var(--bg2)', border: `1.5px solid ${selected?.fsq_id === v.fsq_id ? 'var(--yellow)' : 'var(--border)'}`, borderRadius: 16, overflow: 'hidden', cursor: 'pointer', transition: 'all 0.15s', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
                 onClick={() => setSelected(selected?.fsq_id === v.fsq_id ? null : v)}
@@ -486,8 +522,8 @@ export default function Discover({ members: _members, onVenueSelect, currentUser
                         {catObj?.emoji || String.fromCodePoint(0x1F4CD)}
                       </div>
                     )}
-                    {idx === 0 && (
-                      <div style={{ position: 'absolute', top: 8, left: 8, padding: '2px 8px', background: 'var(--yellow)', borderRadius: 6, fontSize: 10, fontWeight: 700, color: '#111' }}>
+                    {(v.rating || 0) >= 4.5 && (v.rating_count || 0) >= 100 && (
+                      <div style={{ position: 'absolute', top: 8, right: 8, padding: '2px 8px', background: 'var(--yellow)', borderRadius: 6, fontSize: 10, fontWeight: 700, color: '#111' }}>
                         Top Pick
                       </div>
                     )}
@@ -504,6 +540,11 @@ export default function Discover({ members: _members, onVenueSelect, currentUser
                           </span>
                         )}
                       </div>
+                      {specials[v.fsq_id] && (
+                        <div style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20, background: 'var(--yellow-soft)', color: 'var(--yellow)', fontSize: 10, fontWeight: 700, marginBottom: 6 }}>
+                          Special offer
+                        </div>
+                      )}
                       <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8 }}>{v.location?.formatted_address}</div>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
                         {v.rating && <StarRating rating={v.rating} />}
@@ -513,6 +554,7 @@ export default function Discover({ members: _members, onVenueSelect, currentUser
                         {v.price && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--sage-soft)', color: 'var(--sage)', fontWeight: 600 }}>{PRICE_MAP[v.price]}</span>}
                         {v.closed_bucket === 'VeryLikelyOpen' && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--sage-soft)', color: 'var(--sage)' }}>Open now</span>}
                         {v.categories?.[0] && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--bg3)', color: 'var(--text3)', textTransform: 'capitalize' }}>{v.categories[0].name}</span>}
+                        {searchedGroupSize && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--bg3)', color: 'var(--text3)' }}>Good for groups of {searchedGroupSize}+</span>}
                       </div>
 
                       {specials[v.fsq_id] && (

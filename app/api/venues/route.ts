@@ -29,6 +29,9 @@ const CATEGORY_TO_TYPES: Record<string, string[]> = {
   '10032': ['bowling_alley', 'amusement_park', 'gym', 'movie_theater', 'stadium', 'casino'],
   '13049': ['meal_takeaway', 'meal_delivery'],
   '13029': ['restaurant'],
+  '10024': ['movie_theater'],
+  '18008': ['stadium', 'sports_complex'],
+  '10041': ['night_club', 'bar'],
 }
 
 const ALLOWED_CATEGORIES = new Set(Object.keys(CATEGORY_TO_TYPES))
@@ -168,6 +171,10 @@ export async function GET(request: Request) {
         google_maps_url: `https://www.google.com/maps/place/?q=place_id:${p.place_id}`,
         lat: p.geometry?.location?.lat || null,
         lng: p.geometry?.location?.lng || null,
+        // Static for now — will be enriched with affiliate params once
+        // Rakuten registration is complete. Used by Sprint 17a's movie
+        // hangout chip.
+        ...(p.types?.includes('movie_theater') ? { cineplex_url: 'https://www.cineplex.com/Theatres' } : {}),
       }))
 
     return NextResponse.json({ results })
