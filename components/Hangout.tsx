@@ -43,7 +43,7 @@ export default function Hangout({ members, knotId, currentUser }: { members: any
       .from('posts')
       .select('*, profiles:author_id(name)')
       .eq('knot_id', knotId)
-      .eq('post_type', 'hangout')
+      .in('post_type', ['hangout', 'poll'])
       .order('created_at', { ascending: false })
 
     if (!postData || postData.length === 0) { setPosts([]); setBundle(null); setLoading(false); return }
@@ -84,7 +84,8 @@ export default function Hangout({ members, knotId, currentUser }: { members: any
     const comments = bundle.commentsByPost.get(post.id) || []
     const bills = bundle.billsByHangout.get(post.hangout_id) || []
     const invites = bundle.invitesByHangout.get(post.hangout_id) || []
-    return { hangout, options, rsvps, comments, bills, invites }
+    const poll = bundle.pollByHangout.get(post.hangout_id) || null
+    return { hangout, options, rsvps, comments, bills, invites, poll }
   }
 
   if (loading) return <div style={{ color: 'var(--text2)', fontSize: 13, padding: '20px 0' }}>Loading...</div>

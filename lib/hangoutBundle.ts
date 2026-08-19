@@ -8,6 +8,7 @@ export type HangoutBundle = {
   commentsByPost: Map<string, any[]>
   billsByHangout: Map<string, any[]>
   invitesByHangout: Map<string, any[]>
+  pollByHangout: Map<string, any>
 }
 
 export async function loadHangoutBundle(hangoutIds: string[], postIds: string[], currentUserId?: string | null): Promise<HangoutBundle> {
@@ -20,6 +21,7 @@ export async function loadHangoutBundle(hangoutIds: string[], postIds: string[],
       commentsByPost: new Map(),
       billsByHangout: new Map(),
       invitesByHangout: new Map(),
+      pollByHangout: new Map(),
     }
   }
 
@@ -31,6 +33,7 @@ export async function loadHangoutBundle(hangoutIds: string[], postIds: string[],
     { data: commentsData },
     { data: billsData },
     { data: invitesData },
+    { data: pollsData },
   ] = await Promise.all([
     supabase.from('hangouts').select('*, profiles:created_by(name)').in('id', hangoutIds),
     supabase.from('hangout_options').select('*').in('hangout_id', hangoutIds),
@@ -41,6 +44,7 @@ export async function loadHangoutBundle(hangoutIds: string[], postIds: string[],
       : Promise.resolve({ data: [] as any[] }),
     supabase.from('bills').select('*, bill_splits(*, profiles:user_id(name))').in('hangout_id', hangoutIds),
     supabase.from('hangout_invites').select('*').in('hangout_id', hangoutIds),
+    supabase.from('availability_polls').select('*').in('hangout_id', hangoutIds).eq('status', 'open'),
   ])
 
   const hangoutsById = new Map<string, any>((hangoutsData || []).map((h: any) => [h.id, h]))
@@ -95,6 +99,11 @@ export async function loadHangoutBundle(hangoutIds: string[], postIds: string[],
     invitesByHangout.set(inv.hangout_id, list)
   }
 
+  const pollByHangout = new Map<string, any>()
+  for (const p of pollsData || []) {
+    if (p.hangout_id) pollByHangout.set(p.hangout_id, p)
+  }
+
   // Surprise mode: drop hangouts the current viewer is on the hidden surprise
   // list for, until their own invite's reveal_at has passed.
   if (currentUserId) {
@@ -109,5 +118,5 @@ export async function loadHangoutBundle(hangoutIds: string[], postIds: string[],
     }
   }
 
-  return { hangoutsById, optionsByHangout, votesByHangout, rsvpsByHangout, commentsByPost, billsByHangout, invitesByHangout }
+  return { hangoutsById, optionsByHangout, votesByHangout, rsvpsByHangout, commentsByPost, billsByHangout, invitesByHangout, pollByHangout }
 }

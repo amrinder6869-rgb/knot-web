@@ -10,6 +10,7 @@ import { PostHangoutLoop } from '@/components/PostHangoutLoop'
 import { PreOrderCard } from '@/components/PreOrderCard'
 import { DailyCall } from '@/components/DailyCall'
 import HangoutThread from '@/components/HangoutThread'
+import AvailabilityPoll from '@/components/AvailabilityPoll'
 import { Skeleton } from '@/components/Skeleton'
 import { useToast } from '@/components/ToastProvider'
 import ReactionBar from '@/components/ReactionBar'
@@ -93,6 +94,7 @@ type HangoutCardData = {
   comments: any[]
   bills: any[]
   invites: any[]
+  poll: any | null
 }
 
 type HangoutCardProps = {
@@ -113,6 +115,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
   const [comments, setComments] = useState<any[]>(data.comments ?? [])
   const [bills, setBills]       = useState<any[]>(data.bills ?? [])
   const [invites, setInvites]   = useState<any[]>(data.invites ?? [])
+  const [poll, setPoll]         = useState<any | null>(data.poll ?? null)
   const [commentReactions, setCommentReactions] = useState<Record<string, ReactionCount[]>>({})
   const [commentReactionsEnabled, setCommentReactionsEnabled] = useState(commentReactionsSupported())
 
@@ -172,6 +175,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
     setComments(data.comments ?? [])
     setBills(data.bills ?? [])
     setInvites(data.invites ?? [])
+    setPoll(data.poll ?? null)
     if ((data.comments || []).length > 0) setShowComments(true)
   }, [data])
 
@@ -655,6 +659,26 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
     onRefresh()
   }
 
+  async function handlePollDateSelected(date: string, time: string | null) {
+    if (!poll) return
+    setActionError('')
+    const scheduledIso = new Date(time ? `${date}T${time}` : `${date}T00:00:00`).toISOString()
+    const { error: hangoutUpdateError } = await supabase
+      .from('hangouts')
+      .update({ scheduled_for: scheduledIso, status: 'confirmed' })
+      .eq('id', hangout.id)
+    if (hangoutUpdateError) { setActionError('Could not confirm the date. Try again.'); return }
+    const { error: pollUpdateError } = await supabase
+      .from('availability_polls')
+      .update({ status: 'closed', closed_at: new Date().toISOString() })
+      .eq('id', poll.id)
+    if (pollUpdateError) setActionError('Date confirmed, but the poll failed to close.')
+    setHangout((prev: any) => ({ ...prev, scheduled_for: scheduledIso, status: 'confirmed' }))
+    setPoll(null)
+    toast.success('Date confirmed!')
+    onRefresh()
+  }
+
   if (!hangout) return null
 
   // Surprise mode: hide this card entirely from anyone on the hidden invite
@@ -797,6 +821,16 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
             </button>
           </div>
         </div>
+      )}
+
+      {!isCancelled && poll && (
+        <AvailabilityPoll
+          pollId={poll.id}
+          knotId={knotId}
+          currentUser={currentUser}
+          members={members}
+          onDateSelected={handlePollDateSelected}
+        />
       )}
 
       {!isCancelled && isVoting && options.length > 0 && (

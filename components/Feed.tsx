@@ -188,14 +188,17 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
     })
     setPosts(mapped)
 
-    // Batch-load all hangout data in one round trip instead of per-card
-    const hangoutIds = mapped.filter(p => p.type === 'hangout' && p.hangout_id).map(p => p.hangout_id!) as string[]
-    const hangoutPostIds = mapped.filter(p => p.type === 'hangout').map(p => p.id)
+    // Batch-load all hangout data in one round trip instead of per-card.
+    // 'poll' posts route to HangoutCard the same as 'hangout' posts — a
+    // poll-mode hangout starts with no confirmed date, so it's announced via
+    // a poll post instead of the usual hangout-planned post.
+    const hangoutIds = mapped.filter(p => (p.type === 'hangout' || p.type === 'poll') && p.hangout_id).map(p => p.hangout_id!) as string[]
+    const hangoutPostIds = mapped.filter(p => p.type === 'hangout' || p.type === 'poll').map(p => p.id)
     const b = await loadHangoutBundle(hangoutIds, hangoutPostIds, currentUser?.id)
     setBundle(b)
 
-    // Batch-load comments for moment and bill posts (hangout posts already covered above)
-    const otherPostIds = mapped.filter(p => p.type !== 'hangout').map(p => p.id)
+    // Batch-load comments for moment and bill posts (hangout/poll posts already covered above)
+    const otherPostIds = mapped.filter(p => p.type !== 'hangout' && p.type !== 'poll').map(p => p.id)
 
     // Batch-load photos attached directly to moment posts
     if (otherPostIds.length > 0) {
@@ -275,7 +278,8 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
     const comments = bundle.commentsByPost.get(post.id) || []
     const bills = bundle.billsByHangout.get(post.hangout_id) || []
     const invites = bundle.invitesByHangout.get(post.hangout_id) || []
-    return { hangout, options, rsvps, comments, bills, invites }
+    const poll = bundle.pollByHangout.get(post.hangout_id) || null
+    return { hangout, options, rsvps, comments, bills, invites, poll }
   }
 
   async function toggleReaction(postId: string, emoji: string) {
@@ -507,7 +511,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
 
       {!loading && posts.map(p => {
 
-        if (p.type === 'hangout' && p.hangout_id) {
+        if ((p.type === 'hangout' || p.type === 'poll') && p.hangout_id) {
           const cardData = buildCardData(p)
           if (!cardData || !cardData.hangout) return null
           return (

@@ -84,6 +84,10 @@ export default function Composer({
   const [groupSuggestions, setGroupSuggestions] = useState<any>(null)
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
 
+  const [dateMode, setDateMode]           = useState<'set' | 'poll'>('set')
+  const [pollDates, setPollDates]         = useState<string[]>([])
+  const [pollDateInput, setPollDateInput] = useState('')
+
   const [inviteMode, setInviteMode]       = useState<'all' | 'selected'>('all')
   const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set())
   const [surpriseMode, setSurpriseMode]   = useState(false)
@@ -121,6 +125,19 @@ export default function Composer({
     setSelectedMemberIds(new Set())
     setSurpriseMode(false)
     setRevealAt(null)
+    setDateMode('set')
+    setPollDates([])
+    setPollDateInput('')
+  }
+
+  function addPollDate() {
+    if (!pollDateInput || pollDates.length >= 5 || pollDates.includes(pollDateInput)) return
+    setPollDates(prev => [...prev, pollDateInput].sort())
+    setPollDateInput('')
+  }
+
+  function removePollDate(d: string) {
+    setPollDates(prev => prev.filter(x => x !== d))
   }
 
   function toggleSelectedMember(id: string) {
@@ -333,6 +350,13 @@ export default function Composer({
 
   async function postHangout() {
     if (!currentUser || creating) return
+
+    const isPollMode = whenType === 'pick' && dateMode === 'poll'
+    if (isPollMode && pollDates.length < 2) {
+      setHangoutError('Add at least 2 dates to poll the group.')
+      return
+    }
+
     setCreating(true)
     setHangoutError('')
 
@@ -350,8 +374,10 @@ export default function Composer({
       startTime   = new Date().toISOString()
       hangoutType = 'spontaneous'
     } else if (whenType === 'pick') {
-      if (!scheduledFor) { setHangoutError('Please pick a date and time.'); setCreating(false); return }
-      startTime = scheduledFor.toISOString()
+      if (!isPollMode) {
+        if (!scheduledFor) { setHangoutError('Please pick a date and time.'); setCreating(false); return }
+        startTime = scheduledFor.toISOString()
+      }
     } else if (whenType === 'weekly') {
       startTime        = getNextWeekday(recurrenceDay, recurrenceTime)
       hangoutType      = 'recurring'
@@ -381,7 +407,7 @@ export default function Composer({
       brief:             briefNote.trim() || null,
       brief_vibe:        briefVibe || null,
       brief_budget:      briefBudget || null,
-      status:            whenType === 'now' ? 'live' : 'confirmed',
+      status:            isPollMode ? 'voting' : (whenType === 'now' ? 'live' : 'confirmed'),
       is_live:           whenType === 'now',
       recurrence,
       recurrence_day:    recurrenceDay_,
@@ -428,6 +454,24 @@ export default function Composer({
       }
     }
 
+    if (isPollMode) {
+      const { data: poll, error: pollError } = await supabase.from('availability_polls').insert({
+        hangout_id: h.id,
+        knot_id:    knotId,
+        created_by: authUser.id,
+        title,
+        status:     'open',
+      }).select().single()
+
+      if (pollError || !poll) {
+        setHangoutError('Hangout created, but the poll failed to save.')
+      } else {
+        const optionRows = pollDates.map((d, i) => ({ poll_id: poll.id, date_option: d, sort_order: i }))
+        const { error: optionsError } = await supabase.from('availability_poll_options').insert(optionRows)
+        if (optionsError) setHangoutError('Poll created, but the date options failed to save.')
+      }
+    }
+
     if (whereMode === 'online' && !meetingUrl.trim()) {
       const dailyUrl = await createDailyRoom(h.id)
       if (dailyUrl) {
@@ -437,7 +481,9 @@ export default function Composer({
 
     const actorName = currentUser.name || 'Someone'
     let content = ''
-    if (whenType === 'now') {
+    if (isPollMode) {
+      content = `${actorName} is checking availability for ${title} \u2014 vote on your dates`
+    } else if (whenType === 'now') {
       content = `${actorName} is at ${venueName || title} \u2014 the night is on!`
     } else if (whenType === 'weekly') {
       content = `${actorName} set up a weekly hangout \u2014 ${DAYS[recurrenceDay]}s at ${recurrenceTime}${venueName ? ' at ' + venueName : ''}`
@@ -450,7 +496,7 @@ export default function Composer({
       author_id:  authUser.id,
       hangout_id: h.id,
       content,
-      post_type:  'hangout',
+      post_type:  isPollMode ? 'poll' : 'hangout',
     }).select('id').single()
 
     if (postError || !newPost) {
@@ -700,11 +746,60 @@ export default function Composer({
             </div>
             {whenType === 'pick' && (
               <div style={{ marginTop: 8 }}>
-                <DateTimePicker
-                  value={scheduledFor}
-                  onChange={date => setScheduledFor(date)}
-                  minDate={new Date()}
-                />
+                <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                  {([
+                    { id: 'set' as const, label: 'Set a date' },
+                    { id: 'poll' as const, label: 'Poll the group' },
+                  ]).map(({ id, label }) => (
+                    <button key={id} onClick={() => setDateMode(id)}
+                      style={{
+                        padding: '5px 12px', borderRadius: 20,
+                        border: `1px solid ${dateMode === id ? 'var(--yellow)' : 'var(--border2)'}`,
+                        background: dateMode === id ? 'var(--yellow-soft)' : 'transparent',
+                        color: dateMode === id ? 'var(--yellow)' : 'var(--text3)',
+                        fontSize: 11, fontWeight: dateMode === id ? 700 : 500,
+                        cursor: 'pointer', fontFamily: 'inherit',
+                      }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {dateMode === 'set' ? (
+                  <DateTimePicker
+                    value={scheduledFor}
+                    onChange={date => setScheduledFor(date)}
+                    minDate={new Date()}
+                  />
+                ) : (
+                  <div>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                      <input type="date" value={pollDateInput} onChange={e => setPollDateInput(e.target.value)}
+                        min={new Date().toISOString().split('T')[0]}
+                        style={{ flex: 1, padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                      <button onClick={addPollDate} disabled={!pollDateInput || pollDates.length >= 5}
+                        style={{ padding: '9px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: 'var(--text)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (!pollDateInput || pollDates.length >= 5) ? 0.5 : 1 }}>
+                        Add
+                      </button>
+                    </div>
+                    {pollDates.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 6 }}>
+                        {pollDates.map(d => (
+                          <div key={d} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8 }}>
+                            <span style={{ fontSize: 13, color: 'var(--text)' }}>
+                              {new Date(d + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                            </span>
+                            <button onClick={() => removePollDate(d)}
+                              style={{ background: 'none', border: 'none', color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>{pollDates.length}/5 dates added</div>
+                  </div>
+                )}
               </div>
             )}
             {whenType === 'weekly' && (
