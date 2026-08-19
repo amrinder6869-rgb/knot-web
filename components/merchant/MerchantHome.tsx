@@ -22,6 +22,26 @@ function formatDate(d: string) {
   return new Date(d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
+// Restrictions summary for a booking. merchant_bookings has a hangout_id
+// column that could join to hangout_rsvps.guest_dietary/guest_accessibility,
+// and knot_id could join to knot_members -> profiles.dietary_restrictions/
+// accessibility_needs — but both of those tables' RLS SELECT policies are
+// scoped to is_knot_member(knot_id) (see hangout_rsvps_select), and a
+// merchant's own session is never a member of the knots that book with
+// them. A direct client-side query from here would just come back empty
+// under RLS, which would misleadingly read as "no restrictions" rather than
+// "not visible to you". Surfacing this for real needs a SECURITY DEFINER
+// RPC (mirroring is_knot_member) that checks merchant_bookings.merchant_id
+// belongs to the calling merchant before aggregating counts server-side.
+// Until that RPC exists, this renders a placeholder.
+function RestrictionsSummary() {
+  return (
+    <div style={{ marginTop: 8, padding: '8px 10px', background: '#FAFAFA', border: '1px dashed #E5E5E5', borderRadius: 8, fontSize: 12, color: '#999' }}>
+      Dietary and accessibility notes will appear here when available
+    </div>
+  )
+}
+
 export default function MerchantHome({ merchant, user, onUpdate }: Props) {
   const [bookings, setBookings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -109,6 +129,7 @@ export default function MerchantHome({ merchant, user, onUpdate }: Props) {
                         {b.group_size} people {b.scheduled_for ? '· ' + formatDate(b.scheduled_for) : ''}
                       </div>
                       {b.notes && <div style={{ fontSize: 13, color: '#888', marginTop: 4 }}>{b.notes}</div>}
+                      <RestrictionsSummary />
                     </div>
                     <div style={{ fontSize: 11, color: '#aaa' }}>{timeAgo(b.created_at)}</div>
                   </div>
@@ -138,6 +159,7 @@ export default function MerchantHome({ merchant, user, onUpdate }: Props) {
                   <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>
                     {b.group_size} people {b.scheduled_for ? '· ' + formatDate(b.scheduled_for) : ''}
                   </div>
+                  <RestrictionsSummary />
                 </div>
               ))}
             </div>

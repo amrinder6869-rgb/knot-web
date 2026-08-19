@@ -1,0 +1,20 @@
+-- Sprint 15e: wire dietary/accessibility restrictions into Discover and the
+-- merchant dashboard.
+--
+-- Frontend-only sprint — no schema changes. This file exists for repo
+-- record keeping / sprint numbering consistency only.
+--
+-- Notes for future schema work, discovered while implementing this sprint:
+--   * The venues API (app/api/venues/route.ts) calls Google's legacy Nearby
+--     Search endpoint, which does not return wheelchair_accessible_entrance
+--     or any other accessibility field. Getting it requires the Place
+--     Details / Places API (New) endpoints with an accessibilityOptions
+--     field mask, called per place — not implemented here.
+--   * merchant_bookings already has a hangout_id column that could join to
+--     hangout_rsvps.guest_dietary/guest_accessibility, but hangout_rsvps'
+--     SELECT RLS policy (hangout_rsvps_select) is scoped to
+--     is_knot_member(knot_id) — a merchant's own session is never a member
+--     of the knots that book with them, so that join is not readable from
+--     the merchant dashboard today. Surfacing it would need a SECURITY
+--     DEFINER RPC that checks merchant_bookings.merchant_id ownership
+--     before aggregating counts server-side.

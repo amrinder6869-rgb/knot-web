@@ -138,6 +138,15 @@ export async function GET(request: Request) {
       }
     }
 
+    // Accessibility: Google's legacy Nearby Search endpoint (used above) does
+    // not return wheelchair_accessible_entrance or any other accessibility
+    // field on its result objects — that data is only exposed via the Place
+    // Details / Places API (New) endpoints, called per-place with an
+    // explicit accessibilityOptions field mask. Adding it here would mean an
+    // extra API call per venue per search, which is out of scope for this
+    // pass. No accessibility field is included in the mapped results below;
+    // components/Discover.tsx's wheelchair-accessible filter is a
+    // documented no-op until this endpoint is upgraded to fetch it.
     const results = rawResults
       .slice(0, 10)
       .map((p: any) => ({

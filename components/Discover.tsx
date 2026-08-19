@@ -36,12 +36,13 @@ function StarRating({ rating }: { rating: number }) {
   )
 }
 
-export default function Discover({ members: _members, onVenueSelect }: { members: any[], onVenueSelect?: (venue: any) => void }) {
+export default function Discover({ members: _members, onVenueSelect, currentUser }: { members: any[], onVenueSelect?: (venue: any) => void, currentUser?: any }) {
   const toast = useToast()
   const [category, setCategory] = useState<string|null>(null)
   const [budget, setBudget]     = useState<number|null>(2)
   const [groupSize, setGroupSize] = useState<number>(4)
   const [openNow, setOpenNow]       = useState<boolean>(false)
+  const [wheelchairOnly, setWheelchairOnly] = useState<boolean>(false)
   const [merchants, setMerchants] = useState<Record<string, any>>({})
   const [specials, setSpecials] = useState<Record<string, any>>({})
   const [venues, setVenues]     = useState<any[]>([])
@@ -233,6 +234,18 @@ export default function Discover({ members: _members, onVenueSelect }: { members
 
   const catObj = CATEGORIES.find(c => c.id === category)
 
+  // The venues API (app/api/venues/route.ts) calls Google's legacy Nearby
+  // Search endpoint, which does not return wheelchair_accessible_entrance or
+  // any other accessibility field — that's only available from the Place
+  // Details / Places API (New) accessibilityOptions field mask, called
+  // per-place. Until the venues API is updated to fetch and pass that
+  // through, this filter is a no-op: the toggle renders and its state is
+  // tracked, but venue.wheelchair_accessible is never present so nothing is
+  // excluded.
+  const displayedVenues = wheelchairOnly
+    ? venues.filter(v => v.wheelchair_accessible !== false)
+    : venues
+
   if (locked && selected) return (
     <div style={{ maxWidth: 600 }}>
       <div style={{ background: 'var(--bg2)', border: '2px solid var(--sage)', borderRadius: 20, overflow: 'hidden' }}>
@@ -403,6 +416,15 @@ export default function Discover({ members: _members, onVenueSelect }: { members
         </div>
       </div>
 
+      {/* Accessibility */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>Accessibility</div>
+        <button onClick={() => setWheelchairOnly(v => !v)}
+          style={{ padding: '6px 14px', borderRadius: 6, border: `1px solid ${wheelchairOnly ? 'var(--yellow)' : 'var(--border2)'}`, background: wheelchairOnly ? 'var(--yellow-soft)' : 'transparent', color: wheelchairOnly ? 'var(--yellow)' : 'var(--text2)', fontSize: 12, fontWeight: wheelchairOnly ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+          Wheelchair accessible
+        </button>
+      </div>
+
       {/* Error */}
       {error && (
         <div style={{ padding: '10px 14px', background: 'var(--danger-soft)', border: '1px solid var(--danger-dim)', borderRadius: 8, fontSize: 13, color: 'var(--danger)', marginBottom: 14 }}>
@@ -428,15 +450,26 @@ export default function Discover({ members: _members, onVenueSelect }: { members
       {/* Results */}
       {!loading && searched && venues.length > 0 && (
         <div>
+          {(currentUser?.dietary_restrictions?.length > 0) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+              <span style={{ fontSize: 11, color: 'var(--text3)' }}>Your restrictions:</span>
+              {currentUser.dietary_restrictions.map((r: string) => (
+                <span key={r} style={{ padding: '2px 9px', borderRadius: 999, background: 'var(--bg2)', color: 'var(--text2)', fontSize: 10, fontWeight: 600 }}>
+                  {r}
+                </span>
+              ))}
+            </div>
+          )}
+
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <div style={{ fontSize: 13, color: 'var(--text2)' }}>
-              <strong style={{ color: 'var(--text)' }}>{venues.length} places</strong> near {location?.name}
+              <strong style={{ color: 'var(--text)' }}>{displayedVenues.length} places</strong> near {location?.name}
             </div>
             <div style={{ fontSize: 12, color: 'var(--text3)' }}>Sorted by rating</div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {venues.map((v, idx) => (
+            {displayedVenues.map((v, idx) => (
               <div key={v.fsq_id}
                 style={{ background: 'var(--bg2)', border: `1.5px solid ${selected?.fsq_id === v.fsq_id ? 'var(--yellow)' : 'var(--border)'}`, borderRadius: 16, overflow: 'hidden', cursor: 'pointer', transition: 'all 0.15s', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
                 onClick={() => setSelected(selected?.fsq_id === v.fsq_id ? null : v)}

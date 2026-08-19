@@ -926,7 +926,7 @@ export default function Composer({
 
             {whereMode === 'discover' && !selectedVenue && (
               <div>
-                <Discover members={members} onVenueSelect={(venue: any) => { setSelectedVenue(venue); setWhereMode('discover') }} />
+                <Discover members={members} currentUser={currentUser} onVenueSelect={(venue: any) => { setSelectedVenue(venue); setWhereMode('discover') }} />
                 <button onClick={() => setWhereMode('none')} style={{ marginTop: 8, width: '100%', padding: '8px', background: 'transparent', border: '1px dashed var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
                   Cancel
                 </button>

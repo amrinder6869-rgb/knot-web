@@ -636,7 +636,7 @@ await loadKnotMembers(startKnot.id, data.user.id)
           {/* TWO COLUMN CONTENT */}
           <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px', paddingBottom: 80, display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, alignItems: 'start' }} className="desktop-layout">
             <div>
-              {active === 'discover'  && <Discover  members={knotMembers} />}
+              {active === 'discover'  && <Discover  members={knotMembers} currentUser={profile} />}
               {active === 'feed'      && <Feed      members={knotMembers} knotName={activeKnot.name} knotId={activeKnot?.id} currentUser={profile} onOpenBills={() => setActive('split')} />}
               {active === 'hangout'   && <Hangout   members={knotMembers} knotId={activeKnot?.id} currentUser={profile} />}
               {active === 'split'     && <BillSplit members={knotMembers} knotId={activeKnot?.id} currentUser={profile} />}
