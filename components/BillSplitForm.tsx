@@ -27,6 +27,7 @@ type BillSplitFormProps = {
   defaultPhotoUrl?: string
   defaultIsRecurring?: boolean
   defaultRecurringInterval?: string
+  expectedHeadcount?: number
   submitLabel?: string
   submitting?: boolean
   error?: string
@@ -38,7 +39,8 @@ type BillSplitFormProps = {
     note: string,
     photoUrl: string,
     isRecurring: boolean,
-    recurringInterval: string
+    recurringInterval: string,
+    receiptHash?: string
   ) => void
   onCancel?: () => void
   theme?: 'light' | 'dark'
@@ -46,6 +48,18 @@ type BillSplitFormProps = {
 
 function getInitials(name: string) {
   return (name || 'U').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()
+}
+
+// Simple djb2-style hash over the OCR'd item list plus total, used to flag
+// likely-duplicate receipts. Not cryptographic — just needs to be stable and
+// cheap to compute client-side.
+function computeReceiptHash(items: string[], total: number): string {
+  const input = items.join('|') + '|' + total.toFixed(2)
+  let hash = 5381
+  for (let i = 0; i < input.length; i++) {
+    hash = ((hash << 5) + hash + input.charCodeAt(i)) | 0
+  }
+  return (hash >>> 0).toString(16)
 }
 
 export default function BillSplitForm({
@@ -58,6 +72,7 @@ export default function BillSplitForm({
   defaultPhotoUrl = '',
   defaultIsRecurring = false,
   defaultRecurringInterval = 'monthly',
+  expectedHeadcount,
   submitLabel = 'Post bill',
   submitting = false,
   error = '',
@@ -75,6 +90,7 @@ export default function BillSplitForm({
   const [scanning, setScanning]       = useState(false)
   const [uploadError, setUploadError] = useState('')
   const [ocrItems, setOcrItems]       = useState<string[]>([])
+  const [receiptHash, setReceiptHash] = useState<string>('')
   const [isRecurring, setIsRecurring] = useState(defaultIsRecurring)
   const [recurringInterval, setRecurringInterval] = useState(defaultRecurringInterval)
   const [mode, setMode]         = useState<'equal' | 'percentage'>('equal')
@@ -130,7 +146,7 @@ export default function BillSplitForm({
 
   function handleSubmit() {
     if (!canSubmit) return
-    onSubmit(desc.trim(), parsedAmount, splits, category, note.trim(), photoUrl, isRecurring, recurringInterval)
+    onSubmit(desc.trim(), parsedAmount, splits, category, note.trim(), photoUrl, isRecurring, recurringInterval, receiptHash || undefined)
   }
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -160,7 +176,10 @@ export default function BillSplitForm({
         if (parsed.total && !isNaN(parsed.total)) setAmount(String(parsed.total))
         if (parsed.description && !desc) setDesc(parsed.description)
         if (parsed.category) setCategory(parsed.category as BillCategory)
-        if (parsed.items?.length) setOcrItems(parsed.items)
+        if (parsed.items?.length) {
+          setOcrItems(parsed.items)
+          setReceiptHash(computeReceiptHash(parsed.items, parsed.total && !isNaN(parsed.total) ? parsed.total : 0))
+        }
       }
     } catch { /* silent */ }
 
@@ -207,7 +226,7 @@ export default function BillSplitForm({
                 </div>
               )}
             </div>
-            <button onClick={() => { setPhotoUrl(''); setPreviewUrl(''); setOcrItems([]) }}
+            <button onClick={() => { setPhotoUrl(''); setPreviewUrl(''); setOcrItems([]); setReceiptHash('') }}
               style={{ padding: '4px 10px', background: 'transparent', border: `1px solid ${borderCol}`, borderRadius: 6, color: subColor, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
               Remove
             </button>
@@ -336,6 +355,11 @@ export default function BillSplitForm({
       {mode === 'equal' && validAmount && selectedMembers.length > 0 && (
         <div style={{ fontSize: 11, color: subColor, marginBottom: 10 }}>
           ${(parsedAmount / selectedMembers.length).toFixed(2)} each {String.fromCodePoint(0x00B7)} {selectedMembers.length} people
+        </div>
+      )}
+      {expectedHeadcount !== undefined && expectedHeadcount > members.length && (
+        <div style={{ fontSize: 11, color: 'var(--yellow)', marginBottom: 10 }}>
+          Party size is {expectedHeadcount} — includes guests
         </div>
       )}
 

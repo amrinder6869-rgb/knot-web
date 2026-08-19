@@ -5,6 +5,7 @@ import BillSplitForm, { BillCategory } from '@/components/BillSplitForm'
 import LedgerView from '@/components/LedgerView'
 import { computeNetBalances, simplifyDebts, Bill, BillSplit as BillSplitRow, Settlement, Member, SimplifiedDebt } from '@/lib/ledger'
 import { createNotification } from '@/lib/notify'
+import { useToast } from '@/components/ToastProvider'
 
 const CATEGORIES: { id: string; label: string; icon: string }[] = [
   { id: 'all',           label: 'All',           icon: '' },
@@ -80,6 +81,7 @@ function BalanceCard({ myBalance, myDebts, currentUserId, onSettleUp }: {
 }
 
 export default function BillSplit({ members, knotId, currentUser }: { members: any[], knotId?: string, currentUser?: any }) {
+  const toast = useToast()
   const [view, setView]           = useState<'ledger' | 'activity'>('ledger')
   const [bills, setBills]         = useState<any[]>([])
   const [settlements, setSettlements] = useState<any[]>([])
@@ -145,10 +147,56 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
   async function handleAddBill(
     desc: string, amount: number, splits: { user_id: string; amount: number }[],
     category: BillCategory, note: string, photoUrl: string,
-    isRecurring: boolean, recurringInterval: string
+    isRecurring: boolean, recurringInterval: string, receiptHash?: string
   ) {
     if (!knotId || !currentUser) return
     if (splits.length === 0) { setAddError('Cannot split with no members selected.'); return }
+    setAddError('')
+
+    if (receiptHash) {
+      const { data: hashMatches } = await supabase
+        .from('bills')
+        .select('id')
+        .eq('knot_id', knotId)
+        .eq('receipt_hash', receiptHash)
+        .limit(1)
+      if (hashMatches && hashMatches.length > 0) {
+        toast.actionable({
+          message: 'This receipt may already be added. Post anyway?',
+          actionLabel: 'Post anyway',
+          onAction: () => insertBill(desc, amount, splits, category, note, photoUrl, isRecurring, recurringInterval, receiptHash),
+        })
+        return
+      }
+    }
+
+    const sixtySecondsAgo = new Date(Date.now() - 60_000).toISOString()
+    const { data: recentMatches } = await supabase
+      .from('bills')
+      .select('id')
+      .eq('knot_id', knotId)
+      .eq('added_by', currentUser.id)
+      .eq('total_amount', amount)
+      .gte('created_at', sixtySecondsAgo)
+      .limit(1)
+    if (recentMatches && recentMatches.length > 0) {
+      toast.actionable({
+        message: 'A bill for this amount was just added. Post anyway?',
+        actionLabel: 'Post anyway',
+        onAction: () => insertBill(desc, amount, splits, category, note, photoUrl, isRecurring, recurringInterval, receiptHash),
+      })
+      return
+    }
+
+    await insertBill(desc, amount, splits, category, note, photoUrl, isRecurring, recurringInterval, receiptHash)
+  }
+
+  async function insertBill(
+    desc: string, amount: number, splits: { user_id: string; amount: number }[],
+    category: BillCategory, note: string, photoUrl: string,
+    isRecurring: boolean, recurringInterval: string, receiptHash?: string
+  ) {
+    if (!knotId || !currentUser) return
     setAdding(true)
     setAddError('')
 
@@ -159,6 +207,7 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
         total_amount: amount, description: desc, split_type: 'custom',
         category, note: note || null, photo_url: photoUrl || null,
         is_recurring: isRecurring, recurring_interval: isRecurring ? recurringInterval : null,
+        receipt_hash: receiptHash || null,
       })
       .select().single()
 
@@ -339,8 +388,8 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
             members={memberList}
             submitting={adding}
             error={addError}
-            onSubmit={(desc, amount, splits, category, note, photoUrl, isRecurring, recurringInterval) =>
-              handleAddBill(desc, amount, splits, category, note, photoUrl, isRecurring, recurringInterval)
+            onSubmit={(desc, amount, splits, category, note, photoUrl, isRecurring, recurringInterval, receiptHash) =>
+              handleAddBill(desc, amount, splits, category, note, photoUrl, isRecurring, recurringInterval, receiptHash)
             }
             onCancel={() => { setShowAdd(false); setAddError('') }}
           />

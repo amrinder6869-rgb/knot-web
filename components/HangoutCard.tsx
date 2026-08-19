@@ -166,6 +166,9 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
   const [callRoomUrl, setCallRoomUrl] = useState<string | null>(null)
   const [showThread, setShowThread] = useState(false)
   const [hasUnreadThread, setHasUnreadThread] = useState(false)
+  const [showGuestStep, setShowGuestStep] = useState(false)
+  const [guestType, setGuestType] = useState<'just_me' | 'plus_one' | 'family'>('just_me')
+  const [familyCount, setFamilyCount] = useState(2)
 
   // Re-sync local state whenever fresh bundle data arrives from the parent
   useEffect(() => {
@@ -300,13 +303,37 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
     onRefresh()
   }
 
-  async function rsvp(status: string) {
+  async function rsvp(status: string, guestInfo?: { guest_type: 'just_me' | 'plus_one' | 'family'; guest_count: number }) {
     if (!currentUser) return
     setActionError('')
-    const { error } = await supabase.from('hangout_rsvps').upsert({ hangout_id: post.hangout_id, user_id: currentUser.id, status }, { onConflict: 'hangout_id,user_id' })
+    const payload: any = { hangout_id: post.hangout_id, user_id: currentUser.id, status }
+    if (guestInfo) {
+      payload.guest_type = guestInfo.guest_type
+      payload.guest_count = guestInfo.guest_count
+    }
+    const { error } = await supabase.from('hangout_rsvps').upsert(payload, { onConflict: 'hangout_id,user_id' })
     if (error) { setActionError('Could not update RSVP.'); return }
-    setRsvps(prev => [...prev.filter(r => r.user_id !== currentUser.id), { user_id: currentUser.id, status, profiles: { name: currentUser.name } }])
+    setRsvps(prev => [...prev.filter(r => r.user_id !== currentUser.id), { user_id: currentUser.id, status, profiles: { name: currentUser.name }, ...(guestInfo || {}) }])
     onRefresh()
+  }
+
+  function openGuestStep() {
+    const mine = rsvps.find(r => r.user_id === currentUser?.id)
+    setGuestType(mine?.guest_type || 'just_me')
+    setFamilyCount(mine?.guest_type === 'family' && mine?.guest_count ? mine.guest_count : 2)
+    setShowGuestStep(true)
+  }
+
+  function handleRsvpClick(status: string) {
+    if (status === 'yes') { openGuestStep(); return }
+    setShowGuestStep(false)
+    rsvp(status)
+  }
+
+  function confirmGoing() {
+    const guest_count = guestType === 'just_me' ? 1 : guestType === 'plus_one' ? 2 : familyCount
+    rsvp('yes', { guest_type: guestType, guest_count })
+    setShowGuestStep(false)
   }
 
   async function goLive() {
@@ -697,6 +724,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
   const canCancelHangout = isCreator && !isDone && !isCancelled
   const goingCount  = rsvps.filter(r => r.status === 'yes').length
   const maybeCount  = rsvps.filter(r => r.status === 'maybe').length
+  const totalHeadcount = rsvps.filter(r => r.status === 'yes').reduce((sum, r) => sum + (r.guest_count || 1), 0)
   const authorName  = post.profiles?.name || 'Someone'
   const memberList  = members.map(m => ({ id: m.id, name: m.name }))
 
@@ -874,14 +902,56 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
           )}
           <div style={{ display: 'flex', gap: 6 }}>
             {[{ s: 'yes', l: isLive ? 'On my way' : 'Going' }, { s: 'maybe', l: 'Maybe' }, { s: 'no', l: "Can't go" }].map(({ s, l }) => (
-              <button key={s} onClick={() => rsvp(s)} style={{ padding: '6px 12px', borderRadius: 6, border: `1px solid ${myRsvpStatus === s ? s === 'yes' ? 'var(--sage)' : 'var(--border2)' : isLive ? 'rgba(255,255,255,0.2)' : 'var(--border2)'}`, background: myRsvpStatus === s ? s === 'yes' ? isLive ? 'rgba(74,222,128,0.15)' : 'var(--sage-soft)' : 'var(--bg3)' : 'transparent', color: myRsvpStatus === s ? s === 'yes' ? 'var(--sage)' : isLive ? 'rgba(255,255,255,0.7)' : 'var(--text2)' : isLive ? 'rgba(255,255,255,0.6)' : 'var(--text2)', fontSize: 12, fontWeight: myRsvpStatus === s ? 700 : 400, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button key={s} onClick={() => handleRsvpClick(s)} style={{ padding: '6px 12px', borderRadius: 6, border: `1px solid ${myRsvpStatus === s ? s === 'yes' ? 'var(--sage)' : 'var(--border2)' : isLive ? 'rgba(255,255,255,0.2)' : 'var(--border2)'}`, background: myRsvpStatus === s ? s === 'yes' ? isLive ? 'rgba(74,222,128,0.15)' : 'var(--sage-soft)' : 'var(--bg3)' : 'transparent', color: myRsvpStatus === s ? s === 'yes' ? 'var(--sage)' : isLive ? 'rgba(255,255,255,0.7)' : 'var(--text2)' : isLive ? 'rgba(255,255,255,0.6)' : 'var(--text2)', fontSize: 12, fontWeight: myRsvpStatus === s ? 700 : 400, cursor: 'pointer', fontFamily: 'inherit' }}>
                 {l}
               </button>
             ))}
           </div>
+
+          {showGuestStep && (
+            <div style={{ marginTop: 10, padding: 12, background: isLive ? 'rgba(255,255,255,0.04)' : 'var(--bg3)', border: `1px solid ${borderSep}`, borderRadius: 10 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: textColor, marginBottom: 8 }}>Who is coming with you?</div>
+              <div style={{ display: 'flex', gap: 6, marginBottom: guestType === 'family' ? 10 : 0 }}>
+                {[{ v: 'just_me', l: 'Just me' }, { v: 'plus_one', l: 'Plus one' }, { v: 'family', l: 'Family' }].map(opt => (
+                  <button key={opt.v} onClick={() => setGuestType(opt.v as 'just_me' | 'plus_one' | 'family')}
+                    style={{ padding: '6px 12px', borderRadius: 20, border: `1px solid ${guestType === opt.v ? 'var(--yellow)' : borderSep}`, background: guestType === opt.v ? 'var(--yellow-soft)' : 'transparent', color: guestType === opt.v ? 'var(--yellow)' : subColor, fontSize: 12, fontWeight: guestType === opt.v ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {opt.l}
+                  </button>
+                ))}
+              </div>
+              {guestType === 'family' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  <span style={{ fontSize: 12, color: subColor }}>Party size</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button onClick={() => setFamilyCount(c => Math.max(2, c - 1))}
+                      style={{ width: 26, height: 26, borderRadius: '50%', border: `1px solid ${borderSep}`, background: 'none', color: textColor, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>-</button>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: textColor, minWidth: 16, textAlign: 'center' }}>{familyCount}</span>
+                    <button onClick={() => setFamilyCount(c => Math.min(8, c + 1))}
+                      style={{ width: 26, height: 26, borderRadius: '50%', border: `1px solid ${borderSep}`, background: 'none', color: textColor, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>+</button>
+                  </div>
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setShowGuestStep(false)}
+                  style={{ padding: '7px 12px', background: 'transparent', border: `1px solid ${borderSep}`, borderRadius: 8, color: subColor, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Cancel
+                </button>
+                <button onClick={confirmGoing}
+                  style={{ padding: '7px 14px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: 'var(--text)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Confirm
+                </button>
+              </div>
+            </div>
+          )}
+
           <div style={{ fontSize: 11, color: subColor, marginTop: 8 }}>
             {goingCount} going{maybeCount > 0 ? ` \u00B7 ${maybeCount} maybe` : ''}
           </div>
+          {isConfirmed && totalHeadcount > 0 && (
+            <div style={{ fontSize: 11, color: subColor, marginTop: 2 }}>
+              {totalHeadcount} people coming
+            </div>
+          )}
         </div>
       )}
 
@@ -937,10 +1007,10 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
                 )}
                 {hangout.venue_name && (
                   <>
-                    <a href={buildOpenTableLink(hangout.venue_name)} target="_blank" rel="noreferrer" onClick={() => setShowTravelMenu(false)}
-                      style={{ display: 'block', padding: '8px 10px', borderRadius: 8, color: 'var(--text)', fontSize: 13, textDecoration: 'none' }}>OpenTable</a>
+                    <a href={buildOpenTableLink(hangout.venue_name) + (totalHeadcount > 0 ? `&covers=${totalHeadcount}` : '')} target="_blank" rel="noreferrer" onClick={() => setShowTravelMenu(false)}
+                      style={{ display: 'block', padding: '8px 10px', borderRadius: 8, color: 'var(--text)', fontSize: 13, textDecoration: 'none' }}>OpenTable{totalHeadcount > 0 ? ` · Book for ${totalHeadcount}` : ''}</a>
                     <a href={buildResyLink(hangout.venue_name)} target="_blank" rel="noreferrer" onClick={() => setShowTravelMenu(false)}
-                      style={{ display: 'block', padding: '8px 10px', borderRadius: 8, color: 'var(--text)', fontSize: 13, textDecoration: 'none' }}>Resy</a>
+                      style={{ display: 'block', padding: '8px 10px', borderRadius: 8, color: 'var(--text)', fontSize: 13, textDecoration: 'none' }}>Resy{totalHeadcount > 0 ? ` · Book for ${totalHeadcount}` : ''}</a>
                     {isActivityVenue(hangout.venue_category) && (
                       <>
                         <a href={buildViatorLink(hangout.venue_name)} target="_blank" rel="noreferrer" onClick={() => setShowTravelMenu(false)}
@@ -1058,6 +1128,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
                       defaultSelectedIds={b.bill_splits?.map((s: any) => s.user_id)}
                       defaultDesc={b.description}
                       defaultAmount={parseFloat(b.total_amount)}
+                      expectedHeadcount={totalHeadcount}
                       submitLabel="Save changes"
                       submitting={editBillSubmitting}
                       error={editBillError}
