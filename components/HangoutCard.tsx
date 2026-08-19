@@ -83,6 +83,32 @@ const BRIEF_BUDGET_LABELS: Record<string, string> = {
   splurge: 'Splurge',
 }
 
+const EVENT_RESTRICTION_LABELS: Record<string, string> = {
+  'female-only':  'Female only',
+  'male-only':    'Male only',
+  'adults-only':  'Adults only',
+  'kids-welcome': 'Kids welcome',
+  'couples-only': 'Couples only',
+}
+
+const DIETARY_LABELS: Record<string, string> = {
+  vegetarian:     'Vegetarian',
+  vegan:          'Vegan',
+  halal:          'Halal',
+  kosher:         'Kosher',
+  'gluten-free':  'Gluten-free',
+  'nut allergy':  'Nut allergy',
+  'dairy-free':   'Dairy-free',
+  other:          'Other',
+}
+
+const ACCESSIBILITY_LABELS: Record<string, string> = {
+  'wheelchair-access':  'Wheelchair access',
+  'step-free-entry':    'Step-free entry',
+  'accessible-parking': 'Accessible parking',
+  'hearing-loop':       'Hearing loop',
+}
+
 function getInitials(name: string) {
   return (name || 'U').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()
 }
@@ -169,6 +195,8 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
   const [showGuestStep, setShowGuestStep] = useState(false)
   const [guestType, setGuestType] = useState<'just_me' | 'plus_one' | 'family'>('just_me')
   const [familyCount, setFamilyCount] = useState(2)
+  const [guestDietary, setGuestDietary] = useState<string[]>([])
+  const [guestAccessibility, setGuestAccessibility] = useState<string[]>([])
 
   // Re-sync local state whenever fresh bundle data arrives from the parent
   useEffect(() => {
@@ -303,13 +331,15 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
     onRefresh()
   }
 
-  async function rsvp(status: string, guestInfo?: { guest_type: 'just_me' | 'plus_one' | 'family'; guest_count: number }) {
+  async function rsvp(status: string, guestInfo?: { guest_type: 'just_me' | 'plus_one' | 'family'; guest_count: number; guest_dietary?: string[]; guest_accessibility?: string[] }) {
     if (!currentUser) return
     setActionError('')
     const payload: any = { hangout_id: post.hangout_id, user_id: currentUser.id, status }
     if (guestInfo) {
       payload.guest_type = guestInfo.guest_type
       payload.guest_count = guestInfo.guest_count
+      payload.guest_dietary = guestInfo.guest_dietary || []
+      payload.guest_accessibility = guestInfo.guest_accessibility || []
     }
     const { error } = await supabase.from('hangout_rsvps').upsert(payload, { onConflict: 'hangout_id,user_id' })
     if (error) { setActionError('Could not update RSVP.'); return }
@@ -321,6 +351,8 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
     const mine = rsvps.find(r => r.user_id === currentUser?.id)
     setGuestType(mine?.guest_type || 'just_me')
     setFamilyCount(mine?.guest_type === 'family' && mine?.guest_count ? mine.guest_count : 2)
+    setGuestDietary(mine?.guest_dietary?.length ? mine.guest_dietary : (currentUser?.dietary_restrictions || []))
+    setGuestAccessibility(mine?.guest_accessibility?.length ? mine.guest_accessibility : (currentUser?.accessibility_needs || []))
     setShowGuestStep(true)
   }
 
@@ -330,9 +362,17 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
     rsvp(status)
   }
 
+  function toggleGuestDietary(id: string) {
+    setGuestDietary(prev => prev.includes(id) ? prev.filter(v => v !== id) : [...prev, id])
+  }
+
+  function toggleGuestAccessibility(id: string) {
+    setGuestAccessibility(prev => prev.includes(id) ? prev.filter(v => v !== id) : [...prev, id])
+  }
+
   function confirmGoing() {
     const guest_count = guestType === 'just_me' ? 1 : guestType === 'plus_one' ? 2 : familyCount
-    rsvp('yes', { guest_type: guestType, guest_count })
+    rsvp('yes', { guest_type: guestType, guest_count, guest_dietary: guestDietary, guest_accessibility: guestAccessibility })
     setShowGuestStep(false)
   }
 
@@ -783,6 +823,15 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
       ) : (
         <div style={{ marginBottom: 12 }}>
           <div style={{ fontSize: 18, fontWeight: 800, color: textColor, marginBottom: 4 }}>{hangout.venue_name || hangout.title}</div>
+          {hangout.event_restrictions?.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
+              {hangout.event_restrictions.map((r: string) => (
+                <span key={r} style={{ padding: '2px 9px', borderRadius: 999, background: 'var(--bg2)', color: 'var(--text2)', fontSize: 10, fontWeight: 600 }}>
+                  {EVENT_RESTRICTION_LABELS[r] || r}
+                </span>
+              ))}
+            </div>
+          )}
           {hangout.venue_address && <div style={{ fontSize: 12, color: subColor, marginBottom: 4 }}>{hangout.venue_address}</div>}
           {hangout.scheduled_for && !isLive && (
             <div style={{ fontSize: 13, color: isConfirmed ? 'var(--sage)' : 'var(--text2)', fontWeight: 600, marginTop: 4 }}>{formatDate(hangout.scheduled_for)}</div>
@@ -931,6 +980,37 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
                   </div>
                 </div>
               )}
+
+              {guestType !== 'just_me' && (
+                <div style={{ marginTop: 4, marginBottom: 10 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: textColor, marginBottom: 6 }}>Guest restrictions</div>
+                  <div style={{ fontSize: 11, color: subColor, marginBottom: 6 }}>Dietary</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                    {Object.entries(DIETARY_LABELS).map(([id, label]) => {
+                      const selected = guestDietary.includes(id)
+                      return (
+                        <button key={id} onClick={() => toggleGuestDietary(id)}
+                          style={{ padding: '5px 10px', borderRadius: 20, border: `1px solid ${selected ? 'var(--yellow)' : borderSep}`, background: selected ? 'var(--yellow-soft)' : 'transparent', color: selected ? 'var(--yellow)' : subColor, fontSize: 11, fontWeight: selected ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                          {label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <div style={{ fontSize: 11, color: subColor, marginBottom: 6 }}>Accessibility</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {Object.entries(ACCESSIBILITY_LABELS).map(([id, label]) => {
+                      const selected = guestAccessibility.includes(id)
+                      return (
+                        <button key={id} onClick={() => toggleGuestAccessibility(id)}
+                          style={{ padding: '5px 10px', borderRadius: 20, border: `1px solid ${selected ? 'var(--yellow)' : borderSep}`, background: selected ? 'var(--yellow-soft)' : 'transparent', color: selected ? 'var(--yellow)' : subColor, fontSize: 11, fontWeight: selected ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                          {label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => setShowGuestStep(false)}
                   style={{ padding: '7px 12px', background: 'transparent', border: `1px solid ${borderSep}`, borderRadius: 8, color: subColor, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>

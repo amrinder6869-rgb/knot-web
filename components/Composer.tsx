@@ -13,6 +13,14 @@ type WhenType = 'now' | 'pick' | 'weekly'
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
+const EVENT_RESTRICTIONS = [
+  { id: 'female-only',  label: 'Female only' },
+  { id: 'male-only',    label: 'Male only' },
+  { id: 'adults-only',  label: 'Adults only' },
+  { id: 'kids-welcome', label: 'Kids welcome' },
+  { id: 'couples-only', label: 'Couples only' },
+]
+
 function getNextWeekday(day: number, time: string): string {
   const now = new Date()
   const result = new Date()
@@ -92,6 +100,7 @@ export default function Composer({
   const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set())
   const [surpriseMode, setSurpriseMode]   = useState(false)
   const [revealAt, setRevealAt]           = useState<Date | null>(null)
+  const [eventRestrictions, setEventRestrictions] = useState<string[]>([])
 
   useEffect(() => {
     if (inviteMode === 'selected' && selectedMemberIds.size === 0 && members.length > 0) {
@@ -125,6 +134,7 @@ export default function Composer({
     setSelectedMemberIds(new Set())
     setSurpriseMode(false)
     setRevealAt(null)
+    setEventRestrictions([])
     setDateMode('set')
     setPollDates([])
     setPollDateInput('')
@@ -147,6 +157,10 @@ export default function Composer({
       else next.add(id)
       return next
     })
+  }
+
+  function toggleEventRestriction(id: string) {
+    setEventRestrictions(prev => prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id])
   }
 
   function getVenueName() {
@@ -415,6 +429,7 @@ export default function Composer({
       invite_mode:       inviteMode,
       is_surprise:       surpriseMode,
       reveal_at:         surpriseMode && revealAt ? revealAt.toISOString() : null,
+      event_restrictions: eventRestrictions,
     }).select().single()
 
     if (hangoutInsertError || !h) {
@@ -978,6 +993,22 @@ export default function Composer({
                   {label}
                 </button>
               ))}
+            </div>
+
+            <div style={{ marginTop: 10, marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600, marginBottom: 2 }}>Who is this for?</div>
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>Members who don&apos;t match will be flagged, not blocked</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {EVENT_RESTRICTIONS.map(opt => {
+                  const selected = eventRestrictions.includes(opt.id)
+                  return (
+                    <button key={opt.id} onClick={() => toggleEventRestriction(opt.id)}
+                      style={{ padding: '6px 12px', borderRadius: 20, border: `1px solid ${selected ? 'var(--yellow)' : 'var(--border2)'}`, background: selected ? 'var(--yellow-soft)' : 'transparent', color: selected ? 'var(--yellow)' : 'var(--text3)', fontSize: 12, fontWeight: selected ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      {opt.label}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
             {inviteMode === 'selected' && (

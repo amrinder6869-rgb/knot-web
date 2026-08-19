@@ -80,9 +80,10 @@ function BalanceCard({ myBalance, myDebts, currentUserId, onSettleUp }: {
   )
 }
 
-export default function BillSplit({ members, knotId, currentUser }: { members: any[], knotId?: string, currentUser?: any }) {
+export default function BillSplit({ members, knotId, currentUser, hangoutId }: { members: any[], knotId?: string, currentUser?: any, hangoutId?: string }) {
   const toast = useToast()
   const [view, setView]           = useState<'ledger' | 'activity'>('ledger')
+  const [hangoutGuestDietary, setHangoutGuestDietary] = useState<string[][]>([])
   const [bills, setBills]         = useState<any[]>([])
   const [settlements, setSettlements] = useState<any[]>([])
   const [loading, setLoading]     = useState(true)
@@ -107,6 +108,21 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
   useEffect(() => {
     if (knotId) loadAll()
   }, [knotId])
+
+  useEffect(() => {
+    if (!hangoutId) { setHangoutGuestDietary([]); return }
+    let cancelled = false
+    supabase
+      .from('hangout_rsvps')
+      .select('guest_dietary')
+      .eq('hangout_id', hangoutId)
+      .eq('status', 'yes')
+      .then(({ data }) => {
+        if (cancelled) return
+        setHangoutGuestDietary((data || []).map((r: any) => r.guest_dietary || []))
+      })
+    return () => { cancelled = true }
+  }, [hangoutId])
 
   async function loadAll() {
     if (!knotId) return
@@ -332,9 +348,12 @@ export default function BillSplit({ members, knotId, currentUser }: { members: a
     for (const m of members) {
       for (const r of (m.dietary_restrictions || [])) counts[r] = (counts[r] || 0) + 1
     }
+    for (const guestList of hangoutGuestDietary) {
+      for (const r of guestList) counts[r] = (counts[r] || 0) + 1
+    }
     const parts = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([label, count]) => `${count} ${label}`)
     return parts.length > 0 ? `Dietary notes: ${parts.join(', ')}` : ''
-  }, [members])
+  }, [members, hangoutGuestDietary])
   const billsForLedger: Bill[] = bills.map(b => ({ id: b.id, added_by: b.added_by, total_amount: parseFloat(b.total_amount) }))
   const splitsForLedger: BillSplitRow[] = bills.flatMap(b => (b.splits || []).map((s: any) => ({ bill_id: b.id, user_id: s.user_id, amount: parseFloat(s.amount) })))
   const settlementsForLedger: Settlement[] = settlements.map(s => ({ from_user_id: s.from_user_id, to_user_id: s.to_user_id, amount: parseFloat(s.amount) }))
