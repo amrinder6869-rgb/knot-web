@@ -9,6 +9,7 @@ import { CrewSection } from '@/components/CrewSection'
 import { PostHangoutLoop } from '@/components/PostHangoutLoop'
 import { PreOrderCard } from '@/components/PreOrderCard'
 import { DailyCall } from '@/components/DailyCall'
+import HangoutThread from '@/components/HangoutThread'
 import { Skeleton } from '@/components/Skeleton'
 import { useToast } from '@/components/ToastProvider'
 import ReactionBar from '@/components/ReactionBar'
@@ -160,6 +161,8 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
   const [convertingToKnot, setConvertingToKnot] = useState(false)
   const [convertedKnotId, setConvertedKnotId] = useState<string | null>(null)
   const [callRoomUrl, setCallRoomUrl] = useState<string | null>(null)
+  const [showThread, setShowThread] = useState(false)
+  const [hasUnreadThread, setHasUnreadThread] = useState(false)
 
   // Re-sync local state whenever fresh bundle data arrives from the parent
   useEffect(() => {
@@ -212,6 +215,24 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
     }
     fetchBriefs()
   }, [hangout.id, currentUser?.id])
+
+  useEffect(() => {
+    const eligible = hangout.status === 'confirmed' || hangout.is_live
+    if (!currentUser?.id || !eligible) return
+    let cancelled = false
+    async function checkUnread() {
+      const [{ data: latest }, { data: read }] = await Promise.all([
+        supabase.from('hangout_messages').select('created_at').eq('hangout_id', hangout.id).order('created_at', { ascending: false }).limit(1),
+        supabase.from('hangout_message_reads').select('last_read_at').eq('hangout_id', hangout.id).eq('user_id', currentUser.id).limit(1),
+      ])
+      if (cancelled) return
+      const latestAt = latest?.[0]?.created_at
+      const readAt = read?.[0]?.last_read_at
+      setHasUnreadThread(!!latestAt && (!readAt || new Date(latestAt) > new Date(readAt)))
+    }
+    checkUnread()
+    return () => { cancelled = true }
+  }, [hangout.id, hangout.status, hangout.is_live, currentUser?.id])
 
   const myVoteOptionId = options.find(o => o._myVote)?.id || null
   const myRsvpStatus = rsvps.find(r => r.user_id === currentUser?.id)?.status || null
@@ -832,6 +853,15 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
 
       {!isCancelled && (
       <div style={{ display: 'flex', gap: 8, marginBottom: isDone || bills.length > 0 || canEditHangout || canCancelHangout ? 14 : 0, flexWrap: 'wrap', alignItems: 'center' }}>
+        {(isConfirmed || isLive) && (
+          <button onClick={() => { setShowThread(true); setHasUnreadThread(false) }}
+            style={{ position: 'relative', padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.85)' : 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+            Thread
+            {hasUnreadThread && (
+              <span style={{ position: 'absolute', top: -3, right: -3, width: 8, height: 8, borderRadius: '50%', background: 'var(--yellow)', border: `2px solid ${isLive ? '#111' : '#ffffff'}` }} />
+            )}
+          </button>
+        )}
         {isConfirmed && isCreator && (
           <button onClick={goLive} style={{ padding: '8px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: 'var(--text)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>We are here</button>
         )}
@@ -1199,6 +1229,38 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
           </div>
         )}
       </div>
+
+      {showThread && (
+        <>
+          {/* Mobile: bottom sheet */}
+          <div className="mobile-only" style={{ display: 'none', position: 'fixed', inset: 0, zIndex: 300 }}>
+            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} onClick={() => setShowThread(false)} />
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '80vh', background: '#ffffff', borderRadius: '16px 16px 0 0', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Thread</span>
+                <button onClick={() => setShowThread(false)} style={{ background: 'none', border: 'none', fontSize: 20, color: 'var(--text3)', cursor: 'pointer', lineHeight: 1, padding: 4 }}>×</button>
+              </div>
+              <div style={{ flex: 1, minHeight: 0 }}>
+                <HangoutThread hangoutId={hangout.id} currentUser={currentUser} members={members} />
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop: modal overlay */}
+          <div className="desktop-only" style={{ display: 'flex', position: 'fixed', inset: 0, zIndex: 300, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} onClick={() => setShowThread(false)} />
+            <div style={{ position: 'relative', width: '100%', maxWidth: 440, height: 560, background: '#ffffff', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Thread</span>
+                <button onClick={() => setShowThread(false)} style={{ background: 'none', border: 'none', fontSize: 20, color: 'var(--text3)', cursor: 'pointer', lineHeight: 1, padding: 4 }}>×</button>
+              </div>
+              <div style={{ flex: 1, minHeight: 0 }}>
+                <HangoutThread hangoutId={hangout.id} currentUser={currentUser} members={members} />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
