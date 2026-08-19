@@ -104,10 +104,10 @@ type HangoutCardProps = {
 
 export default function HangoutCard({ post, data, currentUser, knotId, members, onRefresh, onToggleReaction }: HangoutCardProps) {
   const [hangout, setHangout]   = useState<any>(data.hangout)
-  const [options, setOptions]   = useState<any[]>(data.options)
-  const [rsvps, setRsvps]       = useState<any[]>(data.rsvps)
-  const [comments, setComments] = useState<any[]>(data.comments)
-  const [bills, setBills]       = useState<any[]>(data.bills)
+  const [options, setOptions]   = useState<any[]>(data.options ?? [])
+  const [rsvps, setRsvps]       = useState<any[]>(data.rsvps ?? [])
+  const [comments, setComments] = useState<any[]>(data.comments ?? [])
+  const [bills, setBills]       = useState<any[]>(data.bills ?? [])
   const [commentReactions, setCommentReactions] = useState<Record<string, ReactionCount[]>>({})
   const [commentReactionsEnabled, setCommentReactionsEnabled] = useState(commentReactionsSupported())
 
@@ -158,10 +158,10 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
   // Re-sync local state whenever fresh bundle data arrives from the parent
   useEffect(() => {
     setHangout(data.hangout)
-    setOptions(data.options)
-    setRsvps(data.rsvps)
-    setComments(data.comments)
-    setBills(data.bills)
+    setOptions(data.options ?? [])
+    setRsvps(data.rsvps ?? [])
+    setComments(data.comments ?? [])
+    setBills(data.bills ?? [])
     if ((data.comments || []).length > 0) setShowComments(true)
   }, [data])
 

@@ -256,6 +256,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
   function buildCardData(post: Post) {
     if (!bundle || !post.hangout_id) return null
     const hangout = bundle.hangoutsById.get(post.hangout_id)
+    if (!hangout) return null
     const options = (bundle.optionsByHangout.get(post.hangout_id) || []).map((o: any) => ({
       ...o,
       _myVote: (bundle.votesByHangout.get(post.hangout_id) || []).some((v: any) => v.option_id === o.id && v.user_id === currentUser?.id),
