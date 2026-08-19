@@ -451,19 +451,19 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
   return (
     <div style={{ maxWidth: 640 }}>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 24 }}>
-        <div style={{ background: 'var(--bg2)', border: '1px solid var(--yellow)', borderRadius: 12, padding: '14px 16px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 24, alignItems: 'stretch' }}>
+        <div style={{ background: 'var(--bg2)', border: '1px solid var(--yellow)', borderRadius: 12, padding: '14px 16px', alignSelf: 'stretch' }}>
           <div style={{ fontSize: 11, color: 'var(--yellow)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Tonight</div>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Plan a hangout</div>
           <div style={{ fontSize: 12, color: 'var(--text2)' }}>Use the composer below</div>
         </div>
-        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px' }}>
+        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', alignSelf: 'stretch' }}>
           <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Members</div>
           <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>{members.length}</div>
           <div style={{ fontSize: 12, color: 'var(--text2)' }}>in this Knot</div>
         </div>
         <div onClick={onOpenBills}
-          style={{ background: 'var(--bg2)', border: `1px solid ${billBalance && Math.abs(billBalance) > 0.01 ? 'var(--yellow)' : 'var(--border)'}`, borderRadius: 12, padding: '14px 16px', cursor: onOpenBills ? 'pointer' : 'default' }}>
+          style={{ background: 'var(--bg2)', border: `1px solid ${billBalance && Math.abs(billBalance) > 0.01 ? 'var(--yellow)' : 'var(--border)'}`, borderRadius: 12, padding: '14px 16px', cursor: onOpenBills ? 'pointer' : 'default', alignSelf: 'stretch' }}>
           <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Bills</div>
           {billBalance === null ? (
             <div style={{ fontSize: 12, color: 'var(--text3)' }}>Loading...</div>

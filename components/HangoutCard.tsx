@@ -790,18 +790,21 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
   return (
     <div style={{ background: cardBg, border: `${borderWidth}px solid ${borderColor}`, borderRadius: 12, padding: 20, marginBottom: 16, opacity: cardOpacity, boxShadow }}>
 
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: isCreator && hangout.is_surprise ? 6 : 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {dotColor && <div style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, boxShadow: `0 0 8px ${dotColor}`, flexShrink: 0, animation: isLive ? 'pulse-dot 1.2s ease-in-out infinite' : 'none' }} />}
           <span style={{ fontSize: 11, fontWeight: 700, color: statusColor, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{statusLabel}</span>
-          {isCreator && hangout.is_surprise && (
-            <span style={{ padding: '2px 8px', borderRadius: 20, background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', fontSize: 10, fontWeight: 700, color: 'var(--yellow)' }}>
-              Surprise mode{hangout.reveal_at ? ` · reveals ${formatDate(hangout.reveal_at)}` : ''}
-            </span>
-          )}
         </div>
         <span style={{ fontSize: 11, color: subColor }}>{timeAgo(post.created_at)}</span>
       </div>
+
+      {isCreator && hangout.is_surprise && (
+        <div style={{ marginBottom: 14 }}>
+          <span style={{ padding: '2px 8px', borderRadius: 20, background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', fontSize: 10, fontWeight: 700, color: 'var(--yellow)' }}>
+            Surprise mode{hangout.reveal_at ? ` · reveals ${formatDate(hangout.reveal_at)}` : ''}
+          </span>
+        </div>
+      )}
 
       {editingHangout ? (
         <div style={{ marginBottom: 14 }}>

@@ -502,7 +502,7 @@ await loadKnotMembers(startKnot.id, data.user.id)
         <div style={{ position: 'relative', flex: 1 }}>
           <button onClick={() => setShowKnotList(!showKnotList)}
             style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--text)', fontSize: 13, fontWeight: 500 }}>
-            <span>{activeKnot ? `${activeKnot.emoji} ${activeKnot.name}` : 'Select a Knot'}</span>
+            <span style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeKnot ? `${activeKnot.emoji} ${activeKnot.name}` : 'Select a Knot'}</span>
             <span style={{ color: 'var(--text3)', fontSize: 10 }}>▾</span>
           </button>
           {showKnotList && (
