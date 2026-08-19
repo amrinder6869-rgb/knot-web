@@ -74,7 +74,12 @@ export default function Composer({
   const [scheduledFor, setScheduledFor]   = useState<Date | null>(null)
   const [recurrenceDay, setRecurrenceDay] = useState(5)
   const [recurrenceTime, setRecurrenceTime] = useState('19:00')
-  const [whereMode, setWhereMode]         = useState<'none' | 'tbd' | 'discover' | 'manual' | 'home' | 'search' | 'online'>('none')
+  const [whereMode, setWhereMode]         = useState<'none' | 'tbd' | 'discover' | 'manual' | 'home' | 'search' | 'online' | 'cinema'>('none')
+  const [cinemaSearch, setCinemaSearch]   = useState('')
+  const [cinemaResults, setCinemaResults] = useState<any[]>([])
+  const [searchingCinema, setSearchingCinema] = useState(false)
+  const [movieTitle, setMovieTitle]       = useState('')
+  const [movieShowtime, setMovieShowtime] = useState<Date | null>(null)
   const [selectedVenue, setSelectedVenue] = useState<any>(null)
   const [meetingUrl, setMeetingUrl] = useState('')
   const [creatingRoom, setCreatingRoom] = useState(false)
@@ -124,6 +129,10 @@ export default function Composer({
     setManualAddress('')
     setVenueSearch('')
     setVenueResults([])
+    setCinemaSearch('')
+    setCinemaResults([])
+    setMovieTitle('')
+    setMovieShowtime(null)
     setHangoutTitle('')
     setHangoutError('')
     setMeetingUrl('')
@@ -342,6 +351,45 @@ export default function Composer({
     setSearchingVenue(false)
   }
 
+  async function searchCinemaByName(query: string) {
+    if (query.trim().length < 2) { setCinemaResults([]); return }
+    setSearchingCinema(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const res = await fetch('/api/autocomplete?input=' + encodeURIComponent(query) + '&types=movie_theater', {
+        headers: { Authorization: 'Bearer ' + session.access_token }
+      })
+      const data = await res.json()
+      setCinemaResults(data.suggestions || [])
+    } catch {}
+    setSearchingCinema(false)
+  }
+
+  async function selectCinemaFromSearch(suggestion: any) {
+    setSearchingCinema(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const res = await fetch('/api/autocomplete?place_id=' + suggestion.place_id, {
+        headers: { Authorization: 'Bearer ' + session.access_token }
+      })
+      const data = await res.json()
+      const place = data.place || {}
+      setSelectedVenue({
+        name: suggestion.main_text,
+        place_id: suggestion.place_id,
+        fsq_id: suggestion.place_id,
+        location: { formatted_address: suggestion.secondary_text || place.formatted_address || '' },
+        lat: place.lat || null,
+        lng: place.lng || null,
+        google_maps_url: `https://www.google.com/maps/place/?q=place_id:${suggestion.place_id}`,
+      })
+      setCinemaResults([])
+      setCinemaSearch('')
+    } catch {}
+    setSearchingCinema(false)
+  }
 
   async function createDailyRoom(hangoutId: string): Promise<string | null> {
     try {
@@ -400,6 +448,8 @@ export default function Composer({
       recurrenceTime_  = recurrenceTime
     }
 
+    if (whereMode === 'cinema') hangoutType = 'planned'
+
     const { data: { user: authUser } } = await supabase.auth.getUser()
     if (!authUser) { setHangoutError('You need to be signed in to post.'); setCreating(false); return }
 
@@ -430,6 +480,11 @@ export default function Composer({
       is_surprise:       surpriseMode,
       reveal_at:         surpriseMode && revealAt ? revealAt.toISOString() : null,
       event_restrictions: eventRestrictions,
+      // movie_title / movie_showtime are NOT included here — the hangouts
+      // table doesn't have these columns yet (checked via information_schema
+      // ahead of this sprint). They're tracked client-side in movieTitle/
+      // movieShowtime for the feed post content below; once the migration
+      // adding those columns lands, add them to this insert.
     }).select().single()
 
     if (hangoutInsertError || !h) {
@@ -502,6 +557,8 @@ export default function Composer({
       content = `${actorName} is at ${venueName || title} \u2014 the night is on!`
     } else if (whenType === 'weekly') {
       content = `${actorName} set up a weekly hangout \u2014 ${DAYS[recurrenceDay]}s at ${recurrenceTime}${venueName ? ' at ' + venueName : ''}`
+    } else if (whereMode === 'cinema' && movieTitle.trim()) {
+      content = `${actorName} planned a movie night \u2014 ${movieTitle.trim()} at ${venueName}${movieShowtime ? ' \u2014 ' + formatDate(movieShowtime.toISOString()) : ''}`
     } else {
       content = `${actorName} planned a hangout${venueName ? ' at ' + venueName : ''}${startTime ? ' \u2014 ' + formatDate(startTime) : ''}`
     }
@@ -852,6 +909,7 @@ export default function Composer({
                   { id: 'search', label: 'Search a place' },
                   { id: 'discover', label: 'Browse Discover' },
                   { id: 'online', label: 'Online / Virtual' },
+                  { id: 'cinema', label: String.fromCodePoint(0x1F3A5) + ' Movies' },
                 ] as { id: string, label: string }[]).map(({ id, label }) => (
                   <button key={id}
                     onClick={() => {
@@ -860,6 +918,7 @@ export default function Composer({
                       else if (id === 'search') setWhereMode('search')
                       else if (id === 'discover') setWhereMode('discover')
                       else if (id === 'online') setWhereMode('online')
+                      else if (id === 'cinema') setWhereMode('cinema')
                     }}
                     style={{
                       padding: '6px 14px', borderRadius: 6,
@@ -969,6 +1028,57 @@ export default function Composer({
                 <button onClick={() => { setWhereMode('none'); setManualAddress('') }} style={{ width: '100%', padding: '8px', background: 'transparent', border: '1px dashed var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
                   Cancel
                 </button>
+              </div>
+            )}
+
+            {whereMode === 'cinema' && !selectedVenue && (
+              <div style={{ position: 'relative' }}>
+                <input
+                  value={cinemaSearch}
+                  onChange={e => { setCinemaSearch(e.target.value); searchCinemaByName(e.target.value) }}
+                  placeholder="Search for a cinema..."
+                  autoFocus
+                  style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                />
+                {searchingCinema && <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>Searching...</div>}
+                {cinemaResults.length > 0 && (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 100, overflow: 'hidden', marginTop: 4 }}>
+                    {cinemaResults.map((s: any) => (
+                      <div key={s.place_id} onClick={() => selectCinemaFromSearch(s)}
+                        style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg3)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{s.main_text}</div>
+                        {s.secondary_text && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{s.secondary_text}</div>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button onClick={() => { setWhereMode('none'); setCinemaSearch(''); setCinemaResults([]) }}
+                  style={{ width: '100%', marginTop: 8, padding: '8px', background: 'transparent', border: '1px dashed var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Cancel
+                </button>
+              </div>
+            )}
+
+            {whereMode === 'cinema' && selectedVenue && (
+              <div>
+                <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{selectedVenue.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{selectedVenue.location?.formatted_address}</div>
+                  </div>
+                  <button onClick={() => { setSelectedVenue(null); setWhereMode('cinema') }}
+                    style={{ padding: '4px 10px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text2)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Change
+                  </button>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>What are you watching?</div>
+                <input value={movieTitle} onChange={e => setMovieTitle(e.target.value)}
+                  placeholder="Movie title"
+                  style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 10 }} />
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Showtime</div>
+                <DateTimePicker value={movieShowtime} onChange={setMovieShowtime} minDate={new Date()} />
               </div>
             )}
           </div>

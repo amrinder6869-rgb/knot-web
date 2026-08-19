@@ -29,6 +29,13 @@ function timeAgo(date: string) {
   return `${Math.floor(seconds / 86400)}d ago`
 }
 
+function formatShowtime(d: string) {
+  const date = new Date(d)
+  const day = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  return `${day} · ${time}`
+}
+
 function formatDate(d: string) {
   const date = new Date(d)
   const now = new Date()
@@ -832,6 +839,12 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
               ))}
             </div>
           )}
+          {hangout.movie_title && (
+            <div style={{ fontSize: 13, color: textColor, fontWeight: 600, marginBottom: 6 }}>
+              {String.fromCodePoint(0x1F3AC)} {hangout.movie_title}
+              {hangout.movie_showtime && <span style={{ color: subColor, fontWeight: 500 }}> · {formatShowtime(hangout.movie_showtime)}</span>}
+            </div>
+          )}
           {hangout.venue_address && <div style={{ fontSize: 12, color: subColor, marginBottom: 4 }}>{hangout.venue_address}</div>}
           {hangout.scheduled_for && !isLive && (
             <div style={{ fontSize: 13, color: isConfirmed ? 'var(--sage)' : 'var(--text2)', fontWeight: 600, marginTop: 4 }}>{formatDate(hangout.scheduled_for)}</div>
@@ -1037,6 +1050,14 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
 
       {!isCancelled && (
       <div style={{ display: 'flex', gap: 8, marginBottom: isDone || bills.length > 0 || canEditHangout || canCancelHangout ? 14 : 0, flexWrap: 'wrap', alignItems: 'center' }}>
+        {(isConfirmed || isLive) && hangout.movie_title && (
+          // Static Cineplex search URL for now — Rakuten affiliate params to
+          // be added post-registration.
+          <a href={`https://www.cineplex.com/Search?q=${encodeURIComponent(hangout.movie_title)}`} target="_blank" rel="noreferrer"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: '#111', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none' }}>
+            {String.fromCodePoint(0x1F3AC)} Get tickets
+          </a>
+        )}
         {(isConfirmed || isLive) && (
           <button onClick={() => { setShowThread(true); setHasUnreadThread(false) }}
             style={{ position: 'relative', padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.85)' : 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
