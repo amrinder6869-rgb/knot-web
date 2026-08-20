@@ -19,6 +19,9 @@ export async function GET(request: Request) {
   const knotId = searchParams.get('knot_id')
   if (!knotId) return NextResponse.json({ error: 'Missing knot_id' }, { status: 400 })
 
+  const { data: isMember } = await supabase.rpc('is_knot_member', { p_knot_id: knotId })
+  if (!isMember) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
   try {
     // Get the last 20 signals for this knot
     const { data: signals } = await supabase

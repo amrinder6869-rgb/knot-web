@@ -1,6 +1,19 @@
 import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
 export async function POST(request: Request) {
+  const authHeader = request.headers.get('authorization')
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { global: { headers: { Authorization: `Bearer ${token}` } } }
+  )
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   try {
     const { imageBase64, mediaType } = await request.json()
     if (!imageBase64 || !mediaType) {

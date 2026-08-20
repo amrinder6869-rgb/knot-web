@@ -52,7 +52,8 @@ export async function POST(request: Request) {
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { global: { headers: { Authorization: `Bearer ${token}` } } }
   )
   const { data: { user }, error } = await supabase.auth.getUser(token)
   if (error || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -62,6 +63,21 @@ export async function POST(request: Request) {
 
   const { hangoutId } = await request.json()
   if (!hangoutId) return NextResponse.json({ error: 'Missing hangoutId' }, { status: 400 })
+
+  const { data: hangout, error: hangoutError } = await supabase
+    .from('hangouts')
+    .select('knot_id, is_standalone, created_by, standalone_token')
+    .eq('id', hangoutId)
+    .single()
+  if (hangoutError || !hangout) return NextResponse.json({ error: 'Hangout not found' }, { status: 404 })
+
+  // Mirrors the hangouts_select RLS policy's own definition of "allowed to
+  // see this hangout": a knot member, the creator of a standalone event, or
+  // anyone on a standalone event that has an invite token (guests who
+  // haven't formally joined the knot yet still need to join the call).
+  const { data: isMember } = await supabase.rpc('is_knot_member', { p_knot_id: hangout.knot_id })
+  const allowed = !!isMember || (hangout.is_standalone && (hangout.created_by === user.id || !!hangout.standalone_token))
+  if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const roomName = `knot-${hangoutId}`
 

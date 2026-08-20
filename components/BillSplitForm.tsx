@@ -168,9 +168,13 @@ export default function BillSplitForm({
         reader.onerror = reject
         reader.readAsDataURL(compressed)
       })
+      const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/parse-receipt', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session ? { Authorization: 'Bearer ' + session.access_token } : {}),
+        },
         body: JSON.stringify({ imageBase64: base64, mediaType: compressed.type }),
       })
       if (res.ok) {

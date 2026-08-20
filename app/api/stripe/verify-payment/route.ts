@@ -21,6 +21,19 @@ export async function POST(request: Request) {
   const { paymentIntentId, orderId } = await request.json()
   if (!paymentIntentId || !orderId) return NextResponse.json({ error: 'Missing params' }, { status: 400 })
 
+  // Replay guard: this paymentIntentId column is written on every successful
+  // verify below — if it's already stored on some order_items row, this
+  // PaymentIntent has already been applied once and must not be reused
+  // against a different (or the same) order.
+  const { data: alreadyUsed } = await supabase
+    .from('order_items')
+    .select('id')
+    .eq('stripe_payment_intent_id', paymentIntentId)
+    .limit(1)
+  if (alreadyUsed && alreadyUsed.length > 0) {
+    return NextResponse.json({ error: 'Payment already applied' }, { status: 400 })
+  }
+
   try {
     const pi = await stripe.paymentIntents.retrieve(paymentIntentId)
 
@@ -31,6 +44,11 @@ export async function POST(request: Request) {
     // Verify this payment belongs to this user
     if (pi.metadata.user_id !== user.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Verify this payment was created for this specific order
+    if (pi.metadata.order_id !== orderId) {
+      return NextResponse.json({ error: 'Payment does not match this order' }, { status: 400 })
     }
 
     // Mark order items as paid server-side
