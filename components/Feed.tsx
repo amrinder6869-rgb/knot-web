@@ -537,9 +537,13 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
         if (p.type === 'bill') {
           return (
             <div key={p.id} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', ...CARD_STYLE }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--bg3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, color: 'var(--text2)', flexShrink: 0 }}>
-                $
-              </div>
+              {p.author_username ? (
+                <a href={`/${p.author_username}`} style={{ flexShrink: 0 }}>
+                  <MemberAvatar name={p.author} avatarUrl={p.author_avatar_url} size={36} color={p.color} textColor={p.text} />
+                </a>
+              ) : (
+                <MemberAvatar name={p.author} avatarUrl={p.author_avatar_url} size={36} color={p.color} textColor={p.text} />
+              )}
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13 }}>
                   {p.author_username ? (
