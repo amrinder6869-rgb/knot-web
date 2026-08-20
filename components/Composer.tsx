@@ -8,19 +8,12 @@ import { compressImage } from '@/lib/compressImage'
 import DateTimePicker from '@/components/DateTimePicker'
 import { useToast } from '@/components/ToastProvider'
 import { getRandom, COMPOSER_PLACEHOLDER } from '@/lib/copy'
+import { EVENT_RESTRICTION_OPTIONS } from '@/lib/constants'
 
 type PostType = 'moment' | 'hangout'
 type WhenType = 'now' | 'pick' | 'weekly'
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-
-const EVENT_RESTRICTIONS = [
-  { id: 'female-only',  label: 'Female only' },
-  { id: 'male-only',    label: 'Male only' },
-  { id: 'adults-only',  label: 'Adults only' },
-  { id: 'kids-welcome', label: 'Kids welcome' },
-  { id: 'couples-only', label: 'Couples only' },
-]
 
 function getNextWeekday(day: number, time: string): string {
   const now = new Date()
@@ -1111,7 +1104,7 @@ export default function Composer({
               <div style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600, marginBottom: 2 }}>Who is this for?</div>
               <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>Members who don&apos;t match will be flagged, not blocked</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {EVENT_RESTRICTIONS.map(opt => {
+                {EVENT_RESTRICTION_OPTIONS.map(opt => {
                   const selected = eventRestrictions.includes(opt.id)
                   return (
                     <button key={opt.id} onClick={() => toggleEventRestriction(opt.id)}

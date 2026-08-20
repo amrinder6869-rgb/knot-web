@@ -21,6 +21,7 @@ import Notifications from '@/components/Notifications'
 import { useToast } from '@/components/ToastProvider'
 import DateTimePicker from '@/components/DateTimePicker'
 import { CONFIRM, TOAST } from '@/lib/copy'
+import { DIETARY_OPTIONS, ACCESSIBILITY_OPTIONS } from '@/lib/constants'
 
 const TABS = [
   { id: 'feed',     label: 'Feed' },
@@ -53,24 +54,6 @@ const VISIBILITY = [
   { id: 'private',      label: 'Private',      hint: 'Only you can open your profile link.' },
   { id: 'members_only', label: 'Members Only', hint: 'Any signed-in Knot member can see it.' },
   { id: 'public',       label: 'Public',       hint: 'Anyone with the link, signed in or not.' },
-] as const
-
-const DIETARY_OPTIONS = [
-  { id: 'vegetarian',   label: 'Vegetarian' },
-  { id: 'vegan',        label: 'Vegan' },
-  { id: 'halal',        label: 'Halal' },
-  { id: 'kosher',       label: 'Kosher' },
-  { id: 'gluten-free',  label: 'Gluten-free' },
-  { id: 'nut allergy',  label: 'Nut allergy' },
-  { id: 'dairy-free',   label: 'Dairy-free' },
-  { id: 'other',        label: 'Other' },
-] as const
-
-const ACCESSIBILITY_OPTIONS = [
-  { id: 'wheelchair-access',   label: 'Wheelchair access' },
-  { id: 'step-free-entry',     label: 'Step-free entry' },
-  { id: 'accessible-parking',  label: 'Accessible parking' },
-  { id: 'hearing-loop',        label: 'Hearing loop' },
 ] as const
 
 const MEMBER_COLORS = [

@@ -16,6 +16,35 @@ const HOME_COLUMNS: Record<number, number[]> = {
 const START_POSITIONS = [0, 13, 26, 39]
 const PIECES_PER_PLAYER = 4
 
+// Board coordinates for the shared 52-square path (positions 0-51), one
+// [row, col] pair per position on the 15x15 grid. Traces a closed loop
+// around the cross-shaped board — verified to visit 52 distinct cells with
+// every step orthogonally adjacent except two short seams (opposite the
+// board's two "long way round" corners), which is an acceptable visual
+// trade-off since a piece only crosses either seam once per full lap.
+const PATH_COORDS: [number, number][] = [
+  [6,1],[6,2],[6,3],[6,4],[6,5],[6,6],[5,6],[4,6],[3,6],[2,6],[1,6],[0,6],[0,7],
+  [0,8],[1,8],[2,8],[3,8],[4,8],[5,8],[6,8],[6,9],[6,10],[6,11],[6,12],[6,13],[6,14],
+  [8,13],[8,12],[8,11],[8,10],[8,9],[8,8],[9,8],[10,8],[11,8],[12,8],[13,8],[14,8],[14,7],
+  [14,6],[13,6],[12,6],[11,6],[10,6],[9,6],[8,6],[8,5],[8,4],[8,3],[8,2],[8,1],[8,0],
+]
+
+// Coordinates for each player's 5-cell home stretch (positions 52-71, per
+// HOME_COLUMNS above), running along the unused middle lane of that
+// player's own arm, from the outer end (closest to the shared path) in to
+// the center.
+const HOME_COORDS: Record<number, [number, number]> = {
+  52: [7,1], 53: [7,2], 54: [7,3], 55: [7,4], 56: [7,5],
+  57: [1,7], 58: [2,7], 59: [3,7], 60: [4,7], 61: [5,7],
+  62: [7,13], 63: [7,12], 64: [7,11], 65: [7,10], 66: [7,9],
+  67: [13,7], 68: [12,7], 69: [11,7], 70: [10,7], 71: [9,7],
+}
+
+function posToCoord(pos: number): [number, number] | null {
+  if (pos >= 0 && pos < PATH_COORDS.length) return PATH_COORDS[pos]
+  return HOME_COORDS[pos] ?? null
+}
+
 function initialPieces() {
   return Array.from({ length: 4 }, (_, pi) =>
     Array.from({ length: PIECES_PER_PLAYER }, (_, i) => ({
@@ -218,7 +247,6 @@ export default function Ludo({ game, members, currentUser, _knotId, onEnd }: any
             // Skip corner home areas (they're 6x6)
             const inCorner = (row < 6 && col < 6) || (row < 6 && col > 8) || (row > 8 && col < 6) || (row > 8 && col > 8)
             if (inCorner) return null
-            const piecesHere = [] // simplified
             return (
               <rect key={`${row}-${col}`} x={col*CELL} y={row*CELL} width={CELL} height={CELL}
                 fill={cellColor(row, col)} stroke="var(--border)" strokeWidth="0.5" />
@@ -263,6 +291,25 @@ export default function Ludo({ game, members, currentUser, _knotId, onEnd }: any
             )
           })
         )}
+
+        {/* Pieces on the shared path and in home columns */}
+        {Array.from({ length: 72 }, (_, pos) => pos).map(pos => {
+          const coord = posToCoord(pos)
+          if (!coord) return null
+          const atPos = getPiecesAt(pos)
+          if (atPos.length === 0) return null
+          const [row, col] = coord
+          return atPos.map((p, i) => {
+            // Nudge apart pieces sharing a cell so they don't fully overlap.
+            const offset = atPos.length > 1 ? (i - (atPos.length - 1) / 2) * (CELL / 4) : 0
+            return (
+              <circle key={p.id} cx={col*CELL+CELL/2+offset} cy={row*CELL+CELL/2} r={CELL/3}
+                fill={PLAYER_COLORS[p.player]} stroke="#fff" strokeWidth="2"
+                style={{ cursor: movablePieces.includes(p.id) && myTurn ? 'pointer' : 'default', filter: movablePieces.includes(p.id) && myTurn ? 'drop-shadow(0 0 6px #fff)' : 'none' }}
+                onClick={() => movePiece(p.id)} />
+            )
+          })
+        })}
       </svg>
     )
   }

@@ -20,6 +20,7 @@ import {
   loadCommentReactions,
   toggleCommentReactionRemote,
 } from '@/lib/commentReactions'
+import { DIETARY_OPTIONS, ACCESSIBILITY_OPTIONS, EVENT_RESTRICTION_OPTIONS } from '@/lib/constants'
 
 function timeAgo(date: string) {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
@@ -88,32 +89,6 @@ const BRIEF_BUDGET_LABELS: Record<string, string> = {
   cheap: 'Cheap',
   mid: 'Mid',
   splurge: 'Splurge',
-}
-
-const EVENT_RESTRICTION_LABELS: Record<string, string> = {
-  'female-only':  'Female only',
-  'male-only':    'Male only',
-  'adults-only':  'Adults only',
-  'kids-welcome': 'Kids welcome',
-  'couples-only': 'Couples only',
-}
-
-const DIETARY_LABELS: Record<string, string> = {
-  vegetarian:     'Vegetarian',
-  vegan:          'Vegan',
-  halal:          'Halal',
-  kosher:         'Kosher',
-  'gluten-free':  'Gluten-free',
-  'nut allergy':  'Nut allergy',
-  'dairy-free':   'Dairy-free',
-  other:          'Other',
-}
-
-const ACCESSIBILITY_LABELS: Record<string, string> = {
-  'wheelchair-access':  'Wheelchair access',
-  'step-free-entry':    'Step-free entry',
-  'accessible-parking': 'Accessible parking',
-  'hearing-loop':       'Hearing loop',
 }
 
 function getInitials(name: string) {
@@ -845,7 +820,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
               {hangout.event_restrictions.map((r: string) => (
                 <span key={r} style={{ padding: '2px 9px', borderRadius: 999, background: 'var(--bg2)', color: 'var(--text2)', fontSize: 10, fontWeight: 600 }}>
-                  {EVENT_RESTRICTION_LABELS[r] || r}
+                  {EVENT_RESTRICTION_OPTIONS.find(o => o.id === r)?.label || r}
                 </span>
               ))}
             </div>
@@ -1010,7 +985,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
                   <div style={{ fontSize: 12, fontWeight: 600, color: textColor, marginBottom: 6 }}>Guest restrictions</div>
                   <div style={{ fontSize: 11, color: subColor, marginBottom: 6 }}>Dietary</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-                    {Object.entries(DIETARY_LABELS).map(([id, label]) => {
+                    {DIETARY_OPTIONS.map(({ id, label }) => {
                       const selected = guestDietary.includes(id)
                       return (
                         <button key={id} onClick={() => toggleGuestDietary(id)}
@@ -1022,7 +997,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
                   </div>
                   <div style={{ fontSize: 11, color: subColor, marginBottom: 6 }}>Accessibility</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {Object.entries(ACCESSIBILITY_LABELS).map(([id, label]) => {
+                    {ACCESSIBILITY_OPTIONS.map(({ id, label }) => {
                       const selected = guestAccessibility.includes(id)
                       return (
                         <button key={id} onClick={() => toggleGuestAccessibility(id)}

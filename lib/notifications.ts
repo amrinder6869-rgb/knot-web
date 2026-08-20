@@ -1,17 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { sendPushNotification } from '@/lib/push'
-
-// Mirrors PUSH_TITLES in lib/notify.ts. notifyKnotMembers is the other
-// notification-creation path (broadcast to a whole knot, e.g. new_moment
-// from Composer.tsx) — it doesn't go through createNotification, so it
-// needs its own push call after the insert.
-const PUSH_TITLES: Record<string, string> = {
-  new_moment:         'New moment',
-  bill_reminder:      'Bill reminder',
-  follow_request:     'New follower',
-  rsvp_momentum:      'Who is in?',
-  hangout_confirmed:  'Plan locked',
-}
+import { PUSH_TITLES } from '@/lib/constants'
 
 export async function notifyKnotMembers({
   knotId,
