@@ -15,29 +15,22 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
 
   useEffect(() => {
     async function load() {
-      // Only fetches the invite/knot pair for the preview screen below —
-      // whether the invite is actually still redeemable (not expired, not
-      // already used) is determined atomically by redeem_invite() when the
-      // user clicks Join, not duplicated here.
-      const { data: inv, error: invError } = await supabase
-        .from('invites')
-        .select('*')
-        .eq('token', token)
-        .single()
+      // invites_select RLS only allows the creator, used_by, or an existing
+      // knot member to read the row — exactly the people who don't need a
+      // preview. get_invite_preview() is SECURITY DEFINER so it can show
+      // the knot name/emoji to a brand-new invitee before they've joined.
+      const { data, error: rpcError } = await supabase.rpc('get_invite_preview', { p_token: token })
 
-      if (invError || !inv) { setStatus('error'); return }
+      if (rpcError || !data || !data.found) { setStatus('error'); return }
+      if (data.expired) { setStatus('expired'); return }
+      if (data.used) {
+        setStatus('error')
+        setJoinError('This invite has already been used.')
+        return
+      }
 
-      setInvite(inv)
-
-      const { data: knotData } = await supabase
-        .from('knots')
-        .select('id, name, emoji')
-        .eq('id', inv.knot_id)
-        .single()
-
-      if (!knotData) { setStatus('error'); return }
-
-      setKnot(knotData)
+      setInvite(data)
+      setKnot({ name: data.knot_name, emoji: data.knot_emoji })
       setStatus('valid')
 
       const { data: { user: u } } = await supabase.auth.getUser()

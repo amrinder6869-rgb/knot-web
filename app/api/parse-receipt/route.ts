@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+const ALLOWED_MEDIA_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+
 export async function POST(request: Request) {
   const authHeader = request.headers.get('authorization')
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
@@ -18,6 +20,12 @@ export async function POST(request: Request) {
     const { imageBase64, mediaType } = await request.json()
     if (!imageBase64 || !mediaType) {
       return NextResponse.json({ error: 'Missing image data' }, { status: 400 })
+    }
+    if (imageBase64.length > 6_800_000) {
+      return NextResponse.json({ error: 'Image too large' }, { status: 400 })
+    }
+    if (!ALLOWED_MEDIA_TYPES.has(mediaType)) {
+      return NextResponse.json({ error: 'Unsupported image type' }, { status: 400 })
     }
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {

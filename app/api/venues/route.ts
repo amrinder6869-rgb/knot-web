@@ -166,7 +166,7 @@ export async function GET(request: Request) {
         rating:        p.rating,
         rating_count:  p.user_ratings_total,
         photo_url:     p.photos?.[0]?.photo_reference
-          ? `/api/place-photo?ref=${encodeURIComponent(p.photos[0].photo_reference)}`
+          ? `/api/place-photo?ref=${encodeURIComponent(p.photos[0].photo_reference)}&t=${encodeURIComponent(token)}`
           : null,
         google_maps_url: `https://www.google.com/maps/place/?q=place_id:${p.place_id}`,
         lat: p.geometry?.location?.lat || null,

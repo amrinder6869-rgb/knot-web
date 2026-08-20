@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import https from 'https'
 import http from 'http'
+import { createClient } from '@supabase/supabase-js'
 
 function fetchFollowingRedirects(url: string, maxRedirects = 5): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -20,6 +21,22 @@ function fetchFollowingRedirects(url: string, maxRedirects = 5): Promise<Buffer>
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
+
+  // Called both as a fetch() (Authorization header available) and as a
+  // plain <img src> (browsers can't attach custom headers there) — venues
+  // route.ts embeds the caller's own access token as `t` for the latter.
+  const authHeader = request.headers.get('authorization')
+  const token = (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null) || searchParams.get('t')
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { global: { headers: { Authorization: `Bearer ${token}` } } }
+  )
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const ref = searchParams.get('ref')
   if (!ref) return NextResponse.json({ error: 'Missing ref' }, { status: 400 })
 

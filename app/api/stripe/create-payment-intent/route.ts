@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   // Server-side amount verification — never trust client amount
   const { data: items, error: itemsError } = await supabase
     .from('order_items')
-    .select('total_price')
+    .select('id, total_price')
     .eq('order_id', orderId)
     .eq('user_id', user.id)
     .eq('payment_status', 'pending')
@@ -32,6 +32,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'No pending items found for this order.' }, { status: 400 })
   }
 
+  const itemIds = items.map(i => i.id)
   const amount = items.reduce((sum, i) => sum + parseFloat(i.total_price), 0)
 
   if (amount < 0.5) {
@@ -48,6 +49,7 @@ export async function POST(request: Request) {
         hangout_id: hangoutId || '',
         user_id: user.id,
         merchant_name: merchantName || '',
+        item_ids: JSON.stringify(itemIds),
       },
     })
 

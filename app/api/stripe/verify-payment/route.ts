@@ -51,13 +51,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Payment does not match this order' }, { status: 400 })
     }
 
-    // Mark order items as paid server-side
+    let itemIds: string[] = []
+    try {
+      itemIds = JSON.parse(pi.metadata.item_ids || '[]')
+    } catch {
+      itemIds = []
+    }
+    if (!Array.isArray(itemIds) || itemIds.length === 0) {
+      return NextResponse.json({ error: 'Payment metadata is invalid' }, { status: 400 })
+    }
+
+    // Mark order items as paid server-side — scoped to exactly the items
+    // this PaymentIntent's amount was computed from at creation time, so
+    // items added to the order afterward can never ride along as "paid".
     const { error } = await supabase
       .from('order_items')
       .update({ payment_status: 'paid', stripe_payment_intent_id: paymentIntentId })
       .eq('order_id', orderId)
       .eq('user_id', user.id)
       .eq('payment_status', 'pending')
+      .in('id', itemIds)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
