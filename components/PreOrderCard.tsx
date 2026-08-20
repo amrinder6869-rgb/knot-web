@@ -172,8 +172,17 @@ export function PreOrderCard({ hangout, knotId, currentUserId, isLive = false }:
   }
 
   async function saveItems() {
-    if (Object.keys(myItems).filter(k => myItems[k] > 0).length === 0) {
+    const selectedIds = Object.keys(myItems).filter(k => myItems[k] > 0)
+    if (selectedIds.length === 0) {
       setError('Select at least one item.')
+      return
+    }
+    // A merchant may have disabled an item after it was added to the cart —
+    // menuItems is loaded filtered to available=true, so a stale selection
+    // would otherwise crash below on a missing item.price.
+    const unavailable = selectedIds.some(id => !menuItems.find(m => m.id === id))
+    if (unavailable) {
+      setError('One of your selected items is no longer available. Please remove it and try again.')
       return
     }
     setError('')
@@ -194,8 +203,8 @@ export function PreOrderCard({ hangout, knotId, currentUserId, isLive = false }:
             user_id: currentUserId,
             menu_item_id: itemId,
             quantity: qty,
-            unit_price: item.price,
-            total_price: item.price * qty,
+            unit_price: item ? item.price : 0,
+            total_price: item ? item.price * qty : 0,
             payment_status: 'pending',
           }
         })

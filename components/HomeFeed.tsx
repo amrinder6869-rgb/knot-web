@@ -113,12 +113,25 @@ export default function HomeFeed({ knots, onSelectKnot }: { knots: any[], onSele
       {items.map(item => {
         const knot   = item.knots
         const author = item.profiles?.name || 'Someone'
-        const isActivity = item._type === 'post' && (
+        // Hangout-creation posts (Composer.tsx's postHangout) always read
+        // "{actorName} planned a hangout…" / "…is checking availability
+        // for…" / "…is at … the night is on!" / "…set up a weekly
+        // hangout…" / "…planned a movie night…" — the actor's name varies,
+        // so match on the stable part of each phrase rather than a fixed
+        // prefix. These are full sentences that already include the actor's
+        // name, unlike the other activity types below.
+        const isHangoutActivity = item._type === 'post' && (
+          item.content?.includes('planned a hangout') ||
+          item.content?.includes('is checking availability for') ||
+          item.content?.includes('the night is on') ||
+          item.content?.includes('set up a weekly hangout') ||
+          item.content?.includes('planned a movie night')
+        )
+        const isActivity = isHangoutActivity || (item._type === 'post' && (
           item.content?.startsWith('added a bill') ||
-          item.content?.startsWith('started a hangout') ||
           item.content?.startsWith('locked in') ||
           item.content?.startsWith('treated ')
-        )
+        ))
 
         return (
           <div key={item._type + item.id}
@@ -218,15 +231,24 @@ export default function HomeFeed({ knots, onSelectKnot }: { knots: any[], onSele
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                   <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--bg3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--text2)' }}>
                     {item.content?.startsWith('added a bill') ? <DollarSign size={18} strokeWidth={2.2} />
-                      : item.content?.startsWith('started a hangout') ? <HelpCircle size={18} strokeWidth={2.2} />
+                      : isHangoutActivity ? <HelpCircle size={18} strokeWidth={2.2} />
                       : item.content?.startsWith('locked in') ? <Lock size={18} strokeWidth={2.2} />
                       : item.post_type === 'treat' ? <Gift size={18} strokeWidth={2.2} />
                       : <Gift size={18} strokeWidth={2.2} />}
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14 }}>
-                      <strong>{author}</strong>
-                      <span style={{ color: 'var(--text2)', marginLeft: 6 }}>{item.content}</span>
+                      {isHangoutActivity ? (
+                        // These already read as a full sentence starting
+                        // with the actor's name — prefixing another
+                        // <strong>{author}</strong> would show it twice.
+                        <span style={{ color: 'var(--text)' }}>{item.content}</span>
+                      ) : (
+                        <>
+                          <strong>{author}</strong>
+                          <span style={{ color: 'var(--text2)', marginLeft: 6 }}>{item.content}</span>
+                        </>
+                      )}
                     </div>
                   </div>
                   <span style={{ fontSize: 12, color: 'var(--yellow)', fontWeight: 700, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 2 }}>

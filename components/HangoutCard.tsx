@@ -629,13 +629,21 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
     onRefresh()
   }
 
-  async function handleEditBill(billId: string, desc: string, amount: number, splits: { user_id: string; amount: number }[]) {
+  async function handleEditBill(
+    billId: string, desc: string, amount: number, splits: { user_id: string; amount: number }[],
+    category: string, note: string, photoUrl: string,
+    isRecurring: boolean, recurringInterval: string
+  ) {
     if (!currentUser) return
     setEditBillSubmitting(true)
     setEditBillError('')
     const { error: updateError } = await supabase
       .from('bills')
-      .update({ description: desc, total_amount: amount })
+      .update({
+        description: desc, total_amount: amount,
+        category, note: note || null, photo_url: photoUrl || null,
+        is_recurring: isRecurring, recurring_interval: isRecurring ? recurringInterval : null,
+      })
       .eq('id', billId)
       .eq('added_by', currentUser.id)
     if (updateError) {
@@ -1232,11 +1240,18 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
                       defaultSelectedIds={b.bill_splits?.map((s: any) => s.user_id)}
                       defaultDesc={b.description}
                       defaultAmount={parseFloat(b.total_amount)}
+                      defaultCategory={b.category || 'other'}
+                      defaultNote={b.note || ''}
+                      defaultPhotoUrl={b.photo_url || ''}
+                      defaultIsRecurring={b.is_recurring || false}
+                      defaultRecurringInterval={b.recurring_interval || 'monthly'}
                       expectedHeadcount={totalHeadcount}
                       submitLabel="Save changes"
                       submitting={editBillSubmitting}
                       error={editBillError}
-                      onSubmit={(desc, amount, splits) => handleEditBill(b.id, desc, amount, splits)}
+                      onSubmit={(desc, amount, splits, category, note, photoUrl, isRecurring, recurringInterval) =>
+                        handleEditBill(b.id, desc, amount, splits, category, note, photoUrl, isRecurring, recurringInterval)
+                      }
                       onCancel={() => { setEditingBillId(null); setEditBillError('') }}
                       theme={isLive ? 'dark' : 'light'}
                     />

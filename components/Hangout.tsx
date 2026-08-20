@@ -4,6 +4,13 @@ import { supabase } from '@/lib/supabase'
 import HangoutCard from '@/components/HangoutCard'
 import Composer from '@/components/Composer'
 import { loadHangoutBundle } from '@/lib/hangoutBundle'
+import {
+  aggregateReactions,
+  legacyHeartEmojis,
+  normalizeReactionEmoji,
+  toggleReactionLocal,
+  type ReactionCount,
+} from '@/lib/reactions'
 
 export default function Hangout({ members, knotId, currentUser }: { members: any[], knotId?: string, currentUser?: any }) {
   const [posts, setPosts]     = useState<any[]>([])
@@ -53,7 +60,23 @@ export default function Hangout({ members, knotId, currentUser }: { members: any
 
     const b = await loadHangoutBundle(hangoutIds, postIds, currentUser?.id)
 
-    const sorted = [...postData].sort((a: any, b2: any) => {
+    const { data: reactionsData } = await supabase
+      .from('reactions')
+      .select('post_id, emoji, user_id')
+      .in('post_id', postIds)
+
+    const byPost: Record<string, { emoji: string; user_id: string }[]> = {}
+    ;(reactionsData || []).forEach((r: any) => {
+      if (!byPost[r.post_id]) byPost[r.post_id] = []
+      byPost[r.post_id].push({ emoji: r.emoji, user_id: r.user_id })
+    })
+    const reactionsMap: Record<string, ReactionCount[]> = {}
+    Object.keys(byPost).forEach(pid => {
+      reactionsMap[pid] = aggregateReactions(byPost[pid], currentUser?.id)
+    })
+    const withReactions = postData.map((p: any) => ({ ...p, reactions: reactionsMap[p.id] || [] }))
+
+    const sorted = [...withReactions].sort((a: any, b2: any) => {
       const ha = b.hangoutsById.get(a.hangout_id)
       const hb = b.hangoutsById.get(b2.hangout_id)
       if (ha?.is_live && !hb?.is_live) return -1
@@ -71,6 +94,24 @@ export default function Hangout({ members, knotId, currentUser }: { members: any
     setPosts(sorted)
     setBundle(b)
     setLoading(false)
+  }
+
+  async function toggleReaction(postId: string, emoji: string) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const normalized = normalizeReactionEmoji(emoji)
+    const post = posts.find(p => p.id === postId)
+    const existing = post?.reactions?.find((r: ReactionCount) => r.e === normalized && r.mine)
+    if (existing) {
+      await supabase.from('reactions').delete()
+        .eq('post_id', postId).eq('user_id', user.id).in('emoji', legacyHeartEmojis(normalized))
+    } else {
+      await supabase.from('reactions').insert({ post_id: postId, user_id: user.id, emoji: normalized })
+    }
+    setPosts(ps => ps.map(p => {
+      if (p.id !== postId) return p
+      return { ...p, reactions: toggleReactionLocal(p.reactions || [], normalized) }
+    }))
   }
 
   function buildCardData(post: any) {
@@ -120,6 +161,7 @@ export default function Hangout({ members, knotId, currentUser }: { members: any
             knotId={knotId!}
             members={members}
             onRefresh={loadHangoutPosts}
+            onToggleReaction={(emoji) => toggleReaction(post.id, emoji)}
           />
         )
       })}
