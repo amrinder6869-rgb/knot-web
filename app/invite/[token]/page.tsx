@@ -1,20 +1,24 @@
 'use client'
 
 import { useEffect, useState, use } from 'react'
-import { AlertCircle, Clock, Lock, ShieldCheck } from 'lucide-react'
+import { AlertCircle, Clock, ShieldCheck } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
 export default function InvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params)
   const [invite, setInvite]   = useState<any>(null)
   const [knot, setKnot]       = useState<any>(null)
-  const [status, setStatus]   = useState<'loading'|'valid'|'expired'|'used'|'joined'|'error'>('loading')
+  const [status, setStatus]   = useState<'loading'|'valid'|'expired'|'joined'|'error'>('loading')
   const [user, setUser]       = useState<any>(null)
   const [joining, setJoining] = useState(false)
   const [joinError, setJoinError] = useState('')
 
   useEffect(() => {
     async function load() {
+      // Only fetches the invite/knot pair for the preview screen below —
+      // whether the invite is actually still redeemable (not expired, not
+      // already used) is determined atomically by redeem_invite() when the
+      // user clicks Join, not duplicated here.
       const { data: inv, error: invError } = await supabase
         .from('invites')
         .select('*')
@@ -22,8 +26,6 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
         .single()
 
       if (invError || !inv) { setStatus('error'); return }
-      if (inv.used_by) { setStatus('used'); return }
-      if (new Date(inv.expires_at) < new Date()) { setStatus('expired'); return }
 
       setInvite(inv)
 
@@ -53,22 +55,42 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
     setJoining(true)
     setJoinError('')
 
-    const { error } = await supabase
-      .from('knot_members')
-      .insert({ knot_id: knot.id, user_id: user.id, role: 'member' })
+    const { data, error } = await supabase.rpc('redeem_invite', { p_token: token })
 
-    if (error && !error.message.includes('duplicate')) {
-      setJoinError('Could not join: ' + error.message)
+    if (error || !data) {
+      setJoinError('Could not join: ' + (error?.message || 'Please try again.'))
       setJoining(false)
       return
     }
 
-    await supabase.from('invites')
-      .update({ used_by: user.id, used_at: new Date().toISOString() })
-      .eq('token', token)
+    if (data.error === 'not_found') {
+      setStatus('error')
+      setJoinError('This invite link is not valid.')
+      return
+    }
+    if (data.error === 'expired') {
+      setStatus('expired')
+      return
+    }
+    if (data.error === 'already_used') {
+      setStatus('error')
+      setJoinError('This invite has already been used.')
+      return
+    }
+    if (data.error === 'not_authenticated') {
+      localStorage.setItem('pending_invite', token)
+      window.location.href = '/'
+      return
+    }
 
-    setStatus('joined')
-    setTimeout(() => { window.location.href = '/dashboard' }, 2000)
+    if (data.success) {
+      setStatus('joined')
+      setTimeout(() => { window.location.href = '/dashboard' }, 2000)
+      return
+    }
+
+    setJoinError('Could not join: please try again.')
+    setJoining(false)
   }
 
   const box: React.CSSProperties = {
@@ -103,7 +125,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
               <AlertCircle size={36} color="var(--danger)" strokeWidth={1.75} />
             </div>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Invalid invite</div>
-            <div style={{ fontSize: 13, color: 'var(--text2)' }}>This link doesn&apos;t exist or has been removed.</div>
+            <div style={{ fontSize: 13, color: 'var(--text2)' }}>{joinError || "This link doesn't exist or has been removed."}</div>
           </>
         )}
 
@@ -114,16 +136,6 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
             </div>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Invite expired</div>
             <div style={{ fontSize: 13, color: 'var(--text2)' }}>This invite link expired. Ask your friend to send a new one.</div>
-          </>
-        )}
-
-        {status === 'used' && (
-          <>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
-              <Lock size={36} color="var(--text3)" strokeWidth={1.75} />
-            </div>
-            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Already used</div>
-            <div style={{ fontSize: 13, color: 'var(--text2)' }}>This one-time link has already been claimed.</div>
           </>
         )}
 
