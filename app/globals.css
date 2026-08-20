@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 
 :root {
   color-scheme: light;
@@ -36,9 +36,9 @@
   --danger-dim:  rgba(192,57,43,0.15);
   --danger-soft: rgba(192,57,43,0.10);
 
-  --indigo:      #F8BD03;
-  --indigo-dim:  rgba(248,189,3,0.15);
-  --indigo-soft: rgba(248,189,3,0.10);
+  --indigo:      #4F46E5;
+  --indigo-dim:  rgba(79,70,229,0.12);
+  --indigo-soft: rgba(79,70,229,0.10);
 
   --sage:        #2E7D5E;
   --sage-dim:    rgba(46,125,94,0.15);

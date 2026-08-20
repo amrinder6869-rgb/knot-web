@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 
 export default function MerchantLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ minHeight: '100vh', background: '#FAFAFA', fontFamily: 'Manrope, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', fontFamily: 'Manrope, sans-serif' }}>
       {children}
     </div>
   )

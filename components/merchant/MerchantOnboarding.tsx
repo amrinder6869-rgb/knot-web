@@ -91,19 +91,19 @@ export default function MerchantOnboarding({ user, onComplete }: Props) {
   return (
     <div style={{ maxWidth: 560, margin: '0 auto', padding: '40px 24px' }}>
       <div style={{ marginBottom: 32 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#F8BD03', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--yellow)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
           Step {step === 'search' ? '1' : step === 'confirm' ? '2' : '3'} of 3
         </div>
-        <h2 style={{ fontSize: 24, fontWeight: 800, color: '#111', marginBottom: 8 }}>
+        <h2 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)', marginBottom: 8 }}>
           {step === 'search' ? 'Find your restaurant' : step === 'confirm' ? 'Confirm your listing' : 'Complete your profile'}
         </h2>
-        <p style={{ fontSize: 14, color: '#666' }}>
+        <p style={{ fontSize: 14, color: 'var(--text2)' }}>
           {step === 'search' ? 'Search for your restaurant on Google to link your Knot profile.' : step === 'confirm' ? 'Make sure this is the correct listing before continuing.' : 'Add a few details so groups know what to expect.'}
         </p>
       </div>
 
       {error && (
-        <div style={{ padding: '10px 14px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, fontSize: 13, color: '#DC2626', marginBottom: 16 }}>
+        <div style={{ padding: '10px 14px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, fontSize: 13, color: 'var(--danger)', marginBottom: 16 }}>
           {error}
         </div>
       )}
@@ -114,23 +114,23 @@ export default function MerchantOnboarding({ user, onComplete }: Props) {
             <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && searchPlaces()}
               placeholder="e.g. Yogurty's Mississauga"
-              style={{ flex: 1, padding: '10px 12px', border: '1px solid #E5E5E5', borderRadius: 8, fontSize: 14, outline: 'none', fontFamily: 'inherit' }} />
+              style={{ flex: 1, padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 14, outline: 'none', fontFamily: 'inherit' }} />
             <button onClick={searchPlaces} disabled={searching}
-              style={{ padding: '10px 16px', background: '#F8BD03', border: 'none', borderRadius: 8, color: '#111', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: searching ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+              style={{ padding: '10px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: 'var(--text)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: searching ? 0.6 : 1, whiteSpace: 'nowrap' }}>
               {searching ? '...' : 'Search'}
             </button>
           </div>
           {searchResults.map(s => (
             <div key={s.place_id} onClick={() => selectPlace(s)}
-              style={{ padding: '12px 14px', background: '#fff', border: '1px solid #E5E5E5', borderRadius: 10, marginBottom: 8, cursor: 'pointer' }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = '#F8BD03')}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = '#E5E5E5')}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#111' }}>{s.main_text}</div>
-              {s.secondary_text && <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{s.secondary_text}</div>}
+              style={{ padding: '12px 14px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, marginBottom: 8, cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
+              onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--yellow)')}
+              onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{s.main_text}</div>
+              {s.secondary_text && <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{s.secondary_text}</div>}
             </div>
           ))}
           <button onClick={() => { setSelectedPlace(null); setStep('details') }}
-            style={{ width: '100%', marginTop: 8, padding: '10px', background: 'transparent', border: '1px dashed #E5E5E5', borderRadius: 8, color: '#888', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+            style={{ width: '100%', marginTop: 8, padding: '10px', background: 'transparent', border: '1px dashed var(--border)', borderRadius: 8, color: 'var(--text3)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
             My restaurant is not on Google yet, add manually
           </button>
         </div>
@@ -138,17 +138,17 @@ export default function MerchantOnboarding({ user, onComplete }: Props) {
 
       {step === 'confirm' && selectedPlace && (
         <div>
-          <div style={{ padding: '16px', background: '#fff', border: '2px solid #F8BD03', borderRadius: 12, marginBottom: 20 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#111', marginBottom: 4 }}>{selectedPlace.main_text}</div>
-            <div style={{ fontSize: 13, color: '#666' }}>{selectedPlace.secondary_text || selectedPlace.formatted_address}</div>
+          <div style={{ padding: '16px', background: 'var(--bg2)', border: '2px solid var(--yellow)', borderRadius: 12, marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{selectedPlace.main_text}</div>
+            <div style={{ fontSize: 13, color: 'var(--text2)' }}>{selectedPlace.secondary_text || selectedPlace.formatted_address}</div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => setStep('search')}
-              style={{ flex: 1, padding: '11px', background: 'transparent', border: '1px solid #E5E5E5', borderRadius: 8, color: '#555', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ flex: 1, padding: '11px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text2)', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
               Wrong listing
             </button>
             <button onClick={() => setStep('details')}
-              style={{ flex: 2, padding: '11px', background: '#F8BD03', border: 'none', borderRadius: 8, color: '#111', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ flex: 2, padding: '11px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: 'var(--text)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
               Yes, this is my restaurant
             </button>
           </div>
@@ -158,7 +158,7 @@ export default function MerchantOnboarding({ user, onComplete }: Props) {
       {step === 'details' && (
         <div>
           <div style={{ marginBottom: 16 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 8 }}>Business type</label>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 8 }}>Business type</label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
               {[
                 { id: 'restaurant', label: 'Restaurant', emoji: '🍽️' },
@@ -171,36 +171,36 @@ export default function MerchantOnboarding({ user, onComplete }: Props) {
                 { id: 'other', label: 'Other', emoji: '📍' },
               ].map(c => (
                 <button key={c.id} onClick={() => setCategory(c.id)}
-                  style={{ padding: '10px 6px', borderRadius: 8, border: category === c.id ? '1.5px solid #F8BD03' : '1px solid #E5E5E5', background: category === c.id ? '#FFFBEB' : '#fff', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center' }}>
+                  style={{ padding: '10px 6px', borderRadius: 8, border: category === c.id ? '1.5px solid var(--yellow)' : '1px solid var(--border)', background: category === c.id ? '#FFFBEB' : 'var(--bg2)', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center' }}>
                   <div style={{ fontSize: 20, marginBottom: 4 }}>{c.emoji}</div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: category === c.id ? '#D97706' : '#555' }}>{c.label}</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: category === c.id ? '#D97706' : 'var(--text2)' }}>{c.label}</div>
                 </button>
               ))}
             </div>
           </div>
 
           <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>Business name</label>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>Business name</label>
             <input value={name} onChange={e => setName(e.target.value)}
-              style={{ width: '100%', padding: '10px 12px', border: '1px solid #E5E5E5', borderRadius: 8, fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+              style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
           </div>
           <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>Phone number</label>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>Phone number</label>
             <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="For booking confirmations"
-              style={{ width: '100%', padding: '10px 12px', border: '1px solid #E5E5E5', borderRadius: 8, fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+              style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
           </div>
           <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>Cuisine type</label>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>Cuisine type</label>
             <input value={cuisine} onChange={e => setCuisine(e.target.value)} placeholder="e.g. Italian, Japanese, Burgers"
-              style={{ width: '100%', padding: '10px 12px', border: '1px solid #E5E5E5', borderRadius: 8, fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+              style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
           </div>
           <div style={{ marginBottom: 24 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>Seating capacity</label>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>Seating capacity</label>
             <input value={capacity} onChange={e => setCapacity(e.target.value)} type="number" placeholder="e.g. 60"
-              style={{ width: '100%', padding: '10px 12px', border: '1px solid #E5E5E5', borderRadius: 8, fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+              style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
           </div>
           <button onClick={saveProfile} disabled={saving}
-            style={{ width: '100%', padding: '13px', background: '#F8BD03', border: 'none', borderRadius: 8, color: '#111', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: saving ? 0.6 : 1 }}>
+            style={{ width: '100%', padding: '13px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: 'var(--text)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: saving ? 0.6 : 1 }}>
             {saving ? 'Saving...' : 'Complete setup'}
           </button>
         </div>
