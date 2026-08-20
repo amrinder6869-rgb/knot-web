@@ -1,7 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { DollarSign, HelpCircle, Lock, Gift, ChevronRight } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { supabase, getSignedUrl } from '@/lib/supabase'
+import MemberAvatar from '@/components/MemberAvatar'
 
 function timeAgo(date: string) {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
@@ -9,10 +10,6 @@ function timeAgo(date: string) {
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
   return `${Math.floor(seconds / 86400)}d ago`
-}
-
-function getInitials(name: string) {
-  return (name || 'U').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()
 }
 
 function groupPhotos(photos: any[]) {
@@ -46,13 +43,13 @@ export default function HomeFeed({ knots, onSelectKnot }: { knots: any[], onSele
     const [{ data: posts }, { data: photos }] = await Promise.all([
       supabase
         .from('posts')
-        .select('*, profiles:author_id(name), knots:knot_id(id, name, emoji)')
+        .select('*, profiles:author_id(name, avatar_url, username), knots:knot_id(id, name, emoji)')
         .in('knot_id', knotIds)
         .order('created_at', { ascending: false })
         .limit(40),
       supabase
         .from('photos')
-        .select('id, storage_path, media_type, caption, created_at, post_id, hangout_id, knot_id, uploaded_by, profiles:uploaded_by(name), knots:knot_id(id, name, emoji)')
+        .select('id, storage_path, media_type, caption, created_at, post_id, hangout_id, knot_id, uploaded_by, profiles:uploaded_by(name, avatar_url, username), knots:knot_id(id, name, emoji)')
         .in('knot_id', knotIds)
         .order('created_at', { ascending: false })
         .limit(40),
@@ -113,6 +110,7 @@ export default function HomeFeed({ knots, onSelectKnot }: { knots: any[], onSele
       {items.map(item => {
         const knot   = item.knots
         const author = item.profiles?.name || 'Someone'
+        const authorAvatarUrl = item.profiles?.avatar_url || null
         // Hangout-creation posts (Composer.tsx's postHangout) always read
         // "{actorName} planned a hangout…" / "…is checking availability
         // for…" / "…is at … the night is on!" / "…set up a weekly
@@ -186,7 +184,7 @@ export default function HomeFeed({ knots, onSelectKnot }: { knots: any[], onSele
                     <span style={{ fontSize: 11, color: 'var(--text3)' }}>{timeAgo(item.created_at)}</span>
                   </div>
                   <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                    <Avatar name={author} />
+                    <MemberAvatar name={author} avatarUrl={authorAvatarUrl} size={34} />
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13 }}>
                         <strong>{author}</strong>
@@ -210,7 +208,7 @@ export default function HomeFeed({ knots, onSelectKnot }: { knots: any[], onSele
                   <span style={{ fontSize: 11, color: 'var(--text3)' }}>{timeAgo(item.created_at)}</span>
                 </div>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                  <Avatar name={author} />
+                  <MemberAvatar name={author} avatarUrl={authorAvatarUrl} size={34} />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{author}</div>
                     <div style={{ padding: '12px 14px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 10, fontSize: 13, color: 'var(--yellow)', fontWeight: 600 }}>
@@ -229,13 +227,7 @@ export default function HomeFeed({ knots, onSelectKnot }: { knots: any[], onSele
                   <span style={{ fontSize: 11, color: 'var(--text3)' }}>{timeAgo(item.created_at)}</span>
                 </div>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--bg3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--text2)' }}>
-                    {item.content?.startsWith('added a bill') ? <DollarSign size={18} strokeWidth={2.2} />
-                      : isHangoutActivity ? <HelpCircle size={18} strokeWidth={2.2} />
-                      : item.content?.startsWith('locked in') ? <Lock size={18} strokeWidth={2.2} />
-                      : item.post_type === 'treat' ? <Gift size={18} strokeWidth={2.2} />
-                      : <Gift size={18} strokeWidth={2.2} />}
-                  </div>
+                  <MemberAvatar name={author} avatarUrl={authorAvatarUrl} size={40} />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14 }}>
                       {isHangoutActivity ? (
@@ -266,7 +258,7 @@ export default function HomeFeed({ knots, onSelectKnot }: { knots: any[], onSele
                   <span style={{ fontSize: 11, color: 'var(--text3)' }}>{timeAgo(item.created_at)}</span>
                 </div>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                  <Avatar name={author} />
+                  <MemberAvatar name={author} avatarUrl={authorAvatarUrl} size={34} />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>{author}</div>
                     <div style={{ fontSize: 15, color: 'var(--text)', lineHeight: 1.55 }}>{item.content}</div>
@@ -289,14 +281,6 @@ function KnotBadge({ knot }: { knot: any }) {
     <div style={{ padding: '3px 10px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 20, fontSize: 11, fontWeight: 700, color: 'var(--yellow)', display: 'flex', alignItems: 'center', gap: 4 }}>
       <span>{knot?.emoji}</span>
       <span>{knot?.name}</span>
-    </div>
-  )
-}
-
-function Avatar({ name }: { name: string }) {
-  return (
-    <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-      {getInitials(name)}
     </div>
   )
 }
