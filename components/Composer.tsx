@@ -293,6 +293,7 @@ export default function Composer({
 
     await supabase.from('posts').insert({
       knot_id: knotId,
+      author_id: user.id,
       content: `added a bill — $${amount.toFixed(2)} for ${quickBillDesc.trim()}, split ${splitIds.length} ways`,
       post_type: 'bill',
     })
