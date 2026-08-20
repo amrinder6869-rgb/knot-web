@@ -43,7 +43,7 @@ function BalanceCard({ myBalance, myDebts, currentUserId, onSettleUp }: {
   const debts = myDebts ?? []
   const isOwed = myBalance > 0.01
   const isOwing = myBalance < -0.01
-  const amountColor = isOwing ? '#DC2626' : '#16A34A'
+  const amountColor = isOwing ? 'var(--danger)' : 'var(--sage)'
 
   return (
     <div style={{ background: '#fff', border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', borderRadius: 16, padding: 24, marginBottom: 20, textAlign: 'center' }}>
@@ -62,9 +62,9 @@ function BalanceCard({ myBalance, myDebts, currentUserId, onSettleUp }: {
               const iOwe = d.from.id === currentUserId
               const other = iOwe ? d.to : d.from
               return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--bg3)', borderRadius: 10 }}>
+                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--bg3)', borderRadius: 12 }}>
                   <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>{other.name}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: iOwe ? '#DC2626' : '#16A34A' }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: iOwe ? 'var(--danger)' : 'var(--sage)' }}>
                     {iOwe ? '-' : '+'}${d.amount.toFixed(2)}
                   </span>
                 </div>
@@ -72,7 +72,7 @@ function BalanceCard({ myBalance, myDebts, currentUserId, onSettleUp }: {
             })}
           </div>
           <button onClick={onSettleUp}
-            style={{ width: '100%', padding: '12px', background: '#F8BD03', border: 'none', borderRadius: 10, color: '#111', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            style={{ width: '100%', padding: '12px', background: '#F8BD03', border: 'none', borderRadius: 12, color: '#111', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
             Settle up
           </button>
         </>
@@ -469,7 +469,7 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
                 {settlements.map((s: any) => {
                   const canUndo = undoableIds.has(s.id)
                   return (
-                    <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10 }}>
+                    <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12 }}>
                       <div style={{ flex: 1, fontSize: 13, color: 'var(--text)' }}>
                         <strong>{s.from_profile?.name || 'Someone'}</strong>
                         <span style={{ color: 'var(--text2)' }}> paid </span>
@@ -545,10 +545,10 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
                                 </span>
                               )}
                             </div>
-                            <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>{bill.description} {String.fromCodePoint(0x00B7)} {timeAgo(bill.created_at)}</div>
+                            <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2, lineHeight: 1.5 }}>{bill.description} {String.fromCodePoint(0x00B7)} {timeAgo(bill.created_at)}</div>
                             {linkedHangout && <div style={{ fontSize: 12, color: 'var(--yellow)', marginTop: 2 }}>From {linkedHangout}</div>}
                             <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Paid by {bill.profiles?.name || 'someone'}</div>
-                            {bill.note && <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4, fontStyle: 'italic' }}>{bill.note}</div>}
+                            {bill.note && <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4, fontStyle: 'italic', lineHeight: 1.5 }}>{bill.note}</div>}
                           </div>
                           <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 6, background: progress === 100 ? 'var(--sage-soft)' : 'var(--amber-soft)', color: progress === 100 ? 'var(--sage)' : 'var(--amber)', fontWeight: 600, whiteSpace: 'nowrap' }}>
                             {progress === 100 ? 'All settled' : `${settledCount}/${billSplits.length} settled`}

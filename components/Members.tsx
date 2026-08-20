@@ -293,7 +293,7 @@ export default function Members({ members: _members, knotId }: { members: any[],
                     {getInitials(nom.nominee_name)}
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700 }}>{nom.nominee_name}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>{nom.nominee_name}</div>
                     <div style={{ fontSize: 12, color: 'var(--text2)' }}>Nominated · pending vote</div>
                   </div>
                   <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 20, background: 'var(--amber-soft)', color: 'var(--amber)' }}>Open</span>

@@ -536,7 +536,7 @@ export default function Discover({ members: _members, onVenueSelect, currentUser
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
                         <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{v.name}</div>
                         {merchants[v.fsq_id] && (
-                          <span style={{ padding: '2px 7px', borderRadius: 20, background: 'rgba(234,179,8,0.15)', border: '1px solid rgba(234,179,8,0.3)', fontSize: 10, fontWeight: 700, color: '#EAB308', whiteSpace: 'nowrap' }}>
+                          <span style={{ padding: '2px 7px', borderRadius: 20, background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', fontSize: 10, fontWeight: 700, color: 'var(--yellow)', whiteSpace: 'nowrap' }}>
                             Knot
                           </span>
                         )}

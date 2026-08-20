@@ -604,7 +604,7 @@ await loadKnotMembers(startKnot.id, data.user.id)
           {/* COVER BANNER */}
           <div style={{ borderBottom: '1px solid var(--border)' }}>
             <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px 20px 0 20px' }}>
-            <div style={{ height: 180, background: coverSignedUrl ? 'transparent' : 'linear-gradient(135deg, #F9F9F9 0%, #F2F2F2 50%, #E8E8E8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', borderRadius: 12 }}>
+            <div style={{ height: 180, background: coverSignedUrl ? 'transparent' : 'linear-gradient(135deg, var(--bg2) 0%, var(--bg3) 50%, var(--bg4) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', borderRadius: 12 }}>
               {coverSignedUrl ? (
                 <img src={coverSignedUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', position: 'absolute', top: 0, left: 0 }} />
               ) : (

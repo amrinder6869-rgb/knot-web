@@ -815,7 +815,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         </div>
       ) : (
         <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: textColor, marginBottom: 4 }}>{hangout.venue_name || hangout.title}</div>
+          <div style={{ fontSize: 17, fontWeight: 700, color: textColor, marginBottom: 4 }}>{hangout.venue_name || hangout.title}</div>
           {hangout.event_restrictions?.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
               {hangout.event_restrictions.map((r: string) => (
@@ -856,12 +856,12 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
       )}
 
       {!isCancelled && (isVoting || isConfirmed) && (hangout.brief || hangout.brief_vibe || hangout.brief_budget) && (
-        <div style={{ padding: '10px 12px', background: isLive ? 'rgba(255,255,255,0.04)' : 'var(--bg3)', border: `1px solid ${borderSep}`, borderRadius: 10, marginBottom: 14 }}>
+        <div style={{ padding: '10px 12px', background: isLive ? 'rgba(255,255,255,0.04)' : 'var(--bg3)', border: `1px solid ${borderSep}`, borderRadius: 12, marginBottom: 14 }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: subColor, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Brief</div>
           {hangout.brief && <div style={{ fontSize: 13, color: textColor, marginBottom: 6, lineHeight: 1.5 }}>{hangout.brief}</div>}
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {hangout.brief_vibe && <span style={{ padding: '3px 8px', borderRadius: 20, background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.25)', fontSize: 11, fontWeight: 600, color: 'var(--yellow)' }}>{hangout.brief_vibe}</span>}
-            {hangout.brief_budget && <span style={{ padding: '3px 8px', borderRadius: 20, background: 'rgba(148,163,184,0.1)', border: '1px solid rgba(148,163,184,0.2)', fontSize: 11, fontWeight: 600, color: 'var(--text3)' }}>{BRIEF_BUDGET_LABELS[hangout.brief_budget] || hangout.brief_budget}</span>}
+            {hangout.brief_vibe && <span style={{ padding: '3px 8px', borderRadius: 20, background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', fontSize: 11, fontWeight: 600, color: 'var(--yellow)' }}>{hangout.brief_vibe}</span>}
+            {hangout.brief_budget && <span style={{ padding: '3px 8px', borderRadius: 20, background: 'var(--bg3)', border: '1px solid var(--border)', fontSize: 11, fontWeight: 600, color: 'var(--text3)' }}>{BRIEF_BUDGET_LABELS[hangout.brief_budget] || hangout.brief_budget}</span>}
           </div>
         </div>
       )}
@@ -1134,7 +1134,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         )}
         {canCancelHangout && (
           <button onClick={cancelHangout} disabled={cancellingHangout}
-            style={{ padding: '8px 14px', background: 'transparent', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, color: 'var(--danger)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', opacity: cancellingHangout ? 0.5 : 1 }}>
+            style={{ padding: '8px 14px', background: 'transparent', border: '1px solid var(--danger-dim)', borderRadius: 8, color: 'var(--danger)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', opacity: cancellingHangout ? 0.5 : 1 }}>
             {cancellingHangout ? 'Cancelling...' : 'Cancel hangout'}
           </button>
         )}
@@ -1239,7 +1239,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
                   <>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                       <div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: textColor }}>{b.description}</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: textColor, lineHeight: 1.5 }}>{b.description}</div>
                         <div style={{ fontSize: 12, color: subColor, marginTop: 2 }}>${parseFloat(b.total_amount).toFixed(2)} total</div>
                       </div>
                       <div style={{ fontSize: 11, color: settledCount === totalSplits ? 'var(--sage)' : subColor, fontWeight: 600 }}>{settledCount}/{totalSplits} settled</div>
@@ -1348,7 +1348,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
                     </div>
                   ) : (
                     <>
-                      {c.content && <span style={{ fontSize: 12, color: isLive ? 'rgba(255,255,255,0.55)' : 'var(--text2)', marginLeft: 6 }}>{c.content}</span>}
+                      {c.content && <span style={{ fontSize: 12, color: isLive ? 'rgba(255,255,255,0.55)' : 'var(--text2)', marginLeft: 6, lineHeight: 1.5 }}>{c.content}</span>}
                       {c.photo_url && (
                         <div style={{ marginTop: 6 }}>
                           <img src={c.photo_url} alt="" style={{ maxWidth: '100%', maxHeight: 240, borderRadius: 8, objectFit: 'cover', display: 'block' }} />

@@ -551,7 +551,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
                   ) : (
                     <strong style={{ color: 'var(--text)' }}>{p.author}</strong>
                   )}
-                  <span style={{ color: 'var(--text2)', marginLeft: 6 }}>{p.action}</span>
+                  <span style={{ color: 'var(--text2)', marginLeft: 6, lineHeight: 1.5 }}>{p.action}</span>
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{p.time}</div>
                 <div style={{ marginTop: 8 }}>
@@ -630,7 +630,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
                     ) : (
                       <strong style={{ color: 'var(--text)' }}>{p.author}</strong>
                     )}
-                    <span style={{ color: 'var(--text2)', marginLeft: 6 }}>{p.action}</span>
+                    <span style={{ color: 'var(--text2)', marginLeft: 6, lineHeight: 1.5 }}>{p.action}</span>
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{p.time}</div>
                   {momentPhotos.get(p.id) ? (
