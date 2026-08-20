@@ -17,6 +17,7 @@ import {
   type ReactionCount,
 } from '@/lib/reactions'
 import { getRandom, LOADING, EMPTY } from '@/lib/copy'
+import MemberAvatar from '@/components/MemberAvatar'
 
 type MomentPhoto = { id: string; storage_path: string; url: string; media_type: string }
 
@@ -31,6 +32,8 @@ type Post = {
   type: string
   reactions: ReactionCount[]
   author_id: string | null
+  author_avatar_url: string | null
+  author_username: string | null
   hangout_id: string | null
   profiles: any
   created_at: string
@@ -143,7 +146,7 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
     if (!knotId) return
     const { data, error } = await supabase
       .from('posts')
-      .select('*, profiles:author_id(name)')
+      .select('*, profiles:author_id(name, avatar_url, username)')
       .eq('knot_id', knotId)
       .order('created_at', { ascending: false })
       .limit(30)
@@ -175,6 +178,8 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
         id:         p.id,
         author:     name,
         author_id:  p.author_id,
+        author_avatar_url: p.profiles?.avatar_url || null,
+        author_username:   p.profiles?.username || null,
         initials:   getInitials(name),
         color:      col.bg,
         text:       col.text,
@@ -537,7 +542,11 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13 }}>
-                  <strong style={{ color: 'var(--text)' }}>{p.author}</strong>
+                  {p.author_username ? (
+                    <a href={`/${p.author_username}`} style={{ color: 'var(--text)', fontWeight: 700, textDecoration: 'none' }}>{p.author}</a>
+                  ) : (
+                    <strong style={{ color: 'var(--text)' }}>{p.author}</strong>
+                  )}
                   <span style={{ color: 'var(--text2)', marginLeft: 6 }}>{p.action}</span>
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{p.time}</div>
@@ -552,9 +561,13 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
 
         return (
           <div key={p.id} style={{ display: 'flex', gap: 12, ...CARD_STYLE }}>
-            <div style={{ width: 36, height: 36, borderRadius: '50%', background: p.color, color: p.text, fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              {p.initials}
-            </div>
+            {p.author_username ? (
+              <a href={`/${p.author_username}`} style={{ flexShrink: 0 }}>
+                <MemberAvatar name={p.author} avatarUrl={p.author_avatar_url} size={36} color={p.color} textColor={p.text} />
+              </a>
+            ) : (
+              <MemberAvatar name={p.author} avatarUrl={p.author_avatar_url} size={36} color={p.color} textColor={p.text} />
+            )}
             <div style={{ flex: 1 }}>
               {editingPostId === p.id ? (
                 <div>
@@ -608,7 +621,11 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
               ) : (
                 <>
                   <div style={{ fontSize: 13 }}>
-                    <strong style={{ color: 'var(--text)' }}>{p.author}</strong>
+                    {p.author_username ? (
+                      <a href={`/${p.author_username}`} style={{ color: 'var(--text)', fontWeight: 700, textDecoration: 'none' }}>{p.author}</a>
+                    ) : (
+                      <strong style={{ color: 'var(--text)' }}>{p.author}</strong>
+                    )}
                     <span style={{ color: 'var(--text2)', marginLeft: 6 }}>{p.action}</span>
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{p.time}</div>

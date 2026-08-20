@@ -38,7 +38,7 @@ export async function loadHangoutBundle(hangoutIds: string[], postIds: string[],
     supabase.from('hangouts').select('*, profiles:created_by(name)').in('id', hangoutIds),
     supabase.from('hangout_options').select('*').in('hangout_id', hangoutIds),
     supabase.from('hangout_votes').select('option_id, user_id, hangout_id').in('hangout_id', hangoutIds),
-    supabase.from('hangout_rsvps').select('*, profiles:user_id(name)').in('hangout_id', hangoutIds),
+    supabase.from('hangout_rsvps').select('*, profiles:user_id(name, username)').in('hangout_id', hangoutIds),
     postIds.length > 0
       ? supabase.from('comments').select('*, profiles:author_id(name)').in('post_id', postIds).order('created_at', { ascending: true })
       : Promise.resolve({ data: [] as any[] }),

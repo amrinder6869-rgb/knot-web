@@ -1,6 +1,7 @@
 ﻿'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import MemberAvatar from '@/components/MemberAvatar'
 
 function getInitials(name: string) {
   return name?.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase() || '?'
@@ -53,7 +54,7 @@ export default function Members({ members: _members, knotId }: { members: any[],
     const { data } = await supabase
       .from('knot_members')
       // budget_tier is intentionally excluded — it is private per-user data
-      .select('user_id, role, joined_at, profiles:user_id(id, name)')
+      .select('user_id, role, joined_at, profiles:user_id(id, name, avatar_url, username)')
       .eq('knot_id', knotId)
     if (data) setKnotMembers(data)
   }
@@ -205,14 +206,14 @@ export default function Members({ members: _members, knotId }: { members: any[],
             <div style={{ fontSize: 13, color: 'var(--text2)' }}>No members yet.</div>
           ) : knotMembers.map((m: any) => {
             const name = m.profiles?.name || 'Unknown'
+            const avatarUrl = m.profiles?.avatar_url || null
+            const username = m.profiles?.username || null
             const col  = getColor(m.user_id)
             const isMe = m.user_id === user?.id
-            return (
-              <div key={m.user_id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, marginBottom: 8 }}>
-                <div style={{ width: 36, height: 36, borderRadius: '50%', background: col.bg, color: col.text, fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  {getInitials(name)}
-                </div>
-                <div style={{ flex: 1 }}>
+            const info = (
+              <>
+                <MemberAvatar name={name} avatarUrl={avatarUrl} size={36} color={col.bg} textColor={col.text} />
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 600 }}>
                     {name}{isMe ? <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 400 }}> (you)</span> : ''}
                   </div>
@@ -220,6 +221,19 @@ export default function Members({ members: _members, knotId }: { members: any[],
                     {m.role}
                   </div>
                 </div>
+              </>
+            )
+            return (
+              <div key={m.user_id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, marginBottom: 8 }}>
+                {username ? (
+                  <a href={`/${username}`} style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit' }}>
+                    {info}
+                  </a>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+                    {info}
+                  </div>
+                )}
                 <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 20, background: m.role === 'founder' ? 'var(--yellow-soft)' : 'var(--olive-soft)', color: m.role === 'founder' ? 'var(--yellow)' : 'var(--olive)' }}>
                   {m.role === 'founder' ? 'Founder' : 'Member'}
                 </span>

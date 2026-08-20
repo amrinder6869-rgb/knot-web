@@ -26,6 +26,7 @@ export interface HangoutMemberWithRole {
   user_id: string
   name: string
   avatar_url: string | null
+  username: string | null
   roles: HangoutRoleType[]
   completedRoles?: HangoutRoleType[]
 }

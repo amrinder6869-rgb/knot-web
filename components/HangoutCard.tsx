@@ -325,7 +325,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
     }
     const { error } = await supabase.from('hangout_rsvps').upsert(payload, { onConflict: 'hangout_id,user_id' })
     if (error) { setActionError('Could not update RSVP.'); return }
-    setRsvps(prev => [...prev.filter(r => r.user_id !== currentUser.id), { user_id: currentUser.id, status, profiles: { name: currentUser.name }, ...(guestInfo || {}) }])
+    setRsvps(prev => [...prev.filter(r => r.user_id !== currentUser.id), { user_id: currentUser.id, status, profiles: { name: currentUser.name, username: currentUser.username || null }, ...(guestInfo || {}) }])
     onRefresh()
   }
 
@@ -939,13 +939,17 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         <div style={{ marginBottom: 14 }}>
           {rsvps.length > 0 && (
             <div style={{ display: 'flex', gap: 4, marginBottom: 10, flexWrap: 'wrap' }}>
-              {rsvps.map((r: any) => (
-                <div key={r.user_id} style={{ padding: '3px 8px', borderRadius: 6, background: r.status === 'yes' ? isLive ? 'rgba(74,222,128,0.15)' : 'var(--sage-soft)' : r.status === 'maybe' ? 'var(--amber-soft)' : 'var(--bg3)', border: `1px solid ${r.status === 'yes' ? isLive ? 'rgba(74,222,128,0.3)' : 'var(--sage-dim)' : 'var(--border)'}` }}>
-                  <span style={{ fontSize: 11, fontWeight: 500, color: r.status === 'yes' ? 'var(--sage)' : r.status === 'maybe' ? 'var(--amber)' : 'var(--text3)' }}>
-                    {r.profiles?.name?.split(' ')[0] || 'Someone'} {r.status === 'yes' ? 'in' : r.status === 'maybe' ? 'maybe' : 'out'}
-                  </span>
-                </div>
-              ))}
+              {rsvps.map((r: any) => {
+                const firstName = r.profiles?.name?.split(' ')[0] || 'Someone'
+                const username = r.profiles?.username
+                return (
+                  <div key={r.user_id} style={{ padding: '3px 8px', borderRadius: 6, background: r.status === 'yes' ? isLive ? 'rgba(74,222,128,0.15)' : 'var(--sage-soft)' : r.status === 'maybe' ? 'var(--amber-soft)' : 'var(--bg3)', border: `1px solid ${r.status === 'yes' ? isLive ? 'rgba(74,222,128,0.3)' : 'var(--sage-dim)' : 'var(--border)'}` }}>
+                    <span style={{ fontSize: 11, fontWeight: 500, color: r.status === 'yes' ? 'var(--sage)' : r.status === 'maybe' ? 'var(--amber)' : 'var(--text3)' }}>
+                      {username ? <a href={`/${username}`} style={{ color: 'inherit', textDecoration: 'none', fontWeight: 700 }}>{firstName}</a> : firstName} {r.status === 'yes' ? 'in' : r.status === 'maybe' ? 'maybe' : 'out'}
+                    </span>
+                  </div>
+                )
+              })}
             </div>
           )}
           <div style={{ display: 'flex', gap: 6 }}>

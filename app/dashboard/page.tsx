@@ -22,6 +22,7 @@ import { useToast } from '@/components/ToastProvider'
 import DateTimePicker from '@/components/DateTimePicker'
 import { CONFIRM, TOAST } from '@/lib/copy'
 import { DIETARY_OPTIONS, ACCESSIBILITY_OPTIONS } from '@/lib/constants'
+import MemberAvatar from '@/components/MemberAvatar'
 
 const TABS = [
   { id: 'feed',     label: 'Feed' },
@@ -244,7 +245,7 @@ await loadKnotMembers(startKnot.id, data.user.id)
   async function loadKnotMembers(knotId: string, userId?: string) {
     const { data } = await supabase
       .from('knot_members')
-      .select('user_id, role, profiles:user_id(id, name, dietary_restrictions, accessibility_needs)')
+      .select('user_id, role, profiles:user_id(id, name, avatar_url, username, dietary_restrictions, accessibility_needs)')
       .eq('knot_id', knotId)
     if (data) {
       const currentUserId = userId || user?.id
@@ -252,6 +253,8 @@ await loadKnotMembers(startKnot.id, data.user.id)
         id:                     m.user_id,
         name:                   m.profiles?.name || 'Unknown',
         initials:               (m.profiles?.name || 'U').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase(),
+        avatar_url:             m.profiles?.avatar_url || null,
+        username:               m.profiles?.username || null,
         color:                  MEMBER_COLORS[i % MEMBER_COLORS.length].bg,
         text:                   MEMBER_COLORS[i % MEMBER_COLORS.length].text,
         you:                    m.user_id === currentUserId,
@@ -639,8 +642,8 @@ await loadKnotMembers(startKnot.id, data.user.id)
                   <span>·</span>
                   <div style={{ display: 'flex' }}>
                     {knotMembers.slice(0, 4).map((m, i) => (
-                      <div key={m.id} style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 8, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg)', marginLeft: i > 0 ? -6 : 0 }}>
-                        {m.initials}
+                      <div key={m.id} style={{ borderRadius: '50%', border: '2px solid var(--bg)', marginLeft: i > 0 ? -6 : 0, lineHeight: 0 }}>
+                        <MemberAvatar name={m.name} avatarUrl={m.avatar_url} size={20} textColor="#111" />
                       </div>
                     ))}
                   </div>

@@ -77,7 +77,7 @@ export function CrewSection({ hangoutId, knotId, currentUserId, isPlanner, isLiv
 
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, name, avatar_url')
+        .select('id, name, avatar_url, username')
         .in('id', userIds)
 
       if (!profiles) { setLoading(false); return }
@@ -100,6 +100,7 @@ export function CrewSection({ hangoutId, knotId, currentUserId, isPlanner, isLiv
         user_id: p.id,
         name: p.name ?? 'Unknown',
         avatar_url: p.avatar_url ?? null,
+        username: p.username ?? null,
         roles: roleMap[p.id] ?? [],
         completedRoles: Object.keys(completedMap)
           .filter(k => k.startsWith(p.id + ':'))
@@ -191,7 +192,11 @@ export function CrewSection({ hangoutId, knotId, currentUserId, isPlanner, isLiv
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Avatar name={member.name} avatarUrl={member.avatar_url} />
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: textColor }}>{member.name}</div>
+                    {member.username ? (
+                      <a href={`/${member.username}`} style={{ fontSize: 14, fontWeight: 600, color: textColor, textDecoration: 'none' }}>{member.name}</a>
+                    ) : (
+                      <div style={{ fontSize: 14, fontWeight: 600, color: textColor }}>{member.name}</div>
+                    )}
                     {member.roles.length > 0 && (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 3 }}>
                         {member.roles.map((role: HangoutRoleType) => (
