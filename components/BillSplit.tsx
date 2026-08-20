@@ -397,10 +397,10 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
         {(['ledger', 'activity'] as const).map(v => (
           <button key={v} onClick={() => setView(v)}
             style={{
-              padding: '6px 14px', borderRadius: 6,
-              border: `1px solid ${view === v ? 'var(--yellow)' : 'var(--border2)'}`,
-              background: view === v ? 'var(--yellow-soft)' : 'transparent',
-              color: view === v ? 'var(--yellow)' : 'var(--text2)',
+              padding: '6px 14px', borderRadius: 999,
+              border: view === v ? 'none' : '1px solid var(--border2)',
+              background: view === v ? '#111' : 'transparent',
+              color: view === v ? '#fff' : 'var(--text2)',
               fontSize: 12, fontWeight: view === v ? 700 : 500,
               cursor: 'pointer', fontFamily: 'inherit',
             }}>

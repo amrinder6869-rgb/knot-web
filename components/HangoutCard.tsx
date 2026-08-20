@@ -815,7 +815,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         </div>
       ) : (
         <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 17, fontWeight: 700, color: textColor, marginBottom: 4 }}>{hangout.venue_name || hangout.title}</div>
+          <div style={{ fontSize: 17, fontWeight: 700, color: textColor, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{hangout.venue_name || hangout.title}</div>
           {hangout.event_restrictions?.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
               {hangout.event_restrictions.map((r: string) => (
