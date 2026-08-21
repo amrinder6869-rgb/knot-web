@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { RoleBadge } from './RoleBadge'
 import { RoleAssignSheet } from './RoleAssignSheet'
 import { HangoutRoleType, HangoutMemberWithRole, ROLE_LABELS } from '@/types/roles'
+import MemberAvatar from '@/components/MemberAvatar'
 
 interface CrewSectionProps {
   hangoutId: string
@@ -25,33 +26,6 @@ const ROLE_POINTS: Record<HangoutRoleType, number> = {
   food_orderer:     10,
   photographer:     15,
   playlist_curator:  5,
-}
-
-function Avatar({ name, avatarUrl }: { name: string; avatarUrl: string | null }) {
-  const [imgError, setImgError] = useState(false)
-  const initial = (name || 'U')[0].toUpperCase()
-
-  if (avatarUrl && !imgError) {
-    return (
-      <img
-        src={avatarUrl}
-        alt={name}
-        onError={() => setImgError(true)}
-        style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-      />
-    )
-  }
-
-  return (
-    <div style={{
-      width: 32, height: 32, borderRadius: '50%',
-      background: 'var(--yellow)', display: 'flex',
-      alignItems: 'center', justifyContent: 'center',
-      color: '#111', fontWeight: 700, fontSize: 13, flexShrink: 0
-    }}>
-      {initial}
-    </div>
-  )
 }
 
 export function CrewSection({ hangoutId, knotId, currentUserId, isPlanner, isLive = false }: CrewSectionProps) {
@@ -190,7 +164,7 @@ export function CrewSection({ hangoutId, knotId, currentUserId, isPlanner, isLiv
             <div key={member.user_id}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Avatar name={member.name} avatarUrl={member.avatar_url} />
+                  <MemberAvatar name={member.name} avatarUrl={member.avatar_url} size={32} />
                   <div>
                     {member.username ? (
                       <a href={`/${member.username}`} style={{ fontSize: 14, fontWeight: 600, color: textColor, textDecoration: 'none' }}>{member.name}</a>

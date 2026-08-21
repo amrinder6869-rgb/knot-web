@@ -945,7 +945,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
                 return (
                   <div key={r.user_id} style={{ padding: '3px 8px', borderRadius: 6, background: r.status === 'yes' ? isLive ? 'rgba(74,222,128,0.15)' : 'var(--sage-soft)' : r.status === 'maybe' ? 'var(--amber-soft)' : 'var(--bg3)', border: `1px solid ${r.status === 'yes' ? isLive ? 'rgba(74,222,128,0.3)' : 'var(--sage-dim)' : 'var(--border)'}` }}>
                     <span style={{ fontSize: 11, fontWeight: 500, color: r.status === 'yes' ? 'var(--sage)' : r.status === 'maybe' ? 'var(--amber)' : 'var(--text3)' }}>
-                      {username ? <a href={`/${username}`} style={{ color: 'inherit', textDecoration: 'none', fontWeight: 700 }}>{firstName}</a> : firstName} {r.status === 'yes' ? 'in' : r.status === 'maybe' ? 'maybe' : 'out'}
+                      {username ? <a href={`/${username}`} style={{ color: 'inherit', textDecoration: 'none', fontWeight: 700 }}>{firstName}</a> : firstName} {String.fromCodePoint(0x00B7)} {r.status === 'yes' ? 'in' : r.status === 'maybe' ? 'maybe' : 'out'}
                     </span>
                   </div>
                 )
@@ -1436,7 +1436,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
       {showThread && (
         <>
           {/* Mobile: bottom sheet */}
-          <div className="mobile-only" style={{ display: 'none', position: 'fixed', inset: 0, zIndex: 300 }}>
+          <div className="mobile-only" style={{ position: 'fixed', inset: 0, zIndex: 300 }}>
             <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} onClick={() => setShowThread(false)} />
             <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '80vh', background: '#ffffff', borderRadius: '16px 16px 0 0', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>

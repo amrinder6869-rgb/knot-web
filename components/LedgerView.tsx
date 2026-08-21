@@ -96,7 +96,7 @@ export default function LedgerView({ debts, currentUser, knotId, onSettled }: Le
                     <span style={{ color: 'var(--text2)' }}> owe{isMine ? '' : 's'} </span>
                     <strong>{isOwedToMe ? 'you' : debt.to.name}</strong>
                   </div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--yellow)', marginTop: 2 }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: isOwedToMe ? 'var(--sage)' : 'var(--yellow)', marginTop: 2 }}>
                     ${debt.amount.toFixed(2)}
                   </div>
                 </div>
