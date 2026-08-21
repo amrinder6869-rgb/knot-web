@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useReducer, useRef, useEffect } from 'react'
 import { ImageIcon, Calendar, Receipt } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { notifyKnotMembers } from '@/lib/notifications'
@@ -12,6 +12,7 @@ import { EVENT_RESTRICTION_OPTIONS } from '@/lib/constants'
 
 type PostType = 'moment' | 'hangout'
 type WhenType = 'now' | 'pick' | 'weekly'
+type WhereMode = 'none' | 'tbd' | 'discover' | 'manual' | 'home' | 'search' | 'online' | 'cinema'
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -31,9 +32,119 @@ function formatDate(d: string) {
   const tomorrow = new Date(now)
   tomorrow.setDate(now.getDate() + 1)
   const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-  if (date.toDateString() === now.toDateString()) return `Tonight \u00B7 ${time}`
-  if (date.toDateString() === tomorrow.toDateString()) return `Tomorrow \u00B7 ${time}`
-  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ` \u00B7 ${time}`
+  if (date.toDateString() === now.toDateString()) return `Tonight · ${time}`
+  if (date.toDateString() === tomorrow.toDateString()) return `Tomorrow · ${time}`
+  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ` · ${time}`
+}
+
+// Hangout draft — everything that ends up in the create_hangout RPC's
+// p_input, plus the picker fields that shape it (whereMode, dateMode).
+// Consolidated into one reducer since this was 22+ separate useState hooks
+// before — ephemeral/async UI state (search results, loading flags) stays
+// as its own useState below since it never gets submitted.
+type HangoutDraft = {
+  whenType: WhenType
+  scheduledFor: Date | null
+  recurrenceDay: number
+  recurrenceTime: string
+  whereMode: WhereMode
+  movieTitle: string
+  movieShowtime: Date | null
+  selectedVenue: any
+  meetingUrl: string
+  manualVenue: string
+  manualAddress: string
+  hangoutTitle: string
+  briefNote: string
+  briefVibe: string
+  briefBudget: string
+  dateMode: 'set' | 'poll'
+  pollDates: string[]
+  inviteMode: 'all' | 'selected'
+  selectedMemberIds: Set<string>
+  surpriseMode: boolean
+  revealAt: Date | null
+  surpriseMemberIds: Set<string>
+  eventRestrictions: string[]
+}
+
+const initialHangoutDraft: HangoutDraft = {
+  whenType: 'pick',
+  scheduledFor: null,
+  recurrenceDay: 5,
+  recurrenceTime: '19:00',
+  whereMode: 'none',
+  movieTitle: '',
+  movieShowtime: null,
+  selectedVenue: null,
+  meetingUrl: '',
+  manualVenue: '',
+  manualAddress: '',
+  hangoutTitle: '',
+  briefNote: '',
+  briefVibe: '',
+  briefBudget: '',
+  dateMode: 'set',
+  pollDates: [],
+  inviteMode: 'all',
+  selectedMemberIds: new Set(),
+  surpriseMode: false,
+  revealAt: null,
+  surpriseMemberIds: new Set(),
+  eventRestrictions: [],
+}
+
+type HangoutDraftAction =
+  | { type: 'set'; field: keyof HangoutDraft; value: any }
+  | { type: 'toggle_member'; id: string }
+  | { type: 'toggle_surprise_member'; id: string }
+  | { type: 'toggle_restriction'; id: string }
+  | { type: 'add_poll_date'; date: string }
+  | { type: 'remove_poll_date'; date: string }
+  | { type: 'select_venue'; venue: any; whereMode?: WhereMode }
+  | { type: 'init_selected_members'; ids: string[] }
+  | { type: 'reset' }
+
+function hangoutDraftReducer(state: HangoutDraft, action: HangoutDraftAction): HangoutDraft {
+  switch (action.type) {
+    case 'set':
+      return { ...state, [action.field]: action.value }
+    case 'toggle_member': {
+      const next = new Set(state.selectedMemberIds)
+      if (next.has(action.id)) next.delete(action.id)
+      else next.add(action.id)
+      return { ...state, selectedMemberIds: next }
+    }
+    case 'toggle_surprise_member': {
+      const next = new Set(state.surpriseMemberIds)
+      if (next.has(action.id)) next.delete(action.id)
+      else next.add(action.id)
+      return { ...state, surpriseMemberIds: next }
+    }
+    case 'toggle_restriction':
+      return {
+        ...state,
+        eventRestrictions: state.eventRestrictions.includes(action.id)
+          ? state.eventRestrictions.filter(r => r !== action.id)
+          : [...state.eventRestrictions, action.id],
+      }
+    case 'add_poll_date':
+      if (state.pollDates.length >= 5 || state.pollDates.includes(action.date)) return state
+      return { ...state, pollDates: [...state.pollDates, action.date].sort() }
+    case 'remove_poll_date':
+      return { ...state, pollDates: state.pollDates.filter(d => d !== action.date) }
+    case 'select_venue':
+      // whereMode is only set here when the caller wants to switch modes too
+      // (e.g. picking from search) — venue-preserving navigation dispatches
+      // a plain 'set' on whereMode instead, leaving selectedVenue untouched.
+      return { ...state, selectedVenue: action.venue, ...(action.whereMode ? { whereMode: action.whereMode } : {}) }
+    case 'init_selected_members':
+      return { ...state, selectedMemberIds: new Set(action.ids) }
+    case 'reset':
+      return initialHangoutDraft
+    default:
+      return state
+  }
 }
 
 export default function Composer({
@@ -54,6 +165,7 @@ export default function Composer({
   const [showQuickBill, setShowQuickBill]   = useState(false)
   const [quickBillDesc, setQuickBillDesc]   = useState('')
   const [quickBillAmount, setQuickBillAmount] = useState('')
+  const [quickBillSelectedIds, setQuickBillSelectedIds] = useState<Set<string>>(new Set())
   const [quickBillPosting, setQuickBillPosting] = useState(false)
   const [quickBillError, setQuickBillError] = useState('')
 
@@ -65,48 +177,31 @@ export default function Composer({
   const [momentError, setMomentError] = useState('')
   const momentPhotoInputRef = useRef<HTMLInputElement>(null)
 
-  const [whenType, setWhenType]           = useState<WhenType>('pick')
-  const [scheduledFor, setScheduledFor]   = useState<Date | null>(null)
-  const [recurrenceDay, setRecurrenceDay] = useState(5)
-  const [recurrenceTime, setRecurrenceTime] = useState('19:00')
-  const [whereMode, setWhereMode]         = useState<'none' | 'tbd' | 'discover' | 'manual' | 'home' | 'search' | 'online' | 'cinema'>('none')
+  const [draft, dispatchDraft] = useReducer(hangoutDraftReducer, initialHangoutDraft)
+
   const [cinemaSearch, setCinemaSearch]   = useState('')
   const [cinemaResults, setCinemaResults] = useState<any[]>([])
   const [searchingCinema, setSearchingCinema] = useState(false)
-  const [movieTitle, setMovieTitle]       = useState('')
-  const [movieShowtime, setMovieShowtime] = useState<Date | null>(null)
-  const [selectedVenue, setSelectedVenue] = useState<any>(null)
-  const [meetingUrl, setMeetingUrl] = useState('')
-  const [creatingRoom, setCreatingRoom] = useState(false)
-  const [manualVenue, setManualVenue]     = useState('')
   const [venueSearch, setVenueSearch]     = useState('')
   const [venueResults, setVenueResults]   = useState<any[]>([])
   const [searchingVenue, setSearchingVenue] = useState(false)
-  const [manualAddress, setManualAddress] = useState('')
-  const [hangoutTitle, setHangoutTitle]   = useState('')
   const [creating, setCreating]           = useState(false)
   const [hangoutError, setHangoutError]   = useState('')
-  const [briefNote, setBriefNote]         = useState('')
-  const [briefVibe, setBriefVibe]         = useState('')
-  const [briefBudget, setBriefBudget]     = useState('')
   const [groupSuggestions, setGroupSuggestions] = useState<any>(null)
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
-
-  const [dateMode, setDateMode]           = useState<'set' | 'poll'>('set')
-  const [pollDates, setPollDates]         = useState<string[]>([])
   const [pollDateInput, setPollDateInput] = useState('')
 
-  const [inviteMode, setInviteMode]       = useState<'all' | 'selected'>('all')
-  const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set())
-  const [surpriseMode, setSurpriseMode]   = useState(false)
-  const [revealAt, setRevealAt]           = useState<Date | null>(null)
-  const [eventRestrictions, setEventRestrictions] = useState<string[]>([])
+  useEffect(() => {
+    if (draft.inviteMode === 'selected' && draft.selectedMemberIds.size === 0 && members.length > 0) {
+      dispatchDraft({ type: 'init_selected_members', ids: members.map(m => m.id) })
+    }
+  }, [draft.inviteMode, members])
 
   useEffect(() => {
-    if (inviteMode === 'selected' && selectedMemberIds.size === 0 && members.length > 0) {
-      setSelectedMemberIds(new Set(members.map(m => m.id)))
+    if (showQuickBill && quickBillSelectedIds.size === 0 && members.length > 0) {
+      setQuickBillSelectedIds(new Set(members.map(m => m.id)))
     }
-  }, [inviteMode, members])
+  }, [showQuickBill, members])
 
   function reset() {
     setActiveType(null)
@@ -114,48 +209,35 @@ export default function Composer({
     setMomentPhoto(null)
     setMomentPhotoPreview(null)
     setMomentError('')
-    setWhenType('pick')
-    setScheduledFor(null)
-    setRecurrenceDay(5)
-    setRecurrenceTime('19:00')
-    setWhereMode('none')
-    setSelectedVenue(null)
-    setManualVenue('')
-    setManualAddress('')
-    setVenueSearch('')
-    setVenueResults([])
-    setCinemaSearch('')
-    setCinemaResults([])
-    setMovieTitle('')
-    setMovieShowtime(null)
-    setHangoutTitle('')
+    dispatchDraft({ type: 'reset' })
     setHangoutError('')
-    setMeetingUrl('')
-    setBriefNote('')
-    setBriefVibe('')
-    setBriefBudget('')
-    setInviteMode('all')
-    setSelectedMemberIds(new Set())
-    setSurpriseMode(false)
-    setRevealAt(null)
-    setEventRestrictions([])
-    setDateMode('set')
-    setPollDates([])
     setPollDateInput('')
   }
 
   function addPollDate() {
-    if (!pollDateInput || pollDates.length >= 5 || pollDates.includes(pollDateInput)) return
-    setPollDates(prev => [...prev, pollDateInput].sort())
+    if (!pollDateInput || draft.pollDates.length >= 5 || draft.pollDates.includes(pollDateInput)) return
+    dispatchDraft({ type: 'add_poll_date', date: pollDateInput })
     setPollDateInput('')
   }
 
   function removePollDate(d: string) {
-    setPollDates(prev => prev.filter(x => x !== d))
+    dispatchDraft({ type: 'remove_poll_date', date: d })
   }
 
   function toggleSelectedMember(id: string) {
-    setSelectedMemberIds(prev => {
+    dispatchDraft({ type: 'toggle_member', id })
+  }
+
+  function toggleSurpriseMember(id: string) {
+    dispatchDraft({ type: 'toggle_surprise_member', id })
+  }
+
+  function toggleEventRestriction(id: string) {
+    dispatchDraft({ type: 'toggle_restriction', id })
+  }
+
+  function toggleQuickBillMember(id: string) {
+    setQuickBillSelectedIds(prev => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
@@ -163,37 +245,33 @@ export default function Composer({
     })
   }
 
-  function toggleEventRestriction(id: string) {
-    setEventRestrictions(prev => prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id])
-  }
-
   function getVenueName() {
-    if (whereMode === 'home') return 'Someone\'s place'
-    if (whereMode === 'online') return 'Online hangout'
-    if (whereMode === 'manual') return manualVenue
-    return selectedVenue?.name || ''
+    if (draft.whereMode === 'home') return 'Someone\'s place'
+    if (draft.whereMode === 'online') return 'Online hangout'
+    if (draft.whereMode === 'manual') return draft.manualVenue
+    return draft.selectedVenue?.name || ''
   }
 
   function getVenueAddress() {
-    if (whereMode === 'home') return manualAddress
-    if (whereMode === 'manual') return manualAddress
-    return selectedVenue?.location?.formatted_address || ''
+    if (draft.whereMode === 'home') return draft.manualAddress
+    if (draft.whereMode === 'manual') return draft.manualAddress
+    return draft.selectedVenue?.location?.formatted_address || ''
   }
 
   function getVenueMapsUrl() {
-    if (selectedVenue?.google_maps_url) return selectedVenue.google_maps_url
+    if (draft.selectedVenue?.google_maps_url) return draft.selectedVenue.google_maps_url
     const name = getVenueName()
     return name ? `https://www.google.com/maps/search/${encodeURIComponent(name)}` : null
   }
 
   function getVenueBookingUrl() {
-    return selectedVenue?.booking_url || null
+    return draft.selectedVenue?.booking_url || null
   }
 
   function getVenueCoords(): { lat: number | null; lng: number | null } {
     return {
-      lat: selectedVenue?.lat || null,
-      lng: selectedVenue?.lng || null,
+      lat: draft.selectedVenue?.lat || null,
+      lng: draft.selectedVenue?.lng || null,
     }
   }
 
@@ -273,13 +351,14 @@ export default function Composer({
     if (!quickBillDesc.trim() || !quickBillAmount || quickBillPosting) return
     const amount = parseFloat(quickBillAmount)
     if (isNaN(amount) || amount <= 0) { setQuickBillError('Enter a valid amount.'); return }
+    const splitIds = Array.from(quickBillSelectedIds)
+    if (splitIds.length === 0) { setQuickBillError('Select at least one person to split with.'); return }
     setQuickBillPosting(true)
     setQuickBillError('')
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setQuickBillError('You need to be signed in to add a bill.'); setQuickBillPosting(false); return }
 
-    const splitIds = members.map(m => m.id)
     const share = amount / splitIds.length
     const { data: bill, error } = await supabase.from('bills').insert({
       knot_id: knotId, added_by: user.id, total_amount: amount,
@@ -302,6 +381,7 @@ export default function Composer({
     setQuickBillPosting(false)
     setQuickBillDesc('')
     setQuickBillAmount('')
+    setQuickBillSelectedIds(new Set())
     setShowQuickBill(false)
     onPosted()
   }
@@ -331,16 +411,19 @@ export default function Composer({
       })
       const data = await res.json()
       const place = data.place || {}
-      setSelectedVenue({
-        name: suggestion.main_text,
-        place_id: suggestion.place_id,
-        fsq_id: suggestion.place_id,
-        location: { formatted_address: suggestion.secondary_text || place.formatted_address || '' },
-        lat: place.lat || null,
-        lng: place.lng || null,
-        google_maps_url: `https://www.google.com/maps/place/?q=place_id:${suggestion.place_id}`,
+      dispatchDraft({
+        type: 'select_venue',
+        whereMode: 'search',
+        venue: {
+          name: suggestion.main_text,
+          place_id: suggestion.place_id,
+          fsq_id: suggestion.place_id,
+          location: { formatted_address: suggestion.secondary_text || place.formatted_address || '' },
+          lat: place.lat || null,
+          lng: place.lng || null,
+          google_maps_url: `https://www.google.com/maps/place/?q=place_id:${suggestion.place_id}`,
+        },
       })
-      setWhereMode('search')
       setVenueResults([])
       setVenueSearch('')
     } catch {}
@@ -372,14 +455,17 @@ export default function Composer({
       })
       const data = await res.json()
       const place = data.place || {}
-      setSelectedVenue({
-        name: suggestion.main_text,
-        place_id: suggestion.place_id,
-        fsq_id: suggestion.place_id,
-        location: { formatted_address: suggestion.secondary_text || place.formatted_address || '' },
-        lat: place.lat || null,
-        lng: place.lng || null,
-        google_maps_url: `https://www.google.com/maps/place/?q=place_id:${suggestion.place_id}`,
+      dispatchDraft({
+        type: 'select_venue',
+        venue: {
+          name: suggestion.main_text,
+          place_id: suggestion.place_id,
+          fsq_id: suggestion.place_id,
+          location: { formatted_address: suggestion.secondary_text || place.formatted_address || '' },
+          lat: place.lat || null,
+          lng: place.lng || null,
+          google_maps_url: `https://www.google.com/maps/place/?q=place_id:${suggestion.place_id}`,
+        },
       })
       setCinemaResults([])
       setCinemaSearch('')
@@ -409,8 +495,8 @@ export default function Composer({
   async function postHangout() {
     if (!currentUser || creating) return
 
-    const isPollMode = whenType === 'pick' && dateMode === 'poll'
-    if (isPollMode && pollDates.length < 2) {
+    const isPollMode = draft.whenType === 'pick' && draft.dateMode === 'poll'
+    if (isPollMode && draft.pollDates.length < 2) {
       setHangoutError('Add at least 2 dates to poll the group.')
       return
     }
@@ -420,161 +506,103 @@ export default function Composer({
 
     const venueName    = getVenueName()
     const venueAddress = getVenueAddress()
-    const title        = hangoutTitle.trim() || venueName || 'Hangout'
+    const title        = draft.hangoutTitle.trim() || venueName || 'Hangout'
 
     let startTime: string | null = null
     let hangoutType = 'planned'
-    let recurrence  = 'none'
-    let recurrenceDay_: number | null = null
-    let recurrenceTime_: string | null = null
 
-    if (whenType === 'now') {
+    if (draft.whenType === 'now') {
       startTime   = new Date().toISOString()
       hangoutType = 'spontaneous'
-    } else if (whenType === 'pick') {
+    } else if (draft.whenType === 'pick') {
       if (!isPollMode) {
-        if (!scheduledFor) { setHangoutError('Please pick a date and time.'); setCreating(false); return }
-        startTime = scheduledFor.toISOString()
+        if (!draft.scheduledFor) { setHangoutError('Please pick a date and time.'); setCreating(false); return }
+        startTime = draft.scheduledFor.toISOString()
       }
-    } else if (whenType === 'weekly') {
-      startTime        = getNextWeekday(recurrenceDay, recurrenceTime)
-      hangoutType      = 'recurring'
-      recurrence       = 'weekly'
-      recurrenceDay_   = recurrenceDay
-      recurrenceTime_  = recurrenceTime
+    } else if (draft.whenType === 'weekly') {
+      startTime   = getNextWeekday(draft.recurrenceDay, draft.recurrenceTime)
+      hangoutType = 'recurring'
     }
 
-    if (whereMode === 'cinema') hangoutType = 'planned'
+    if (draft.whereMode === 'cinema') hangoutType = 'planned'
 
     const { data: { user: authUser } } = await supabase.auth.getUser()
     if (!authUser) { setHangoutError('You need to be signed in to post.'); setCreating(false); return }
 
-    const { data: h, error: hangoutInsertError } = await supabase.from('hangouts').insert({
-      knot_id:           knotId,
-      created_by:        authUser.id,
-      title,
-      type:              hangoutType,
-      venue_name:        venueName || null,
-      venue_address:     venueAddress || null,
-      venue_maps_url:    getVenueMapsUrl(),
-      venue_booking_url: getVenueBookingUrl(),
-      venue_place_id:    selectedVenue?.place_id || selectedVenue?.fsq_id || null,
-      venue_category:     selectedVenue?.category_id || null,
-      meeting_url:       whereMode === 'online' ? (meetingUrl.trim() || null) : null,
-      venue_lat:         getVenueCoords().lat,
-      venue_lng:         getVenueCoords().lng,
-      scheduled_for:     startTime,
-      brief:             briefNote.trim() || null,
-      brief_vibe:        briefVibe || null,
-      brief_budget:      briefBudget || null,
-      status:            isPollMode ? 'voting' : (whenType === 'now' ? 'live' : 'confirmed'),
-      is_live:           whenType === 'now',
-      recurrence,
-      recurrence_day:    recurrenceDay_,
-      recurrence_time:   recurrenceTime_,
-      invite_mode:       inviteMode,
-      is_surprise:       surpriseMode,
-      reveal_at:         surpriseMode && revealAt ? revealAt.toISOString() : null,
-      event_restrictions: eventRestrictions,
-      // movie_title / movie_showtime are NOT included here — the hangouts
-      // table doesn't have these columns yet (checked via information_schema
-      // ahead of this sprint). They're tracked client-side in movieTitle/
-      // movieShowtime for the feed post content below; once the migration
-      // adding those columns lands, add them to this insert.
-    }).select().single()
+    const actorName = currentUser.name || 'Someone'
+    let content = ''
+    if (isPollMode) {
+      content = `${actorName} is checking availability for ${title} — vote on your dates`
+    } else if (draft.whenType === 'now') {
+      content = `${actorName} is at ${venueName || title} — the night is on!`
+    } else if (draft.whenType === 'weekly') {
+      content = `${actorName} set up a weekly hangout — ${DAYS[draft.recurrenceDay]}s at ${draft.recurrenceTime}${venueName ? ' at ' + venueName : ''}`
+    } else if (draft.whereMode === 'cinema' && draft.movieTitle.trim()) {
+      content = `${actorName} planned a movie night — ${draft.movieTitle.trim()} at ${venueName}${draft.movieShowtime ? ' — ' + formatDate(draft.movieShowtime.toISOString()) : ''}`
+    } else {
+      content = `${actorName} planned a hangout${venueName ? ' at ' + venueName : ''}${startTime ? ' — ' + formatDate(startTime) : ''}`
+    }
 
-    if (hangoutInsertError || !h) {
-      setHangoutError('Could not create the hangout. Please try again.')
+    const pInput: Record<string, any> = {
+      knot_id:            knotId,
+      title,
+      type:                hangoutType,
+      scheduled_for:       startTime,
+      venue_name:          venueName || null,
+      venue_address:       venueAddress || null,
+      venue_place_id:      draft.selectedVenue?.place_id || draft.selectedVenue?.fsq_id || null,
+      venue_lat:           getVenueCoords().lat,
+      venue_lng:           getVenueCoords().lng,
+      venue_category:      draft.selectedVenue?.category_id || null,
+      venue_maps_url:      getVenueMapsUrl(),
+      venue_booking_url:   getVenueBookingUrl(),
+      meeting_url:         draft.whereMode === 'online' ? (draft.meetingUrl.trim() || null) : null,
+      brief:               draft.briefNote.trim() || null,
+      brief_vibe:          draft.briefVibe || null,
+      brief_budget:        draft.briefBudget || null,
+      movie_title:         draft.whereMode === 'cinema' ? (draft.movieTitle.trim() || null) : null,
+      movie_showtime:      draft.whereMode === 'cinema' && draft.movieShowtime ? draft.movieShowtime.toISOString() : null,
+      event_restrictions:  draft.eventRestrictions,
+      invite_mode:         draft.inviteMode,
+      is_surprise:         draft.surpriseMode,
+      reveal_at:           draft.surpriseMode && draft.revealAt ? draft.revealAt.toISOString() : null,
+      poll_mode:           isPollMode,
+      poll_title:          title,
+      is_standalone:       false,
+      post_content:        content,
+      post_type:           isPollMode ? 'poll' : 'hangout',
+    }
+
+    if (draft.inviteMode === 'selected') {
+      pInput.selected_member_ids = Array.from(draft.selectedMemberIds)
+    }
+    if (draft.surpriseMode && draft.revealAt && draft.surpriseMemberIds.size > 0) {
+      pInput.surprise_member_ids = Array.from(draft.surpriseMemberIds)
+    }
+    if (isPollMode) {
+      pInput.poll_options = draft.pollDates.map((d, i) => ({ date: d, sort_order: i }))
+    }
+
+    const { data, error } = await supabase.rpc('create_hangout', { p_input: pInput })
+
+    if (error || !data || data.error) {
+      const code = data?.error
+      const message =
+        code === 'not_authenticated' ? 'You need to be signed in to post.' :
+        code === 'not_member'        ? 'You are not a member of this Knot.' :
+        'Could not create the hangout. Please try again.'
+      toast.error(message)
       setCreating(false)
       return
     }
 
-    if (inviteMode === 'selected') {
-      const includedIds = members.map(m => m.id).filter(id => selectedMemberIds.has(id))
-      const excludedIds = members.map(m => m.id).filter(id => !selectedMemberIds.has(id))
+    const newHangoutId = data.hangout_id as string
 
-      const includedRows = includedIds.map(uid => ({
-        hangout_id:  h.id,
-        user_id:     uid,
-        invited_by:  authUser.id,
-        status:      'pending',
-        is_surprise: false,
-        reveal_at:   null,
-      }))
-
-      const excludedRows = surpriseMode && revealAt
-        ? excludedIds.map(uid => ({
-            hangout_id:  h.id,
-            user_id:     uid,
-            invited_by:  authUser.id,
-            status:      'pending',
-            is_surprise: true,
-            reveal_at:   revealAt.toISOString(),
-          }))
-        : []
-
-      const inviteRows = [...includedRows, ...excludedRows]
-      if (inviteRows.length > 0) {
-        const { error: inviteError } = await supabase.from('hangout_invites').insert(inviteRows)
-        if (inviteError) setHangoutError('Hangout created, but the guest list failed to save.')
-      }
-    }
-
-    if (isPollMode) {
-      const { data: poll, error: pollError } = await supabase.from('availability_polls').insert({
-        hangout_id: h.id,
-        knot_id:    knotId,
-        created_by: authUser.id,
-        title,
-        status:     'open',
-      }).select().single()
-
-      if (pollError || !poll) {
-        setHangoutError('Hangout created, but the poll failed to save.')
-      } else {
-        const optionRows = pollDates.map((d, i) => ({ poll_id: poll.id, date_option: d, sort_order: i }))
-        const { error: optionsError } = await supabase.from('availability_poll_options').insert(optionRows)
-        if (optionsError) setHangoutError('Poll created, but the date options failed to save.')
-      }
-    }
-
-    if (whereMode === 'online' && !meetingUrl.trim()) {
-      const dailyUrl = await createDailyRoom(h.id)
+    if (draft.whereMode === 'online' && !draft.meetingUrl.trim()) {
+      const dailyUrl = await createDailyRoom(newHangoutId)
       if (dailyUrl) {
-        await supabase.from('hangouts').update({ meeting_url: dailyUrl }).eq('id', h.id)
+        await supabase.from('hangouts').update({ meeting_url: dailyUrl }).eq('id', newHangoutId)
       }
-    }
-
-    const actorName = currentUser.name || 'Someone'
-    let content = ''
-    if (isPollMode) {
-      content = `${actorName} is checking availability for ${title} \u2014 vote on your dates`
-    } else if (whenType === 'now') {
-      content = `${actorName} is at ${venueName || title} \u2014 the night is on!`
-    } else if (whenType === 'weekly') {
-      content = `${actorName} set up a weekly hangout \u2014 ${DAYS[recurrenceDay]}s at ${recurrenceTime}${venueName ? ' at ' + venueName : ''}`
-    } else if (whereMode === 'cinema' && movieTitle.trim()) {
-      content = `${actorName} planned a movie night \u2014 ${movieTitle.trim()} at ${venueName}${movieShowtime ? ' \u2014 ' + formatDate(movieShowtime.toISOString()) : ''}`
-    } else {
-      content = `${actorName} planned a hangout${venueName ? ' at ' + venueName : ''}${startTime ? ' \u2014 ' + formatDate(startTime) : ''}`
-    }
-
-    const { data: newPost, error: postError } = await supabase.from('posts').insert({
-      knot_id:    knotId,
-      author_id:  authUser.id,
-      hangout_id: h.id,
-      content,
-      post_type:  isPollMode ? 'poll' : 'hangout',
-    }).select('id').single()
-
-    if (postError || !newPost) {
-      setHangoutError('Hangout created, but it could not be posted to the feed.')
-    } else {
-      const { error: updateError } = await supabase
-        .from('hangouts')
-        .update({ post_id: newPost.id })
-        .eq('id', h.id)
-      if (updateError) setHangoutError('Hangout posted, but a link-back step failed.')
     }
 
     await notifyKnotMembers({
@@ -582,7 +610,7 @@ export default function Composer({
       actorId:  authUser.id,
       type:     'new_hangout',
       message:  content,
-      entityId: h.id,
+      entityId: newHangoutId,
     })
 
     setCreating(false)
@@ -705,9 +733,24 @@ export default function Composer({
                 style={{ width: '100%', padding: '9px 12px', background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 8 }} />
               <input type="number" value={quickBillAmount} onChange={e => setQuickBillAmount(e.target.value)} placeholder="Total amount"
                 style={{ width: '100%', padding: '9px 12px', background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 8 }} />
-              {quickBillAmount && !isNaN(parseFloat(quickBillAmount)) && members.length > 0 && (
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>Split with</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 160, overflowY: 'auto', marginBottom: 8 }}>
+                {members.map(m => {
+                  const checked = quickBillSelectedIds.has(m.id)
+                  return (
+                    <div key={m.id} onClick={() => toggleQuickBillMember(m.id)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, background: checked ? 'var(--yellow-soft)' : 'var(--bg2)', border: `1px solid ${checked ? 'var(--yellow)' : 'var(--border2)'}`, cursor: 'pointer' }}>
+                      <div style={{ width: 16, height: 16, borderRadius: 4, flexShrink: 0, border: `1.5px solid ${checked ? 'var(--yellow)' : 'var(--border2)'}`, background: checked ? 'var(--yellow)' : 'transparent', color: '#111', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {checked ? '✓' : ''}
+                      </div>
+                      <span style={{ fontSize: 12, color: 'var(--text)' }}>{m.name}</span>
+                    </div>
+                  )
+                })}
+              </div>
+              {quickBillAmount && !isNaN(parseFloat(quickBillAmount)) && quickBillSelectedIds.size > 0 && (
                 <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 10 }}>
-                  ${(parseFloat(quickBillAmount) / members.length).toFixed(2)} each, split {members.length} ways
+                  ${(parseFloat(quickBillAmount) / quickBillSelectedIds.size).toFixed(2)} each, split {quickBillSelectedIds.size} ways
                 </div>
               )}
               <div style={{ display: 'flex', gap: 8 }}>
@@ -715,8 +758,8 @@ export default function Composer({
                   style={{ padding: '8px 14px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
                   Cancel
                 </button>
-                <button onClick={postQuickBill} disabled={!quickBillDesc.trim() || !quickBillAmount || quickBillPosting}
-                  style={{ flex: 1, padding: '8px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: !quickBillDesc.trim() || !quickBillAmount || quickBillPosting ? 0.5 : 1 }}>
+                <button onClick={postQuickBill} disabled={!quickBillDesc.trim() || !quickBillAmount || quickBillSelectedIds.size === 0 || quickBillPosting}
+                  style={{ flex: 1, padding: '8px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: !quickBillDesc.trim() || !quickBillAmount || quickBillSelectedIds.size === 0 || quickBillPosting ? 0.5 : 1 }}>
                   {quickBillPosting ? 'Posting...' : 'Post bill'}
                 </button>
               </div>
@@ -742,7 +785,7 @@ export default function Composer({
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {groupSuggestions.topVenues.map((v: any) => (
                   <button key={v.name}
-                    onClick={() => setHangoutTitle(v.name)}
+                    onClick={() => dispatchDraft({ type: 'set', field: 'hangoutTitle', value: v.name })}
                     style={{ padding: '5px 10px', borderRadius: 20, border: '1px solid var(--yellow)', background: 'transparent', color: 'var(--yellow)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                     {v.name}
                   </button>
@@ -758,7 +801,7 @@ export default function Composer({
 
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>What</div>
-            <input value={hangoutTitle} onChange={e => setHangoutTitle(e.target.value)}
+            <input value={draft.hangoutTitle} onChange={e => dispatchDraft({ type: 'set', field: 'hangoutTitle', value: e.target.value })}
               placeholder="Birthday dinner, movie night, just vibes..."
               style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', fontWeight: 500 }} />
           </div>
@@ -768,23 +811,23 @@ export default function Composer({
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Brief</div>
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8 }}>Give the group context before they RSVP</div>
             <input
-              value={briefNote}
-              onChange={e => setBriefNote(e.target.value)}
+              value={draft.briefNote}
+              onChange={e => dispatchDraft({ type: 'set', field: 'briefNote', value: e.target.value })}
               placeholder="What is the plan exactly? Any details to know..."
               style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 8 }}
             />
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
               {['Chill', 'Active', 'Party', 'Foodie', 'Culture', 'Outdoors'].map(v => (
-                <button key={v} onClick={() => setBriefVibe(briefVibe === v ? '' : v)}
-                  style={{ padding: '5px 10px', borderRadius: 20, border: briefVibe === v ? '1px solid var(--yellow)' : '1px solid var(--border2)', background: briefVibe === v ? 'var(--yellow-soft)' : 'transparent', color: briefVibe === v ? 'var(--yellow)' : 'var(--text3)', fontSize: 11, fontWeight: briefVibe === v ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                <button key={v} onClick={() => dispatchDraft({ type: 'set', field: 'briefVibe', value: draft.briefVibe === v ? '' : v })}
+                  style={{ padding: '5px 10px', borderRadius: 20, border: draft.briefVibe === v ? '1px solid var(--yellow)' : '1px solid var(--border2)', background: draft.briefVibe === v ? 'var(--yellow-soft)' : 'transparent', color: draft.briefVibe === v ? 'var(--yellow)' : 'var(--text3)', fontSize: 11, fontWeight: draft.briefVibe === v ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
                   {v}
                 </button>
               ))}
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               {[{ id: 'free', label: 'Free' }, { id: 'cheap', label: 'Cheap' }, { id: 'mid', label: 'Mid' }, { id: 'splurge', label: 'Splurge' }].map(b => (
-                <button key={b.id} onClick={() => setBriefBudget(briefBudget === b.id ? '' : b.id)}
-                  style={{ flex: 1, padding: '6px 4px', borderRadius: 6, border: briefBudget === b.id ? '1px solid var(--yellow)' : '1px solid var(--border2)', background: briefBudget === b.id ? 'var(--yellow-soft)' : 'transparent', color: briefBudget === b.id ? 'var(--yellow)' : 'var(--text3)', fontSize: 11, fontWeight: briefBudget === b.id ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                <button key={b.id} onClick={() => dispatchDraft({ type: 'set', field: 'briefBudget', value: draft.briefBudget === b.id ? '' : b.id })}
+                  style={{ flex: 1, padding: '6px 4px', borderRadius: 6, border: draft.briefBudget === b.id ? '1px solid var(--yellow)' : '1px solid var(--border2)', background: draft.briefBudget === b.id ? 'var(--yellow-soft)' : 'transparent', color: draft.briefBudget === b.id ? 'var(--yellow)' : 'var(--text3)', fontSize: 11, fontWeight: draft.briefBudget === b.id ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
                   {b.label}
                 </button>
               ))}
@@ -793,39 +836,39 @@ export default function Composer({
 
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>When</div>
-            <div style={{ display: 'flex', gap: 6, marginBottom: whenType !== 'pick' ? 0 : 10 }}>
+            <div style={{ display: 'flex', gap: 6, marginBottom: draft.whenType !== 'pick' ? 0 : 10 }}>
               {([
                 { id: 'now' as WhenType, label: 'Now' },
                 { id: 'pick' as WhenType, label: 'Pick a time' },
                 { id: 'weekly' as WhenType, label: 'Every week' },
               ]).map(({ id, label }) => (
-                <button key={id} onClick={() => setWhenType(id)}
+                <button key={id} onClick={() => dispatchDraft({ type: 'set', field: 'whenType', value: id })}
                   style={{
                     padding: '6px 14px', borderRadius: 6,
-                    border: `1px solid ${whenType === id ? 'var(--yellow)' : 'var(--border2)'}`,
-                    background: whenType === id ? 'var(--yellow-soft)' : 'transparent',
-                    color: whenType === id ? 'var(--yellow)' : 'var(--text2)',
-                    fontSize: 12, fontWeight: whenType === id ? 700 : 500,
+                    border: `1px solid ${draft.whenType === id ? 'var(--yellow)' : 'var(--border2)'}`,
+                    background: draft.whenType === id ? 'var(--yellow-soft)' : 'transparent',
+                    color: draft.whenType === id ? 'var(--yellow)' : 'var(--text2)',
+                    fontSize: 12, fontWeight: draft.whenType === id ? 700 : 500,
                     cursor: 'pointer', fontFamily: 'inherit',
                   }}>
                   {label}
                 </button>
               ))}
             </div>
-            {whenType === 'pick' && (
+            {draft.whenType === 'pick' && (
               <div style={{ marginTop: 8 }}>
                 <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
                   {([
                     { id: 'set' as const, label: 'Set a date' },
                     { id: 'poll' as const, label: 'Poll the group' },
                   ]).map(({ id, label }) => (
-                    <button key={id} onClick={() => setDateMode(id)}
+                    <button key={id} onClick={() => dispatchDraft({ type: 'set', field: 'dateMode', value: id })}
                       style={{
                         padding: '5px 12px', borderRadius: 20,
-                        border: `1px solid ${dateMode === id ? 'var(--yellow)' : 'var(--border2)'}`,
-                        background: dateMode === id ? 'var(--yellow-soft)' : 'transparent',
-                        color: dateMode === id ? 'var(--yellow)' : 'var(--text3)',
-                        fontSize: 11, fontWeight: dateMode === id ? 700 : 500,
+                        border: `1px solid ${draft.dateMode === id ? 'var(--yellow)' : 'var(--border2)'}`,
+                        background: draft.dateMode === id ? 'var(--yellow-soft)' : 'transparent',
+                        color: draft.dateMode === id ? 'var(--yellow)' : 'var(--text3)',
+                        fontSize: 11, fontWeight: draft.dateMode === id ? 700 : 500,
                         cursor: 'pointer', fontFamily: 'inherit',
                       }}>
                       {label}
@@ -833,10 +876,10 @@ export default function Composer({
                   ))}
                 </div>
 
-                {dateMode === 'set' ? (
+                {draft.dateMode === 'set' ? (
                   <DateTimePicker
-                    value={scheduledFor}
-                    onChange={date => setScheduledFor(date)}
+                    value={draft.scheduledFor}
+                    onChange={date => dispatchDraft({ type: 'set', field: 'scheduledFor', value: date })}
                     minDate={new Date()}
                   />
                 ) : (
@@ -845,14 +888,14 @@ export default function Composer({
                       <input type="date" value={pollDateInput} onChange={e => setPollDateInput(e.target.value)}
                         min={new Date().toISOString().split('T')[0]}
                         style={{ flex: 1, padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
-                      <button onClick={addPollDate} disabled={!pollDateInput || pollDates.length >= 5}
-                        style={{ padding: '9px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: 'var(--text)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (!pollDateInput || pollDates.length >= 5) ? 0.5 : 1 }}>
+                      <button onClick={addPollDate} disabled={!pollDateInput || draft.pollDates.length >= 5}
+                        style={{ padding: '9px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: 'var(--text)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (!pollDateInput || draft.pollDates.length >= 5) ? 0.5 : 1 }}>
                         Add
                       </button>
                     </div>
-                    {pollDates.length > 0 && (
+                    {draft.pollDates.length > 0 && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 6 }}>
-                        {pollDates.map(d => (
+                        {draft.pollDates.map(d => (
                           <div key={d} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8 }}>
                             <span style={{ fontSize: 13, color: 'var(--text)' }}>
                               {new Date(d + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
@@ -865,30 +908,30 @@ export default function Composer({
                         ))}
                       </div>
                     )}
-                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>{pollDates.length}/5 dates added</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>{draft.pollDates.length}/5 dates added</div>
                   </div>
                 )}
               </div>
             )}
-            {whenType === 'weekly' && (
+            {draft.whenType === 'weekly' && (
               <div style={{ marginTop: 8 }}>
                 <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
                   {DAYS.map((d, i) => (
-                    <button key={d} onClick={() => setRecurrenceDay(i)}
+                    <button key={d} onClick={() => dispatchDraft({ type: 'set', field: 'recurrenceDay', value: i })}
                       style={{
                         flex: 1, padding: '8px 4px',
-                        border: `1px solid ${recurrenceDay === i ? 'var(--yellow)' : 'var(--border2)'}`,
+                        border: `1px solid ${draft.recurrenceDay === i ? 'var(--yellow)' : 'var(--border2)'}`,
                         borderRadius: 6, cursor: 'pointer',
-                        background: recurrenceDay === i ? 'var(--yellow-soft)' : 'transparent',
-                        color: recurrenceDay === i ? 'var(--yellow)' : 'var(--text2)',
-                        fontSize: 11, fontWeight: recurrenceDay === i ? 700 : 500,
+                        background: draft.recurrenceDay === i ? 'var(--yellow-soft)' : 'transparent',
+                        color: draft.recurrenceDay === i ? 'var(--yellow)' : 'var(--text2)',
+                        fontSize: 11, fontWeight: draft.recurrenceDay === i ? 700 : 500,
                         fontFamily: 'inherit',
                       }}>
                       {d}
                     </button>
                   ))}
                 </div>
-                <input type="time" value={recurrenceTime} onChange={e => setRecurrenceTime(e.target.value)}
+                <input type="time" value={draft.recurrenceTime} onChange={e => dispatchDraft({ type: 'set', field: 'recurrenceTime', value: e.target.value })}
                   style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', fontWeight: 500 }} />
               </div>
             )}
@@ -897,7 +940,7 @@ export default function Composer({
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Where</div>
 
-            {whereMode === 'none' && (
+            {draft.whereMode === 'none' && (
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {([
                   { id: 'tbd', label: 'Figure it out' },
@@ -906,16 +949,9 @@ export default function Composer({
                   { id: 'discover', label: 'Browse Discover' },
                   { id: 'online', label: 'Online / Virtual' },
                   { id: 'cinema', label: String.fromCodePoint(0x1F3A5) + ' Movies' },
-                ] as { id: string, label: string }[]).map(({ id, label }) => (
+                ] as { id: WhereMode, label: string }[]).map(({ id, label }) => (
                   <button key={id}
-                    onClick={() => {
-                      if (id === 'tbd') setWhereMode('tbd')
-                      else if (id === 'home') setWhereMode('home')
-                      else if (id === 'search') setWhereMode('search')
-                      else if (id === 'discover') setWhereMode('discover')
-                      else if (id === 'online') setWhereMode('online')
-                      else if (id === 'cinema') setWhereMode('cinema')
-                    }}
+                    onClick={() => dispatchDraft({ type: 'set', field: 'whereMode', value: id })}
                     style={{
                       padding: '6px 14px', borderRadius: 6,
                       border: '1px solid var(--border2)',
@@ -929,7 +965,7 @@ export default function Composer({
               </div>
             )}
 
-            {whereMode === 'search' && !selectedVenue && (
+            {draft.whereMode === 'search' && !draft.selectedVenue && (
               <div style={{ position: 'relative' }}>
                 <input
                   value={venueSearch}
@@ -952,82 +988,90 @@ export default function Composer({
                     ))}
                   </div>
                 )}
-                <button onClick={() => { setWhereMode('none'); setVenueSearch(''); setVenueResults([]) }}
+                <button onClick={() => { dispatchDraft({ type: 'set', field: 'whereMode', value: 'none' }); setVenueSearch(''); setVenueResults([]) }}
                   style={{ width: '100%', marginTop: 8, padding: '8px', background: 'transparent', border: '1px dashed var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
                   Cancel
                 </button>
               </div>
             )}
 
-            {whereMode === 'search' && selectedVenue && (
+            {draft.whereMode === 'search' && draft.selectedVenue && (
               <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{selectedVenue.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{selectedVenue.location?.formatted_address}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{draft.selectedVenue.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{draft.selectedVenue.location?.formatted_address}</div>
+                  <button onClick={() => dispatchDraft({ type: 'set', field: 'whereMode', value: 'none' })}
+                    style={{ marginTop: 4, background: 'none', border: 'none', padding: 0, color: 'var(--text3)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}>
+                    Use a different location type
+                  </button>
                 </div>
-                <button onClick={() => { setSelectedVenue(null); setWhereMode('search') }}
+                <button onClick={() => dispatchDraft({ type: 'set', field: 'selectedVenue', value: null })}
                   style={{ padding: '4px 10px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text2)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
                   Change
                 </button>
               </div>
             )}
 
-            {whereMode === 'tbd' && (
+            {draft.whereMode === 'tbd' && (
               <div style={{ padding: '8px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span>No venue set — you will figure it out</span>
-                <button onClick={() => setWhereMode('none')} style={{ background: 'none', border: 'none', color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Change</button>
+                <button onClick={() => dispatchDraft({ type: 'set', field: 'whereMode', value: 'none' })} style={{ background: 'none', border: 'none', color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Change</button>
               </div>
             )}
 
-            {whereMode === 'discover' && !selectedVenue && (
+            {draft.whereMode === 'discover' && !draft.selectedVenue && (
               <div>
-                <Discover members={members} currentUser={currentUser} onVenueSelect={(venue: any) => { setSelectedVenue(venue); setWhereMode('discover') }} />
-                <button onClick={() => setWhereMode('none')} style={{ marginTop: 8, width: '100%', padding: '8px', background: 'transparent', border: '1px dashed var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                <Discover members={members} currentUser={currentUser} onVenueSelect={(venue: any) => dispatchDraft({ type: 'select_venue', venue, whereMode: 'discover' })} />
+                <button onClick={() => dispatchDraft({ type: 'set', field: 'whereMode', value: 'none' })} style={{ marginTop: 8, width: '100%', padding: '8px', background: 'transparent', border: '1px dashed var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
                   Cancel
                 </button>
               </div>
             )}
 
-            {whereMode === 'discover' && selectedVenue && (
+            {draft.whereMode === 'discover' && draft.selectedVenue && (
               <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
-                {selectedVenue.photo_url && (
-                  <img src={selectedVenue.photo_url} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                {draft.selectedVenue.photo_url && (
+                  <img src={draft.selectedVenue.photo_url} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
                 )}
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{selectedVenue.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{selectedVenue.location?.formatted_address}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{draft.selectedVenue.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{draft.selectedVenue.location?.formatted_address}</div>
+                  <button onClick={() => dispatchDraft({ type: 'set', field: 'whereMode', value: 'none' })}
+                    style={{ marginTop: 4, background: 'none', border: 'none', padding: 0, color: 'var(--text3)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}>
+                    Use a different location type
+                  </button>
                 </div>
-                <button onClick={() => { setSelectedVenue(null); setWhereMode('discover') }} style={{ padding: '4px 10px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text2)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+                <button onClick={() => dispatchDraft({ type: 'set', field: 'selectedVenue', value: null })} style={{ padding: '4px 10px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text2)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
                   Change
                 </button>
               </div>
             )}
 
 
-            {whereMode === 'online' && (
+            {draft.whereMode === 'online' && (
               <div>
                 <div style={{ padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, marginBottom: 6 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Video call included</div>
                   <div style={{ fontSize: 12, color: 'var(--text3)' }}>A Daily.co room will be created automatically. Members join directly inside the app.</div>
                 </div>
-                <button onClick={() => { setWhereMode('none'); setMeetingUrl('') }} style={{ width: '100%', padding: '8px', background: 'transparent', border: '1px dashed var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                <button onClick={() => { dispatchDraft({ type: 'set', field: 'whereMode', value: 'none' }); dispatchDraft({ type: 'set', field: 'meetingUrl', value: '' }) }} style={{ width: '100%', padding: '8px', background: 'transparent', border: '1px dashed var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
                   Cancel
                 </button>
               </div>
             )}
 
-            {whereMode === 'home' && (
+            {draft.whereMode === 'home' && (
               <div>
-                <input value={manualAddress} onChange={e => setManualAddress(e.target.value)}
+                <input value={draft.manualAddress} onChange={e => dispatchDraft({ type: 'set', field: 'manualAddress', value: e.target.value })}
                   placeholder="Address (optional)"
                   style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 6 }} />
-                <button onClick={() => { setWhereMode('none'); setManualAddress('') }} style={{ width: '100%', padding: '8px', background: 'transparent', border: '1px dashed var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                <button onClick={() => { dispatchDraft({ type: 'set', field: 'whereMode', value: 'none' }); dispatchDraft({ type: 'set', field: 'manualAddress', value: '' }) }} style={{ width: '100%', padding: '8px', background: 'transparent', border: '1px dashed var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
                   Cancel
                 </button>
               </div>
             )}
 
-            {whereMode === 'cinema' && !selectedVenue && (
+            {draft.whereMode === 'cinema' && !draft.selectedVenue && (
               <div style={{ position: 'relative' }}>
                 <input
                   value={cinemaSearch}
@@ -1050,31 +1094,35 @@ export default function Composer({
                     ))}
                   </div>
                 )}
-                <button onClick={() => { setWhereMode('none'); setCinemaSearch(''); setCinemaResults([]) }}
+                <button onClick={() => { dispatchDraft({ type: 'set', field: 'whereMode', value: 'none' }); setCinemaSearch(''); setCinemaResults([]) }}
                   style={{ width: '100%', marginTop: 8, padding: '8px', background: 'transparent', border: '1px dashed var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
                   Cancel
                 </button>
               </div>
             )}
 
-            {whereMode === 'cinema' && selectedVenue && (
+            {draft.whereMode === 'cinema' && draft.selectedVenue && (
               <div>
                 <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{selectedVenue.name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{selectedVenue.location?.formatted_address}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{draft.selectedVenue.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{draft.selectedVenue.location?.formatted_address}</div>
+                    <button onClick={() => dispatchDraft({ type: 'set', field: 'whereMode', value: 'none' })}
+                      style={{ marginTop: 4, background: 'none', border: 'none', padding: 0, color: 'var(--text3)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}>
+                      Use a different location type
+                    </button>
                   </div>
-                  <button onClick={() => { setSelectedVenue(null); setWhereMode('cinema') }}
+                  <button onClick={() => dispatchDraft({ type: 'set', field: 'selectedVenue', value: null })}
                     style={{ padding: '4px 10px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text2)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
                     Change
                   </button>
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>What are you watching?</div>
-                <input value={movieTitle} onChange={e => setMovieTitle(e.target.value)}
+                <input value={draft.movieTitle} onChange={e => dispatchDraft({ type: 'set', field: 'movieTitle', value: e.target.value })}
                   placeholder="Movie title"
                   style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 10 }} />
                 <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Showtime</div>
-                <DateTimePicker value={movieShowtime} onChange={setMovieShowtime} minDate={new Date()} />
+                <DateTimePicker value={draft.movieShowtime} onChange={v => dispatchDraft({ type: 'set', field: 'movieShowtime', value: v })} minDate={new Date()} />
               </div>
             )}
           </div>
@@ -1082,18 +1130,18 @@ export default function Composer({
           {/* GUEST LIST */}
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Guest list</div>
-            <div style={{ display: 'flex', gap: 6, marginBottom: inviteMode === 'selected' ? 10 : 0 }}>
+            <div style={{ display: 'flex', gap: 6, marginBottom: draft.inviteMode === 'selected' ? 10 : 0 }}>
               {([
                 { id: 'all' as const, label: 'All members' },
                 { id: 'selected' as const, label: 'Selected members' },
               ]).map(({ id, label }) => (
-                <button key={id} onClick={() => setInviteMode(id)}
+                <button key={id} onClick={() => dispatchDraft({ type: 'set', field: 'inviteMode', value: id })}
                   style={{
                     padding: '6px 14px', borderRadius: 6,
-                    border: `1px solid ${inviteMode === id ? 'var(--yellow)' : 'var(--border2)'}`,
-                    background: inviteMode === id ? 'var(--yellow-soft)' : 'transparent',
-                    color: inviteMode === id ? 'var(--yellow)' : 'var(--text2)',
-                    fontSize: 12, fontWeight: inviteMode === id ? 700 : 500,
+                    border: `1px solid ${draft.inviteMode === id ? 'var(--yellow)' : 'var(--border2)'}`,
+                    background: draft.inviteMode === id ? 'var(--yellow-soft)' : 'transparent',
+                    color: draft.inviteMode === id ? 'var(--yellow)' : 'var(--text2)',
+                    fontSize: 12, fontWeight: draft.inviteMode === id ? 700 : 500,
                     cursor: 'pointer', fontFamily: 'inherit',
                   }}>
                   {label}
@@ -1106,7 +1154,7 @@ export default function Composer({
               <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>Members who don&apos;t match will be flagged, not blocked</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {EVENT_RESTRICTION_OPTIONS.map(opt => {
-                  const selected = eventRestrictions.includes(opt.id)
+                  const selected = draft.eventRestrictions.includes(opt.id)
                   return (
                     <button key={opt.id} onClick={() => toggleEventRestriction(opt.id)}
                       style={{ padding: '6px 12px', borderRadius: 20, border: `1px solid ${selected ? 'var(--yellow)' : 'var(--border2)'}`, background: selected ? 'var(--yellow-soft)' : 'transparent', color: selected ? 'var(--yellow)' : 'var(--text3)', fontSize: 12, fontWeight: selected ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -1117,10 +1165,10 @@ export default function Composer({
               </div>
             </div>
 
-            {inviteMode === 'selected' && (
+            {draft.inviteMode === 'selected' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
                 {members.map(m => {
-                  const checked = selectedMemberIds.has(m.id)
+                  const checked = draft.selectedMemberIds.has(m.id)
                   return (
                     <div key={m.id} onClick={() => toggleSelectedMember(m.id)}
                       style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: checked ? 'var(--yellow-soft)' : 'var(--bg3)', border: `1px solid ${checked ? 'var(--yellow)' : 'var(--border2)'}`, cursor: 'pointer' }}>
@@ -1135,18 +1183,35 @@ export default function Composer({
             )}
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8 }}>
-              <button onClick={() => setSurpriseMode(v => !v)}
-                style={{ width: 32, height: 18, borderRadius: 9, border: 'none', cursor: 'pointer', padding: 0, background: surpriseMode ? 'var(--yellow)' : 'var(--border2)', position: 'relative', flexShrink: 0 }}>
-                <span style={{ position: 'absolute', top: 2, left: surpriseMode ? 16 : 2, width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left 0.15s' }} />
+              <button onClick={() => dispatchDraft({ type: 'set', field: 'surpriseMode', value: !draft.surpriseMode })}
+                style={{ width: 32, height: 18, borderRadius: 9, border: 'none', cursor: 'pointer', padding: 0, background: draft.surpriseMode ? 'var(--yellow)' : 'var(--border2)', position: 'relative', flexShrink: 0 }}>
+                <span style={{ position: 'absolute', top: 2, left: draft.surpriseMode ? 16 : 2, width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left 0.15s' }} />
               </button>
               <span style={{ fontSize: 12, color: 'var(--text)' }}>Surprise mode</span>
             </div>
 
-            {surpriseMode && (
+            {draft.surpriseMode && (
               <div style={{ marginTop: 8 }}>
-                <DateTimePicker value={revealAt} onChange={setRevealAt} minDate={new Date()} />
-                <div style={{ marginTop: 8, padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)' }}>
-                  Hidden from selected members until reveal date
+                <DateTimePicker value={draft.revealAt} onChange={v => dispatchDraft({ type: 'set', field: 'revealAt', value: v })} minDate={new Date()} />
+                <div style={{ marginTop: 10, marginBottom: 6, fontSize: 12, color: 'var(--text2)', fontWeight: 600 }}>Hide the plan from</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
+                  {members.map(m => {
+                    const checked = draft.surpriseMemberIds.has(m.id)
+                    return (
+                      <div key={m.id} onClick={() => toggleSurpriseMember(m.id)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: checked ? 'var(--yellow-soft)' : 'var(--bg3)', border: `1px solid ${checked ? 'var(--yellow)' : 'var(--border2)'}`, cursor: 'pointer' }}>
+                        <div style={{ width: 16, height: 16, borderRadius: 4, flexShrink: 0, border: `1.5px solid ${checked ? 'var(--yellow)' : 'var(--border2)'}`, background: checked ? 'var(--yellow)' : 'transparent', color: '#111', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {checked ? '✓' : ''}
+                        </div>
+                        <span style={{ fontSize: 13, color: 'var(--text)' }}>{m.name}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div style={{ padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)' }}>
+                  {draft.surpriseMemberIds.size > 0
+                    ? `Hidden from ${draft.surpriseMemberIds.size} member${draft.surpriseMemberIds.size > 1 ? 's' : ''} until reveal date`
+                    : 'Pick who to hide this from above'}
                 </div>
               </div>
             )}
@@ -1158,7 +1223,7 @@ export default function Composer({
             </button>
             <button onClick={postHangout} disabled={creating}
               style={{ flex: 1, padding: '10px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: creating ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: creating ? 0.6 : 1 }}>
-              {creating ? 'Posting...' : whenType === 'now' ? 'Post now' : 'Post hangout'}
+              {creating ? 'Posting...' : draft.whenType === 'now' ? 'Post now' : 'Post hangout'}
             </button>
           </div>
         </div>
