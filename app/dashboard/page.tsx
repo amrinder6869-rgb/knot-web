@@ -23,6 +23,7 @@ import DateTimePicker from '@/components/DateTimePicker'
 import { CONFIRM, TOAST } from '@/lib/copy'
 import { DIETARY_OPTIONS, ACCESSIBILITY_OPTIONS } from '@/lib/constants'
 import MemberAvatar from '@/components/MemberAvatar'
+import { track } from '@/lib/track'
 
 const TABS = [
   { id: 'feed',     label: 'Feed' },
@@ -337,6 +338,7 @@ await loadKnotMembers(startKnot.id, data.user.id)
       if (knot) {
         await supabase.from('knot_members').insert({ knot_id: knot.id, user_id: u.id, role: 'founder' })
         const newK = { id: knot.id, name: knot.name, emoji: knot.emoji, count: 1, created_by: u.id, cover_url: null }
+        track(supabase, 'knot_created', { knot_id: newK.id })
         setKnots(k => [...k, newK])
         setActiveKnot(newK)
         setCoverSignedUrl(null)

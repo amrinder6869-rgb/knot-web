@@ -7,6 +7,7 @@ import { computeNetBalances, simplifyDebts, Bill, BillSplit as BillSplitRow, Set
 import { createNotification } from '@/lib/notify'
 import { useToast } from '@/components/ToastProvider'
 import { getRandom, LOADING, EMPTY } from '@/lib/copy'
+import { track } from '@/lib/track'
 
 const CATEGORIES: { id: string; label: string; icon: string }[] = [
   { id: 'all',           label: 'All',           icon: '' },
@@ -246,6 +247,8 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
       content:   `added a bill ${String.fromCodePoint(0x2014)} $${amount.toFixed(2)} for ${desc}, split ${splits.length} ways`,
       post_type: 'bill',
     })
+
+    track(supabase, 'bill_added', { hangout_id: hangoutId ?? null, amount }, knotId)
 
     setAdding(false)
     if (!splitsError) setShowAdd(false)

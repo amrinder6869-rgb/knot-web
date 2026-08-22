@@ -1,7 +1,8 @@
 'use client'
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { compressImage } from '@/lib/compressImage'
+import { getFlag } from '@/lib/flags'
 
 type Member = { id: string; name: string }
 type SplitLine = { user_id: string; amount: number }
@@ -100,7 +101,12 @@ export default function BillSplitForm({
     new Set(defaultSelectedIds && defaultSelectedIds.length > 0 ? defaultSelectedIds : members.map(m => m.id))
   )
   const [percentages, setPercentages] = useState<Record<string, string>>({})
+  const [ocrEnabled, setOcrEnabled] = useState(true)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    getFlag(supabase, 'receipt_ocr').then(setOcrEnabled)
+  }, [])
 
   const isDark = theme === 'dark'
   const textColor = isDark ? '#fff' : 'var(--text)'
@@ -155,41 +161,42 @@ export default function BillSplitForm({
     const file = e.target.files?.[0]
     if (!file) return
     setUploading(true)
-    setScanning(true)
     setUploadError('')
     setOcrItems([])
     setPreviewUrl(URL.createObjectURL(file))
 
-    try {
-      const compressed = await compressImage(file)
-      const reader = new FileReader()
-      const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve((reader.result as string).split(',')[1])
-        reader.onerror = reject
-        reader.readAsDataURL(compressed)
-      })
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/parse-receipt', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(session ? { Authorization: 'Bearer ' + session.access_token } : {}),
-        },
-        body: JSON.stringify({ imageBase64: base64, mediaType: compressed.type }),
-      })
-      if (res.ok) {
-        const parsed = await res.json()
-        if (parsed.total && !isNaN(parsed.total)) setAmount(String(parsed.total))
-        if (parsed.description && !desc) setDesc(parsed.description)
-        if (parsed.category) setCategory(parsed.category as BillCategory)
-        if (parsed.items?.length) {
-          setOcrItems(parsed.items)
-          setReceiptHash(computeReceiptHash(parsed.items, parsed.total && !isNaN(parsed.total) ? parsed.total : 0))
+    if (ocrEnabled) {
+      setScanning(true)
+      try {
+        const compressed = await compressImage(file)
+        const reader = new FileReader()
+        const base64 = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve((reader.result as string).split(',')[1])
+          reader.onerror = reject
+          reader.readAsDataURL(compressed)
+        })
+        const { data: { session } } = await supabase.auth.getSession()
+        const res = await fetch('/api/parse-receipt', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(session ? { Authorization: 'Bearer ' + session.access_token } : {}),
+          },
+          body: JSON.stringify({ imageBase64: base64, mediaType: compressed.type }),
+        })
+        if (res.ok) {
+          const parsed = await res.json()
+          if (parsed.total && !isNaN(parsed.total)) setAmount(String(parsed.total))
+          if (parsed.description && !desc) setDesc(parsed.description)
+          if (parsed.category) setCategory(parsed.category as BillCategory)
+          if (parsed.items?.length) {
+            setOcrItems(parsed.items)
+            setReceiptHash(computeReceiptHash(parsed.items, parsed.total && !isNaN(parsed.total) ? parsed.total : 0))
+          }
         }
-      }
-    } catch { /* silent */ }
-
-    setScanning(false)
+      } catch { /* silent */ }
+      setScanning(false)
+    }
 
     const ext = file.name.split('.').pop()
     const fileName = `bill-receipts/${Date.now()}.${ext}`

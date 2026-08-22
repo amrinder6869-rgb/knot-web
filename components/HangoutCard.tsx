@@ -21,6 +21,7 @@ import {
   toggleCommentReactionRemote,
 } from '@/lib/commentReactions'
 import { DIETARY_OPTIONS, ACCESSIBILITY_OPTIONS, EVENT_RESTRICTION_OPTIONS } from '@/lib/constants'
+import { track } from '@/lib/track'
 
 function timeAgo(date: string) {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
@@ -325,6 +326,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
     }
     const { error } = await supabase.from('hangout_rsvps').upsert(payload, { onConflict: 'hangout_id,user_id' })
     if (error) { setActionError('Could not update RSVP.'); return }
+    track(supabase, 'hangout_rsvp', { hangout_id: post.hangout_id, status })
     setRsvps(prev => [...prev.filter(r => r.user_id !== currentUser.id), { user_id: currentUser.id, status, profiles: { name: currentUser.name, username: currentUser.username || null }, ...(guestInfo || {}) }])
     onRefresh()
   }

@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from 'react'
 import { AlertCircle, Clock, ShieldCheck } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { track } from '@/lib/track'
 
 // Carries the invite through to whichever auth path the user takes next:
 // localStorage for the client-side sign-in flow in app/page.tsx, and a
@@ -86,6 +87,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
     }
 
     if (data.success) {
+      track(supabase, 'invite_accepted', { knot_id: data.knot_id })
       setStatus('joined')
       setTimeout(() => { window.location.href = '/dashboard' }, 2000)
       return

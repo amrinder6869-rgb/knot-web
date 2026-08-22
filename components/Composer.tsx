@@ -9,6 +9,7 @@ import DateTimePicker from '@/components/DateTimePicker'
 import { useToast } from '@/components/ToastProvider'
 import { getRandom, COMPOSER_PLACEHOLDER } from '@/lib/copy'
 import { EVENT_RESTRICTION_OPTIONS } from '@/lib/constants'
+import { track } from '@/lib/track'
 
 type PostType = 'moment' | 'hangout'
 type WhenType = 'now' | 'pick' | 'weekly'
@@ -635,6 +636,13 @@ export default function Composer({
     }
 
     const newHangoutId = data.hangout_id as string
+
+    track(supabase, 'hangout_created', {
+      hangout_id: newHangoutId,
+      type: hangoutType,
+      has_venue: !!venueName,
+      poll_mode: isPollMode,
+    }, knotId)
 
     if (draft.whereMode === 'online' && !draft.meetingUrl.trim()) {
       const dailyUrl = await createDailyRoom(newHangoutId)

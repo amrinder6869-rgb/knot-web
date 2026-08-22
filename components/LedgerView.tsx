@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { SimplifiedDebt } from '@/lib/ledger'
+import { track } from '@/lib/track'
 
 function getInitials(name: string) {
   return (name || 'U').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()
@@ -38,6 +39,8 @@ export default function LedgerView({ debts, currentUser, knotId, onSettled }: Le
       setSettlingId(null)
       return
     }
+
+    track(supabase, 'settlement_sent', { amount }, knotId)
 
     setSettlingId(null)
     setPartialKey(null)
