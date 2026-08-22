@@ -93,6 +93,7 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
   const [adding, setAdding]       = useState(false)
   const [addError, setAddError]   = useState('')
   const [undoingId, setUndoingId] = useState<string | null>(null)
+  const [confirmingUndoId, setConfirmingUndoId] = useState<string | null>(null)
   const [undoError, setUndoError] = useState('')
   const [editingBillId, setEditingBillId]     = useState<string | null>(null)
   const [editSubmitting, setEditSubmitting]   = useState(false)
@@ -469,7 +470,7 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
                 {settlements.map((s: any) => {
                   const canUndo = undoableIds.has(s.id)
                   return (
-                    <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12 }}>
+                    <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, flexWrap: 'wrap' }}>
                       <div style={{ flex: 1, fontSize: 13, color: 'var(--text)' }}>
                         <strong>{s.from_profile?.name || 'Someone'}</strong>
                         <span style={{ color: 'var(--text2)' }}> paid </span>
@@ -478,10 +479,24 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
                       </div>
                       <span style={{ fontSize: 11, color: 'var(--text3)' }}>{timeAgo(s.created_at)}</span>
                       {canUndo && (
-                        <button onClick={() => undoSettlement(s.id)} disabled={undoingId === s.id}
-                          style={{ padding: '5px 10px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--text3)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: undoingId === s.id ? 0.5 : 1 }}>
-                          {undoingId === s.id ? '...' : 'Undo'}
-                        </button>
+                        confirmingUndoId === s.id ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 11, color: 'var(--text2)' }}>Undo this settlement?</span>
+                            <button onClick={() => { setConfirmingUndoId(null); undoSettlement(s.id) }} disabled={undoingId === s.id}
+                              style={{ padding: '5px 10px', background: 'var(--danger)', border: 'none', borderRadius: 6, color: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: undoingId === s.id ? 0.5 : 1 }}>
+                              {undoingId === s.id ? '...' : 'Confirm'}
+                            </button>
+                            <button onClick={() => setConfirmingUndoId(null)}
+                              style={{ padding: '5px 10px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--text3)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setConfirmingUndoId(s.id)} disabled={undoingId === s.id}
+                            style={{ padding: '5px 10px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--text3)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: undoingId === s.id ? 0.5 : 1 }}>
+                            {undoingId === s.id ? '...' : 'Undo'}
+                          </button>
+                        )
                       )}
                     </div>
                   )

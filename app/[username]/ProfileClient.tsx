@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Lock, MapPin, Users, CalendarCheck } from 'lucide-react'
 import { supabase, getSignedUrl } from '@/lib/supabase'
@@ -68,6 +69,7 @@ function initialsOf(name: string | null, username: string) {
 }
 
 export default function ProfileClient({ username }: { username: string }) {
+  const router = useRouter()
   const [profile, setProfile] = useState<PublicProfile | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'notfound' | 'error'>('loading')
 
@@ -115,7 +117,8 @@ export default function ProfileClient({ username }: { username: string }) {
   if (status === 'notfound' || !profile) return (
     <Centered>
       <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>No such profile</div>
-      <div style={{ fontSize: 13, color: 'var(--text2)' }}>Nobody on Knot goes by @{username}.</div>
+      <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 16 }}>Nobody on Knot goes by @{username}.</div>
+      <BackHomeActions onBack={() => router.back()} />
     </Centered>
   )
 
@@ -405,14 +408,29 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 // gating is handled separately above via membersOnlyGated, since the RPC
 // doesn't lock that tier server-side.
 function LockedState() {
+  const router = useRouter()
   return (
     <div style={{ marginTop: 22, padding: '22px 18px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 12, textAlign: 'center' }}>
       <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
         This profile is private
       </div>
-      <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.55 }}>
+      <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.55, marginBottom: 16 }}>
         The person who owns this profile has chosen not to share it.
       </div>
+      <BackHomeActions onBack={() => router.back()} />
+    </div>
+  )
+}
+
+function BackHomeActions({ onBack }: { onBack: () => void }) {
+  return (
+    <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+      <button onClick={onBack} style={{ padding: '8px 16px', background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+        Back
+      </button>
+      <Link href="/" style={{ padding: '8px 16px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+        Go home
+      </Link>
     </div>
   )
 }

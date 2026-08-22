@@ -4,6 +4,15 @@ import { useEffect, useState, use } from 'react'
 import { AlertCircle, Clock, ShieldCheck } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
+// Carries the invite through to whichever auth path the user takes next:
+// localStorage for the client-side sign-in flow in app/page.tsx, and a
+// cookie for the server-side /auth/callback redirect (email confirmation /
+// magic link), which can't see localStorage at all.
+function storePendingInvite(token: string) {
+  localStorage.setItem('pending_invite', token)
+  document.cookie = `pending_invite_token=${token}; path=/; max-age=600`
+}
+
 export default function InvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params)
   const [invite, setInvite]   = useState<any>(null)
@@ -41,7 +50,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
 
   async function joinKnot() {
     if (!user) {
-      localStorage.setItem('pending_invite', token)
+      storePendingInvite(token)
       window.location.href = '/'
       return
     }
@@ -71,7 +80,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
       return
     }
     if (data.error === 'not_authenticated') {
-      localStorage.setItem('pending_invite', token)
+      storePendingInvite(token)
       window.location.href = '/'
       return
     }
@@ -118,7 +127,8 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
               <AlertCircle size={36} color="var(--danger)" strokeWidth={1.75} />
             </div>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Invalid invite</div>
-            <div style={{ fontSize: 13, color: 'var(--text2)' }}>{joinError || "This link doesn't exist or has been removed."}</div>
+            <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20 }}>{joinError || "This link doesn't exist or has been removed."}</div>
+            <DeadEndActions />
           </>
         )}
 
@@ -128,7 +138,8 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
               <Clock size={36} color="var(--amber)" strokeWidth={1.75} />
             </div>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Invite expired</div>
-            <div style={{ fontSize: 13, color: 'var(--text2)' }}>This invite link expired. Ask your friend to send a new one.</div>
+            <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20 }}>This invite link expired. Ask your friend to send a new one.</div>
+            <DeadEndActions />
           </>
         )}
 
@@ -153,7 +164,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
                   style={{ width: '100%', padding: '11px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 8 }}>
                   Sign up to join
                 </button>
-                <button onClick={() => { localStorage.setItem('pending_invite', token); window.location.href = '/' }}
+                <button onClick={() => { storePendingInvite(token); window.location.href = '/' }}
                   style={{ width: '100%', padding: '11px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
                   Already have an account? Sign in
                 </button>
@@ -182,6 +193,20 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+function DeadEndActions() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <a href="/dashboard"
+        style={{ display: 'block', width: '100%', padding: '11px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 14, fontWeight: 600, fontFamily: 'inherit', textDecoration: 'none', boxSizing: 'border-box' }}>
+        Go to dashboard
+      </a>
+      <a href="/" style={{ fontSize: 13, color: 'var(--text3)', textDecoration: 'none' }}>
+        Learn more about Knot
+      </a>
     </div>
   )
 }

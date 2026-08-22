@@ -525,6 +525,8 @@ await loadKnotMembers(startKnot.id, data.user.id)
     </div>
   )
 
+  const isFounder = activeKnot?.created_by === user.id
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', fontFamily: 'Manrope, sans-serif' }}>
 
@@ -654,28 +656,30 @@ await loadKnotMembers(startKnot.id, data.user.id)
                   style={{ padding: '8px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
                   Invite
                 </button>
-                <div style={{ position: 'relative' }}>
-                  <button onClick={() => setShowKnotMenu(!showKnotMenu)}
-                    style={{ padding: '8px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    ⋯
-                  </button>
-                  {showKnotMenu && (
-                    <div style={{ position: 'absolute', right: 0, top: '110%', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 6, minWidth: 180, zIndex: 50, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
-                      <div onClick={() => { setShowKnotMenu(false); setShowRenameKnot(true); setNewKnotName(activeKnot.name); setNewKnotEmoji(activeKnot.emoji) }}
-                        style={{ padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text)' }}
-                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg3)')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                        Rename Knot
+                {isFounder && (
+                  <div style={{ position: 'relative' }}>
+                    <button onClick={() => setShowKnotMenu(!showKnotMenu)}
+                      style={{ padding: '8px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      ⋯
+                    </button>
+                    {showKnotMenu && (
+                      <div style={{ position: 'absolute', right: 0, top: '110%', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 6, minWidth: 180, zIndex: 50, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
+                        <div onClick={() => { setShowKnotMenu(false); setShowRenameKnot(true); setNewKnotName(activeKnot.name); setNewKnotEmoji(activeKnot.emoji) }}
+                          style={{ padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text)' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg3)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                          Rename Knot
+                        </div>
+                        <div onClick={() => { setShowKnotMenu(false); deleteKnot() }}
+                          style={{ padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--danger)' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--danger-soft)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                          Delete Knot
+                        </div>
                       </div>
-                      <div onClick={() => { setShowKnotMenu(false); deleteKnot() }}
-                        style={{ padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--danger)' }}
-                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--danger-soft)')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                        Delete Knot
-                      </div>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

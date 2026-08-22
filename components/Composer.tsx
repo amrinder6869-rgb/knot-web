@@ -94,6 +94,34 @@ const initialHangoutDraft: HangoutDraft = {
   eventRestrictions: [],
 }
 
+function isDraftEmpty(d: HangoutDraft): boolean {
+  return (
+    d.whenType === initialHangoutDraft.whenType &&
+    d.scheduledFor === null &&
+    d.recurrenceDay === initialHangoutDraft.recurrenceDay &&
+    d.recurrenceTime === initialHangoutDraft.recurrenceTime &&
+    d.whereMode === 'none' &&
+    d.movieTitle === '' &&
+    d.movieShowtime === null &&
+    d.selectedVenue === null &&
+    d.meetingUrl === '' &&
+    d.manualVenue === '' &&
+    d.manualAddress === '' &&
+    d.hangoutTitle === '' &&
+    d.briefNote === '' &&
+    d.briefVibe === '' &&
+    d.briefBudget === '' &&
+    d.dateMode === initialHangoutDraft.dateMode &&
+    d.pollDates.length === 0 &&
+    d.inviteMode === 'all' &&
+    d.selectedMemberIds.size === 0 &&
+    !d.surpriseMode &&
+    d.revealAt === null &&
+    d.surpriseMemberIds.size === 0 &&
+    d.eventRestrictions.length === 0
+  )
+}
+
 type HangoutDraftAction =
   | { type: 'set'; field: keyof HangoutDraft; value: any }
   | { type: 'toggle_member'; id: string }
@@ -190,6 +218,7 @@ export default function Composer({
   const [groupSuggestions, setGroupSuggestions] = useState<any>(null)
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
   const [pollDateInput, setPollDateInput] = useState('')
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false)
 
   useEffect(() => {
     if (draft.inviteMode === 'selected' && draft.selectedMemberIds.size === 0 && members.length > 0) {
@@ -212,6 +241,15 @@ export default function Composer({
     dispatchDraft({ type: 'reset' })
     setHangoutError('')
     setPollDateInput('')
+    setConfirmingDiscard(false)
+  }
+
+  function handleCancelHangout() {
+    if (isDraftEmpty(draft)) {
+      reset()
+      return
+    }
+    setConfirmingDiscard(true)
   }
 
   function addPollDate() {
@@ -1217,15 +1255,29 @@ export default function Composer({
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={reset} style={{ padding: '10px 16px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-              Cancel
-            </button>
-            <button onClick={postHangout} disabled={creating}
-              style={{ flex: 1, padding: '10px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: creating ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: creating ? 0.6 : 1 }}>
-              {creating ? 'Posting...' : draft.whenType === 'now' ? 'Post now' : 'Post hangout'}
-            </button>
-          </div>
+          {confirmingDiscard ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+              <div style={{ fontSize: 13, color: 'var(--text2)', textAlign: 'center' }}>Discard this plan?</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setConfirmingDiscard(false)} style={{ flex: 1, padding: '10px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Keep editing
+                </button>
+                <button onClick={() => { setConfirmingDiscard(false); reset() }} style={{ flex: 1, padding: '10px', background: 'var(--danger)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Discard
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={handleCancelHangout} style={{ padding: '10px 16px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Cancel
+              </button>
+              <button onClick={postHangout} disabled={creating}
+                style={{ flex: 1, padding: '10px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: creating ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: creating ? 0.6 : 1 }}>
+                {creating ? 'Posting...' : draft.whenType === 'now' ? 'Post now' : 'Post hangout'}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

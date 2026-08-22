@@ -22,7 +22,19 @@ export async function GET(request: Request) {
         },
       }
     )
-    await supabase.auth.exchangeCodeForSession(code)
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
+
+    // A brand-new user who tapped "Sign up to join" on an invite has the
+    // token stashed here (set by app/invite/[token]/page.tsx before sending
+    // them off to confirm their email) — redeem it now that they have a
+    // session, so the invite isn't silently lost.
+    if (!error) {
+      const pendingToken = cookieStore.get('pending_invite_token')?.value
+      if (pendingToken) {
+        await supabase.rpc('redeem_invite', { p_token: pendingToken })
+        cookieStore.set('pending_invite_token', '', { path: '/', maxAge: 0 })
+      }
+    }
   }
 
   return NextResponse.redirect(`${origin}/dashboard`)
