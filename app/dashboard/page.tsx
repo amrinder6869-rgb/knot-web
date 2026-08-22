@@ -23,6 +23,7 @@ import DateTimePicker from '@/components/DateTimePicker'
 import { CONFIRM, TOAST } from '@/lib/copy'
 import { DIETARY_OPTIONS, ACCESSIBILITY_OPTIONS } from '@/lib/constants'
 import MemberAvatar from '@/components/MemberAvatar'
+import Onboarding from '@/components/Onboarding'
 import { track } from '@/lib/track'
 
 const TABS = [
@@ -138,44 +139,51 @@ export default function Dashboard() {
         setEditAccessibility(prof.accessibility_needs || [])
       }
 
-      const { data: memberships } = await supabase
-        .from('knot_members')
-        .select('knot_id, knots(id, name, emoji, created_by, cover_url)')
-        .eq('user_id', data.user.id)
-
-      if (memberships && memberships.length > 0) {
-        const knotIds = memberships.map((m: any) => {
-          const k = Array.isArray(m.knots) ? m.knots[0] : m.knots
-          return k?.id
-        }).filter(Boolean)
-        const { data: memberCounts } = await supabase.from('knot_members').select('knot_id').in('knot_id', knotIds)
-        const knotList = memberships.flatMap((m: any) => {
-          const k = Array.isArray(m.knots) ? m.knots[0] : m.knots
-          if (!k) return []
-          const count = (memberCounts || []).filter((mc: any) => mc.knot_id === k.id).length
-          return [{ id: k.id, name: k.name, emoji: k.emoji, count: count || 1, created_by: k.created_by, cover_url: k.cover_url || null }]
-        })
-        setKnots(knotList)
-const savedKnotId = localStorage.getItem('active_knot_id')
-const savedKnot = savedKnotId ? knotList.find(k => k.id === savedKnotId) : null
-const startKnot = savedKnot || knotList[0]
-const savedShowHome = localStorage.getItem('show_home')
-const savedActiveTab = localStorage.getItem('active_tab')
-if (savedShowHome === 'false' && savedKnot) {
-  setShowHome(false)
-  setActiveKnot(startKnot)
-  if (savedActiveTab) setActive(savedActiveTab)
-} else {
-  setActiveKnot(startKnot)
-}
-await loadKnotMembers(startKnot.id, data.user.id)
-      await loadRecentMedia(startKnot.id)
-      } else {
-        setShowHome(false)
-      }
+      await loadKnots(data.user.id)
       setKnotsLoading(false)
     })
   }, [])
+
+  async function loadKnots(userId?: string) {
+    const uid = userId || user?.id
+    if (!uid) return
+
+    const { data: memberships } = await supabase
+      .from('knot_members')
+      .select('knot_id, knots(id, name, emoji, created_by, cover_url)')
+      .eq('user_id', uid)
+
+    if (memberships && memberships.length > 0) {
+      const knotIds = memberships.map((m: any) => {
+        const k = Array.isArray(m.knots) ? m.knots[0] : m.knots
+        return k?.id
+      }).filter(Boolean)
+      const { data: memberCounts } = await supabase.from('knot_members').select('knot_id').in('knot_id', knotIds)
+      const knotList = memberships.flatMap((m: any) => {
+        const k = Array.isArray(m.knots) ? m.knots[0] : m.knots
+        if (!k) return []
+        const count = (memberCounts || []).filter((mc: any) => mc.knot_id === k.id).length
+        return [{ id: k.id, name: k.name, emoji: k.emoji, count: count || 1, created_by: k.created_by, cover_url: k.cover_url || null }]
+      })
+      setKnots(knotList)
+      const savedKnotId = localStorage.getItem('active_knot_id')
+      const savedKnot = savedKnotId ? knotList.find(k => k.id === savedKnotId) : null
+      const startKnot = savedKnot || knotList[0]
+      const savedShowHome = localStorage.getItem('show_home')
+      const savedActiveTab = localStorage.getItem('active_tab')
+      if (savedShowHome === 'false' && savedKnot) {
+        setShowHome(false)
+        setActiveKnot(startKnot)
+        if (savedActiveTab) setActive(savedActiveTab)
+      } else {
+        setActiveKnot(startKnot)
+      }
+      await loadKnotMembers(startKnot.id, uid)
+      await loadRecentMedia(startKnot.id)
+    } else {
+      setShowHome(false)
+    }
+  }
 
   useEffect(() => {
     if (typeof window !== 'undefined') localStorage.setItem('active_tab', active)
@@ -532,6 +540,16 @@ await loadKnotMembers(startKnot.id, data.user.id)
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', fontFamily: 'Manrope, sans-serif' }}>
 
+      {profile && profile.onboarding_completed === false && (
+        <Onboarding
+          profile={profile}
+          onComplete={() => {
+            setProfile((p: any) => ({ ...p, onboarding_completed: true }))
+            loadKnots()
+          }}
+        />
+      )}
+
       {/* TOP GLOBAL NAV */}
       <div style={{ position: 'sticky', top: 0, zIndex: 100, background: 'var(--glass-bg)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid var(--border)', height: 52, display: 'flex', alignItems: 'center', padding: '0 20px', gap: 12 }}>
         <div onClick={() => { setShowHome(true); setActiveKnot(null); localStorage.setItem('show_home', 'true') }} style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, cursor: 'pointer' }}>
@@ -700,7 +718,7 @@ await loadKnotMembers(startKnot.id, data.user.id)
           <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px', paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 0px))', display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, alignItems: 'start' }} className="desktop-layout">
             <div>
               {active === 'discover'  && <Discover  members={knotMembers} currentUser={profile} />}
-              {active === 'feed'      && <Feed      members={knotMembers} knotName={activeKnot.name} knotId={activeKnot?.id} currentUser={profile} onOpenBills={() => setActive('split')} />}
+              {active === 'feed'      && <Feed      members={knotMembers} knotName={activeKnot.name} knotEmoji={activeKnot.emoji} knotId={activeKnot?.id} currentUser={profile} onOpenBills={() => setActive('split')} />}
               {active === 'hangout'   && <Hangout   members={knotMembers} knotId={activeKnot?.id} currentUser={profile} />}
               {active === 'split'     && <BillSplit members={knotMembers} knotId={activeKnot?.id} currentUser={profile} />}
               {active === 'members'   && <Members   members={knotMembers} knotId={activeKnot?.id} />}

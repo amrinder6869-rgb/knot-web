@@ -14,6 +14,21 @@ function storePendingInvite(token: string) {
   document.cookie = `pending_invite_token=${token}; path=/; max-age=600`
 }
 
+function getInitials(name: string) {
+  return (name || 'U').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()
+}
+
+function memberSummary(names: string[], count: number): string {
+  if (count === 0) return ''
+  const shown = names.slice(0, 3)
+  if (count <= shown.length) {
+    if (shown.length === 1) return `${shown[0]} is inside`
+    return `${shown.slice(0, -1).join(', ')} and ${shown[shown.length - 1]} are inside`
+  }
+  const others = count - shown.length
+  return `${shown.join(', ')} and ${others} other${others === 1 ? '' : 's'} are inside`
+}
+
 export default function InvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params)
   const [invite, setInvite]   = useState<any>(null)
@@ -147,11 +162,41 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
 
         {status === 'valid' && invite && knot && (
           <>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>{knot.emoji}</div>
-            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>You&apos;re invited!</div>
-            <div style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 24, lineHeight: 1.6 }}>
-              Join <strong style={{ color: 'var(--text)' }}>{knot.name}</strong> on Knot — a private circle for people who actually know each other.
+            <div style={{ fontSize: 48, marginBottom: 8 }}>{knot.emoji}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 6, letterSpacing: '-0.5px' }}>{knot.name}</div>
+            {invite.inviter_name && (
+              <div style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 20 }}>
+                <strong style={{ color: 'var(--text)' }}>{invite.inviter_name}</strong> invited you to join
+              </div>
+            )}
+
+            {invite.member_count > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+                <div style={{ display: 'flex' }}>
+                  {(invite.member_names || []).slice(0, 4).map((n: string, i: number) => (
+                    <div key={i} style={{
+                      width: 32, height: 32, borderRadius: '50%', background: 'var(--yellow)', color: '#111',
+                      fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      border: '2px solid var(--bg2)', marginLeft: i > 0 ? -8 : 0,
+                    }}>
+                      {getInitials(n)}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text3)' }}>
+                  {memberSummary(invite.member_names || [], invite.member_count)}
+                </div>
+              </div>
+            )}
+
+            <div style={{
+              padding: '18px 16px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 12,
+              marginBottom: 24, filter: 'blur(3px)', opacity: 0.6, userSelect: 'none', pointerEvents: 'none',
+            }}>
+              <div style={{ height: 8, width: '60%', background: 'var(--border2)', borderRadius: 4, margin: '0 auto 8px' }} />
+              <div style={{ height: 8, width: '80%', background: 'var(--border2)', borderRadius: 4, margin: '0 auto' }} />
             </div>
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: -18, marginBottom: 24 }}>Active plans inside</div>
 
             {joinError && (
               <div className="error-banner" style={{ marginBottom: 12, textAlign: 'left' }}>{joinError}</div>
@@ -159,16 +204,13 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
 
             {!user ? (
               <>
-                <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 16 }}>
-                  Sign up or log in to join this Knot.
-                </div>
                 <button onClick={joinKnot}
                   style={{ width: '100%', padding: '11px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 8 }}>
-                  Sign up to join
+                  Join {knot.name}
                 </button>
                 <button onClick={() => { storePendingInvite(token); window.location.href = '/' }}
                   style={{ width: '100%', padding: '11px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Already have an account? Sign in
+                  Sign in to join
                 </button>
               </>
             ) : (

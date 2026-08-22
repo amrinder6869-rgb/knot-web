@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import MemberAvatar from '@/components/MemberAvatar'
+import { QRCodeSVG } from 'qrcode.react'
 
 function getInitials(name: string) {
   return name?.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase() || '?'
@@ -31,6 +32,7 @@ export default function Members({ members: _members, knotId }: { members: any[],
   const [submitted, setSubmitted]       = useState<Record<string, boolean>>({})
   const [showSplinter, setShowSplinter] = useState<Record<string, boolean>>({})
   const [inviteLink, setInviteLink]     = useState('')
+  const [showQR, setShowQR]             = useState(false)
   const [inviteError, setInviteError]   = useState('')
   const [voteError, setVoteError]       = useState('')
   const [generating, setGenerating]     = useState(false)
@@ -259,10 +261,16 @@ export default function Members({ members: _members, knotId }: { members: any[],
                   {inviteLink}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--sage)', marginBottom: 8 }}>Copied to clipboard</div>
-                <button onClick={() => { setInviteLink(''); setInviteError('') }}
-                  style={{ fontSize: 12, padding: '5px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Generate new link
-                </button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => { setInviteLink(''); setInviteError('') }}
+                    style={{ fontSize: 12, padding: '5px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Generate new link
+                  </button>
+                  <button onClick={() => setShowQR(true)}
+                    style={{ fontSize: 12, padding: '5px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Show QR code
+                  </button>
+                </div>
               </div>
             ) : (
               <button onClick={generateInvite} disabled={generating}
@@ -371,6 +379,24 @@ export default function Members({ members: _members, knotId }: { members: any[],
           </div>
         </div>
       </div>
+
+      {showQR && inviteLink && (
+        <div onClick={() => setShowQR(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 16, padding: 24, textAlign: 'center', maxWidth: 300 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>Scan to join</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 16 }}>Point a camera at this code</div>
+            <div style={{ background: '#fff', padding: 16, borderRadius: 12, display: 'inline-flex' }}>
+              <QRCodeSVG value={inviteLink} size={192} level="M" />
+            </div>
+            <button onClick={() => setShowQR(false)}
+              style={{ marginTop: 16, width: '100%', padding: '9px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

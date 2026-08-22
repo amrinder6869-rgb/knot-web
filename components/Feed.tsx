@@ -18,6 +18,7 @@ import {
 } from '@/lib/reactions'
 import { getRandom, LOADING, EMPTY } from '@/lib/copy'
 import MemberAvatar from '@/components/MemberAvatar'
+import OrientCard from '@/components/OrientCard'
 
 type MomentPhoto = { id: string; storage_path: string; url: string; media_type: string }
 
@@ -89,10 +90,11 @@ function timeAgo(date: string) {
   return `${Math.floor(seconds / 86400)}d ago`
 }
 
-export default function Feed({ members, knotName: _knotName, knotId, currentUser, onOpenBills }: {
-  members: any[], knotName: string, knotId?: string, currentUser?: any, onOpenBills?: () => void
+export default function Feed({ members, knotName, knotEmoji, knotId, currentUser, onOpenBills }: {
+  members: any[], knotName: string, knotEmoji?: string, knotId?: string, currentUser?: any, onOpenBills?: () => void
 }) {
   const [posts, setPosts]     = useState<Post[]>([])
+  const [showOrientCard, setShowOrientCard] = useState(false)
   const [bundle, setBundle]   = useState<any>(null)
   const [billBalance, setBillBalance] = useState<number | null>(null)
   const [momentComments, setMomentComments] = useState<Map<string, any[]>>(new Map())
@@ -108,6 +110,19 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null)
   const [momentActionError, setMomentActionError] = useState('')
   const editPhotoInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!knotId || !currentUser?.id) { setShowOrientCard(false); return }
+    let cancelled = false
+    supabase
+      .from('orient_card_seen')
+      .select('user_id')
+      .eq('user_id', currentUser.id)
+      .eq('knot_id', knotId)
+      .maybeSingle()
+      .then(({ data }) => { if (!cancelled) setShowOrientCard(!data) })
+    return () => { cancelled = true }
+  }, [knotId, currentUser?.id])
 
   useEffect(() => {
     if (!knotId) return
@@ -456,6 +471,16 @@ export default function Feed({ members, knotName: _knotName, knotId, currentUser
 
   return (
     <div style={{ maxWidth: 640 }}>
+
+      {showOrientCard && currentUser?.id && (
+        <OrientCard
+          knotId={knotId}
+          knotName={knotName}
+          knotEmoji={knotEmoji || String.fromCodePoint(0x1F517)}
+          userId={currentUser.id}
+          onDismiss={() => setShowOrientCard(false)}
+        />
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 24, alignItems: 'stretch' }}>
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--yellow)', borderRadius: 12, padding: '14px 16px', alignSelf: 'stretch' }}>
