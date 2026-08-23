@@ -13,7 +13,17 @@ import { track } from '@/lib/track'
 
 type PostType = 'moment' | 'hangout'
 type WhenType = 'now' | 'pick' | 'weekly'
-type WhereMode = 'none' | 'tbd' | 'discover' | 'manual' | 'home' | 'search' | 'online' | 'cinema'
+type WhereMode = 'none' | 'tbd' | 'discover' | 'manual' | 'home' | 'search' | 'online' | 'cinema' | 'poll'
+
+// Vibe pill -> venues API category id (see app/api/venues/route.ts CATEGORY_TO_TYPES).
+const VIBE_TO_CATEGORY: Record<string, string> = {
+  Foodie: '13000',
+  Party: '13003',
+  Chill: '13059',
+  Culture: '10000',
+  Outdoors: '18000',
+  Active: '18008',
+}
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -67,6 +77,7 @@ type HangoutDraft = {
   revealAt: Date | null
   surpriseMemberIds: Set<string>
   eventRestrictions: string[]
+  venuePollOptions: any[]
 }
 
 const initialHangoutDraft: HangoutDraft = {
@@ -93,6 +104,7 @@ const initialHangoutDraft: HangoutDraft = {
   revealAt: null,
   surpriseMemberIds: new Set(),
   eventRestrictions: [],
+  venuePollOptions: [],
 }
 
 function isDraftEmpty(d: HangoutDraft): boolean {
@@ -119,7 +131,8 @@ function isDraftEmpty(d: HangoutDraft): boolean {
     !d.surpriseMode &&
     d.revealAt === null &&
     d.surpriseMemberIds.size === 0 &&
-    d.eventRestrictions.length === 0
+    d.eventRestrictions.length === 0 &&
+    d.venuePollOptions.length === 0
   )
 }
 
@@ -220,6 +233,9 @@ export default function Composer({
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
   const [pollDateInput, setPollDateInput] = useState('')
   const [confirmingDiscard, setConfirmingDiscard] = useState(false)
+  const [fetchingVenuePoll, setFetchingVenuePoll] = useState(false)
+  const [venuePollPool, setVenuePollPool] = useState<any[]>([])
+  const [venuePollPoolIndex, setVenuePollPoolIndex] = useState(0)
 
   useEffect(() => {
     if (draft.inviteMode === 'selected' && draft.selectedMemberIds.size === 0 && members.length > 0) {
@@ -243,6 +259,8 @@ export default function Composer({
     setHangoutError('')
     setPollDateInput('')
     setConfirmingDiscard(false)
+    setVenuePollPool([])
+    setVenuePollPoolIndex(0)
   }
 
   function handleCancelHangout() {
@@ -312,6 +330,54 @@ export default function Composer({
       lat: draft.selectedVenue?.lat || null,
       lng: draft.selectedVenue?.lng || null,
     }
+  }
+
+  async function geocodeCity(city: string): Promise<{ lat: number; lng: number } | null> {
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`)
+      const data = await res.json()
+      if (data?.[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
+    } catch {}
+    return null
+  }
+
+  async function fetchVenuePollSuggestions() {
+    setFetchingVenuePoll(true)
+    setHangoutError('')
+    try {
+      const category = VIBE_TO_CATEGORY[draft.briefVibe] || '13000'
+      const groupSize = draft.inviteMode === 'selected' ? draft.selectedMemberIds.size : members.length
+      const coords = (currentUser?.resident_city && await geocodeCity(currentUser.resident_city))
+        || { lat: 43.5890, lng: -79.6441 } // Mississauga fallback, matches Discover.tsx
+
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { setHangoutError('You need to be signed in to post.'); setFetchingVenuePoll(false); return }
+
+      const params = new URLSearchParams({ ll: `${coords.lat},${coords.lng}`, categories: category })
+      if (groupSize > 2) params.set('min_group', String(groupSize))
+      const res = await fetch(`/api/venues?${params}`, { headers: { Authorization: 'Bearer ' + session.access_token } })
+      const data = await res.json()
+      const results = data.results || []
+      if (results.length === 0) {
+        setHangoutError('No venue suggestions found nearby. Try a different vibe.')
+        setFetchingVenuePoll(false)
+        return
+      }
+      setVenuePollPool(results)
+      setVenuePollPoolIndex(Math.min(3, results.length))
+      dispatchDraft({ type: 'set', field: 'venuePollOptions', value: results.slice(0, 3) })
+    } catch {
+      setHangoutError('Could not load venue suggestions. Please try again.')
+    }
+    setFetchingVenuePoll(false)
+  }
+
+  function swapVenuePollOption(index: number) {
+    if (venuePollPoolIndex >= venuePollPool.length) return
+    const next = venuePollPool[venuePollPoolIndex]
+    setVenuePollPoolIndex(i => i + 1)
+    const updated = draft.venuePollOptions.map((v: any, i: number) => (i === index ? next : v))
+    dispatchDraft({ type: 'set', field: 'venuePollOptions', value: updated })
   }
 
   function handleMomentPhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -540,6 +606,12 @@ export default function Composer({
       return
     }
 
+    const isVenuePollMode = draft.whereMode === 'poll'
+    if (isVenuePollMode && draft.venuePollOptions.length === 0) {
+      setHangoutError('Fetch venue suggestions before posting, or pick a different location option.')
+      return
+    }
+
     setCreating(true)
     setHangoutError('')
 
@@ -572,6 +644,8 @@ export default function Composer({
     let content = ''
     if (isPollMode) {
       content = `${actorName} is checking availability for ${title} — vote on your dates`
+    } else if (isVenuePollMode) {
+      content = `${actorName} wants the group to pick a venue for ${title} — vote now`
     } else if (draft.whenType === 'now') {
       content = `${actorName} is at ${venueName || title} — the night is on!`
     } else if (draft.whenType === 'weekly') {
@@ -609,7 +683,7 @@ export default function Composer({
       poll_title:          title,
       is_standalone:       false,
       post_content:        content,
-      post_type:           isPollMode ? 'poll' : 'hangout',
+      post_type:           (isPollMode || isVenuePollMode) ? 'poll' : 'hangout',
     }
 
     if (draft.inviteMode === 'selected') {
@@ -620,6 +694,20 @@ export default function Composer({
     }
     if (isPollMode) {
       pInput.poll_options = draft.pollDates.map((d, i) => ({ date: d, sort_order: i }))
+    }
+    if (isVenuePollMode) {
+      pInput.venue_options = draft.venuePollOptions.map((v: any) => ({
+        venue_place_id:    v.fsq_id || null,
+        venue_name:        v.name || null,
+        venue_address:     v.location?.formatted_address || null,
+        venue_lat:         v.lat ?? null,
+        venue_lng:         v.lng ?? null,
+        venue_category:    v.categories?.[0]?.name || null,
+        venue_photo_url:   v.photo_url || null,
+        venue_rating:      v.rating ?? null,
+        price_level:       v.price ?? null,
+        restriction_notes: draft.eventRestrictions.length > 0 ? draft.eventRestrictions.join(', ') : null,
+      }))
     }
 
     const { data, error } = await supabase.rpc('create_hangout', { p_input: pInput })
@@ -1008,6 +1096,49 @@ export default function Composer({
                     {label}
                   </button>
                 ))}
+                <button onClick={() => { dispatchDraft({ type: 'set', field: 'whereMode', value: 'poll' }); fetchVenuePollSuggestions() }}
+                  style={{
+                    padding: '6px 14px', borderRadius: 6,
+                    border: '1px solid var(--yellow)',
+                    background: 'var(--yellow-soft)',
+                    color: 'var(--yellow)',
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                  }}>
+                  Let the group decide
+                </button>
+              </div>
+            )}
+
+            {draft.whereMode === 'poll' && (
+              <div>
+                {fetchingVenuePoll && (
+                  <div style={{ fontSize: 12, color: 'var(--text3)', padding: '10px 0' }}>Finding venues nearby...</div>
+                )}
+                {!fetchingVenuePoll && draft.venuePollOptions.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
+                    {draft.venuePollOptions.map((v: any, i: number) => (
+                      <div key={v.fsq_id || i} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+                        {v.photo_url ? (
+                          <img src={v.photo_url} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                        ) : (
+                          <div style={{ width: 44, height: 44, borderRadius: 8, background: 'var(--bg2)', flexShrink: 0 }} />
+                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{v.name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{v.location?.formatted_address}</div>
+                        </div>
+                        <button onClick={() => swapVenuePollOption(i)} disabled={venuePollPoolIndex >= venuePollPool.length}
+                          style={{ padding: '5px 10px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text2)', fontSize: 11, cursor: venuePollPoolIndex >= venuePollPool.length ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: venuePollPoolIndex >= venuePollPool.length ? 0.4 : 1, flexShrink: 0 }}>
+                          Swap
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button onClick={() => { dispatchDraft({ type: 'set', field: 'whereMode', value: 'none' }); dispatchDraft({ type: 'set', field: 'venuePollOptions', value: [] }); setVenuePollPool([]); setVenuePollPoolIndex(0) }}
+                  style={{ width: '100%', padding: '8px', background: 'transparent', border: '1px dashed var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Cancel
+                </button>
               </div>
             )}
 

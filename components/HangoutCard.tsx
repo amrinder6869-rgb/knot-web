@@ -11,6 +11,7 @@ import { PreOrderCard } from '@/components/PreOrderCard'
 import { DailyCall } from '@/components/DailyCall'
 import HangoutThread from '@/components/HangoutThread'
 import AvailabilityPoll from '@/components/AvailabilityPoll'
+import VenuePoll from '@/components/VenuePoll'
 import { Skeleton } from '@/components/Skeleton'
 import { useToast } from '@/components/ToastProvider'
 import ReactionBar from '@/components/ReactionBar'
@@ -751,6 +752,9 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
   const isLive      = hangout.is_live && !isCancelled
   const isVoting    = hangout.status === 'voting' && !isLive && !isCancelled
   const isConfirmed = hangout.status === 'confirmed' && !isLive && !isCancelled
+  // hangout_options is shared with the generic label/emoji option-vote feature —
+  // a venue poll (Sprint E) is identified by its rows carrying venue data.
+  const isVenuePoll = options.some((o: any) => o.venue_name || o.is_none_of_these)
   const isDone      = hangout.status === 'ended'
   const canEditHangout = isCreator && (hangout.status === 'voting' || hangout.status === 'confirmed')
   const canCancelHangout = isCreator && !isDone && !isCancelled
@@ -911,7 +915,18 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         />
       )}
 
-      {!isCancelled && isVoting && options.length > 0 && (
+      {!isCancelled && isVoting && isVenuePoll && (
+        <VenuePoll
+          hangoutId={hangout.id}
+          options={options}
+          currentUser={currentUser}
+          isCreator={isCreator}
+          members={members}
+          onRefresh={onRefresh}
+        />
+      )}
+
+      {!isCancelled && isVoting && !isVenuePoll && options.length > 0 && (
         <div style={{ marginBottom: 14 }}>
           {options.map((o: any) => {
             const maxVotes = Math.max(...options.map((x: any) => x.vote_count), 1)
