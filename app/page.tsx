@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export default function Home() {
-  const [mode, setMode] = useState<'landing' | 'signin' | 'signup'>('landing')
+  const [mode, setMode] = useState<'landing' | 'signin' | 'signup' | 'forgot'>('landing')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
@@ -15,12 +15,27 @@ export default function Home() {
   async function handleSignUp() {
     if (!name.trim()) { setError('Please enter your name'); return }
     setLoading(true); setError(''); setMessage('')
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email, password,
       options: { data: { name } }
     })
+    if (error) { setError(error.message); setLoading(false); return }
+    if (data.session) {
+      window.location.href = '/dashboard'
+    } else {
+      setError('Account created but could not sign in automatically. Try signing in.')
+    }
+    setLoading(false)
+  }
+
+  async function handleForgotPassword() {
+    if (!email.trim()) { setError('Please enter your email address'); return }
+    setLoading(true); setError(''); setMessage('')
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback?type=recovery`,
+    })
     if (error) setError(error.message)
-    else setMessage('Check your email to confirm your account!')
+    else setMessage('Reset email sent — check your inbox.')
     setLoading(false)
   }
 
@@ -124,10 +139,10 @@ export default function Home() {
         </div>
 
         <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 6, color: 'var(--text)' }}>
-          {mode === 'signup' ? 'Create your account' : 'Welcome back'}
+          {mode === 'signup' ? 'Create your account' : mode === 'forgot' ? 'Reset your password' : 'Welcome back'}
         </h2>
         <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 24 }}>
-          {mode === 'signup' ? 'Start your first Knot after signing up.' : 'Sign in to your Knots.'}
+          {mode === 'signup' ? 'Start your first Knot after signing up.' : mode === 'forgot' ? 'We\'ll email you a reset link.' : 'Sign in to your Knots.'}
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -135,21 +150,31 @@ export default function Home() {
             <input style={inputStyle} placeholder="Your name" value={name} onChange={e => setName(e.target.value)} />
           )}
           <input style={inputStyle} type="email" placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)} />
-          <input style={inputStyle} type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && (mode === 'signup' ? handleSignUp() : handleSignIn())} />
+          {mode !== 'forgot' && (
+            <input style={inputStyle} type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && (mode === 'signup' ? handleSignUp() : handleSignIn())} />
+          )}
 
           {error && <p style={{ fontSize: 13, color: 'var(--danger)', padding: '8px 12px', background: 'var(--danger-soft)', borderRadius: 6 }}>{error}</p>}
           {message && <p style={{ fontSize: 13, color: 'var(--sage)', padding: '8px 12px', background: 'var(--sage-soft)', borderRadius: 6 }}>{message}</p>}
 
-          <button style={btnPrimary} onClick={mode === 'signup' ? handleSignUp : handleSignIn} disabled={loading}>
-            {loading ? 'Please wait...' : mode === 'signup' ? 'Create account' : 'Sign in'}
+          <button style={btnPrimary} onClick={mode === 'signup' ? handleSignUp : mode === 'forgot' ? handleForgotPassword : handleSignIn} disabled={loading}>
+            {loading ? 'Please wait...' : mode === 'signup' ? 'Create account' : mode === 'forgot' ? 'Send reset email' : 'Sign in'}
           </button>
         </div>
 
-        <p style={{ marginTop: 20, fontSize: 13, color: 'var(--text3)', textAlign: 'center' }}>
-          {mode === 'signup' ? 'Already have an account? ' : "Don't have an account? "}
+        {mode === 'signin' && (
+          <p style={{ marginTop: 12, fontSize: 13, color: 'var(--text3)', textAlign: 'center' }}>
+            <span style={{ color: 'var(--yellow)', cursor: 'pointer', fontWeight: 500 }} onClick={() => { setMode('forgot'); setError(''); setMessage('') }}>
+              Forgot password?
+            </span>
+          </p>
+        )}
+
+        <p style={{ marginTop: mode === 'signin' ? 8 : 20, fontSize: 13, color: 'var(--text3)', textAlign: 'center' }}>
+          {mode === 'forgot' ? 'Remembered it? ' : mode === 'signup' ? 'Already have an account? ' : "Don't have an account? "}
           <span style={{ color: 'var(--yellow)', cursor: 'pointer', fontWeight: 600 }} onClick={() => { setMode(mode === 'signup' ? 'signin' : 'signup'); setError(''); setMessage('') }}>
-            {mode === 'signup' ? 'Sign in' : 'Sign up'}
+            {mode === 'forgot' ? 'Sign in' : mode === 'signup' ? 'Sign in' : 'Sign up'}
           </span>
         </p>
 
