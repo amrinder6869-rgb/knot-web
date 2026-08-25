@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { authCallbackUrl } from '@/lib/auth'
 
 export default function MerchantSignup() {
   const [step, setStep] = useState<'intro' | 'auth' | 'profile'>('intro')
@@ -13,8 +14,18 @@ export default function MerchantSignup() {
   async function signUp() {
     if (!email.trim() || !password.trim()) { setError('Please enter your email and password.'); return }
     setLoading(true); setError('')
-    const { error: authError } = await supabase.auth.signUp({ email: email.trim(), password })
+    const { data, error: authError } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: {
+        emailRedirectTo: authCallbackUrl('/merchant/dashboard'),
+      },
+    })
     if (authError) { setError(authError.message); setLoading(false); return }
+    if (data.session) {
+      window.location.href = '/merchant/dashboard'
+      return
+    }
     setLoading(false)
     setStep('profile')
   }

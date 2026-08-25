@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { authCallbackUrl, redirectAfterAuth } from '@/lib/auth'
 
 export default function Home() {
   const [mode, setMode] = useState<'landing' | 'signin' | 'signup'>('landing')
@@ -12,15 +13,34 @@ export default function Home() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const authError = params.get('error')
+    if (authError) {
+      setError(decodeURIComponent(authError))
+      setMode('signin')
+      window.history.replaceState({}, '', '/')
+    }
+  }, [])
+
   async function handleSignUp() {
     if (!name.trim()) { setError('Please enter your name'); return }
     setLoading(true); setError(''); setMessage('')
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email, password,
-      options: { data: { name } }
+      options: {
+        data: { name },
+        emailRedirectTo: authCallbackUrl(),
+      },
     })
-    if (error) setError(error.message)
-    else setMessage('Check your email to confirm your account!')
+    if (error) {
+      setError(error.message)
+    } else if (data.session) {
+      redirectAfterAuth()
+      return
+    } else {
+      setMessage('Check your email to confirm your account!')
+    }
     setLoading(false)
   }
 
@@ -29,14 +49,8 @@ export default function Home() {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) { setError(error.message); setLoading(false); return }
     if (data.session) {
-      const pendingInvite = localStorage.getItem('pending_invite')
-      localStorage.removeItem('pending_invite')
-      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-      if (pendingInvite && UUID_RE.test(pendingInvite)) {
-        window.location.href = `/invite/${pendingInvite}`
-      } else {
-        window.location.href = '/dashboard'
-      }
+      redirectAfterAuth()
+      return
     }
     setLoading(false)
   }
