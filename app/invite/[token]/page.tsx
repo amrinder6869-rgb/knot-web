@@ -11,7 +11,8 @@ import { track } from '@/lib/track'
 // magic link), which can't see localStorage at all.
 function storePendingInvite(token: string) {
   localStorage.setItem('pending_invite', token)
-  document.cookie = `pending_invite_token=${token}; path=/; max-age=600`
+  // Match invite expiry (48h) so email confirmation can still redeem the token.
+  document.cookie = `pending_invite_token=${token}; path=/; max-age=172800`
 }
 
 function getInitials(name: string) {
