@@ -770,586 +770,532 @@ export default function Composer({
   const userName  = currentUser?.name || 'You'
   const userInitials = userName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()
 
+  const [panel, setPanel] = useState<'feed'|'when'|'where'|'more'|'moment'|'bill'>('feed')
+
+  function getWhenLabel(): string {
+    if (draft.whenType === 'now') return 'Now'
+    if (draft.whenType === 'weekly') return `Every ${DAYS[draft.recurrenceDay]}`
+    if (draft.scheduledFor) return formatDate(draft.scheduledFor.toISOString())
+    if (draft.dateMode === 'poll' && draft.pollDates.length > 0) return `${draft.pollDates.length} dates`
+    return ''
+  }
+
+  function getWhereLabel(): string {
+    if (draft.whereMode === 'home') return "Someone's place"
+    if (draft.whereMode === 'online') return 'Online'
+    if (draft.whereMode === 'tbd') return 'TBD'
+    if (draft.whereMode === 'poll' && draft.venuePollOptions.length > 0) return 'Group poll'
+    if (draft.selectedVenue?.name) return draft.selectedVenue.name
+    if (draft.manualVenue) return draft.manualVenue
+    return ''
+  }
+
+  const whenLabel = getWhenLabel()
+  const whereLabel = getWhereLabel()
+  const hasWhen = !!whenLabel
+  const hasWhere = !!whereLabel
+  const canPost = !!draft.hangoutTitle.trim() || hasWhen || hasWhere
+
+  const chipBase: React.CSSProperties = {
+    display: 'inline-flex', alignItems: 'center', gap: 5,
+    borderRadius: 8, padding: '6px 10px',
+    fontSize: 12, fontWeight: 600, cursor: 'pointer',
+    fontFamily: 'inherit', border: 'none', transition: 'all 0.12s',
+  }
+  const chipOpen: React.CSSProperties = {
+    ...chipBase, background: 'var(--bg3)',
+    border: '1px dashed var(--border2)', color: 'var(--text3)',
+  }
+  const chipFilled: React.CSSProperties = {
+    ...chipBase, background: '#111', color: 'var(--yellow)', border: '1px solid #111',
+  }
+  const btnYellow: React.CSSProperties = {
+    background: 'var(--yellow)', border: 'none', borderRadius: 10,
+    color: '#111', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+    padding: '11px 0', width: '100%', cursor: 'pointer',
+  }
+  const btnGhost: React.CSSProperties = {
+    background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 10,
+    color: 'var(--text2)', fontFamily: 'inherit', fontSize: 12, fontWeight: 500,
+    padding: '9px 14px', cursor: 'pointer',
+  }
+  const panelSheet: React.CSSProperties = {
+    background: 'var(--bg2)', borderTop: '1px solid var(--border)',
+    padding: '16px', maxHeight: 480, overflowY: 'auto',
+  }
+  const sectionLabel: React.CSSProperties = {
+    fontSize: 10, fontWeight: 700, letterSpacing: '0.07em',
+    textTransform: 'uppercase' as const, color: 'var(--text3)', marginBottom: 10,
+  }
+  const moreItem: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: 10,
+    padding: '11px 0', borderBottom: '0.5px solid var(--border)', cursor: 'pointer',
+  }
+  const moreIcon: React.CSSProperties = {
+    width: 32, height: 32, borderRadius: 8, background: 'var(--bg3)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  }
+
   return (
     <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, marginBottom: 20, overflow: 'hidden' }}>
 
-      <div style={{ display: 'flex', gap: 4, padding: 4, borderBottom: activeType ? '1px solid var(--border)' : 'none' }}>
-        {([
-          { type: 'moment' as PostType, label: 'Moment' },
-          { type: 'hangout' as PostType, label: "Let's hang" },
-        ]).map(({ type, label }) => (
-          <button key={type}
-            onClick={() => setActiveType(activeType === type ? null : type)}
-            style={{
-              flex: 1, padding: '14px 8px',
-              background: activeType === type ? '#111' : 'transparent',
-              border: 'none',
-              borderRadius: 999,
-              color: activeType === type ? '#fff' : 'var(--text2)',
-              fontSize: 13, fontWeight: activeType === type ? 600 : 500,
-              cursor: 'pointer', fontFamily: 'inherit',
-              transition: 'all 0.15s',
-            }}>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {activeType === 'moment' && (
-        <div style={{ padding: 16 }}>
-          {momentError && (
-            <div className="error-banner" style={{ marginBottom: 10 }}>
-              {momentError}
-            </div>
-          )}
-          {momentPhotoPreview && (
-            <div style={{ position: 'relative', marginBottom: 10, borderRadius: 10, overflow: 'hidden', aspectRatio: '4/5', background: '#000', maxWidth: 320 }}>
-              {momentMediaType === 'video' ? (
-                <video src={momentPhotoPreview} controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-              ) : (
-                <img src={momentPhotoPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-              )}
-              <button onClick={() => { setMomentPhoto(null); setMomentPhotoPreview(null); setMomentMediaType('image'); if (momentPhotoInputRef.current) momentPhotoInputRef.current.value = '' }}
-                style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>
-                x
-              </button>
-            </div>
-          )}
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>
-              {userInitials}
-            </div>
-            <textarea value={momentText} onChange={e => setMomentText(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) postMoment() }}
-              placeholder={momentPlaceholder}
-              autoFocus
-              rows={2}
-              style={{ flex: 1, background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', resize: 'vertical', minHeight: 44, lineHeight: 1.45 }} />
-            <input type="file" accept="image/*,video/*" ref={momentPhotoInputRef} onChange={handleMomentPhotoSelect} style={{ display: 'none' }} />
-            <button onClick={() => momentPhotoInputRef.current?.click()}
-              style={{ width: 38, height: 38, borderRadius: 8, background: momentPhoto ? 'var(--yellow-soft)' : 'var(--bg3)', border: `1px solid ${momentPhoto ? 'var(--yellow)' : 'var(--border2)'}`, color: momentPhoto ? 'var(--yellow)' : 'var(--text3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'inherit' }}
-              title="Add photo or video"
-              aria-label="Add photo or video">
-              <ImageIcon size={16} strokeWidth={2} />
-            </button>
-            <button onClick={postMoment} disabled={(!momentText.trim() && !momentPhoto) || posting}
-              style={{ background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', padding: '9px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (!momentText.trim() && !momentPhoto) || posting ? 0.5 : 1 }}>
-              {posting ? '...' : 'Post'}
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-            <button onClick={() => momentPhotoInputRef.current?.click()}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 20, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-              <ImageIcon size={14} strokeWidth={2} />
-              Photo
-            </button>
-            <button onClick={() => setActiveType('hangout')}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 20, border: '1px solid var(--border)', background: '#FFFBEE', color: 'var(--yellow)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-              <Calendar size={14} strokeWidth={2} />
-              Plan a hangout
-            </button>
-            <button onClick={() => setShowQuickBill(v => !v)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 20, border: `1px solid ${showQuickBill ? 'var(--yellow)' : 'var(--border)'}`, background: showQuickBill ? 'var(--yellow-soft)' : 'transparent', color: showQuickBill ? 'var(--yellow)' : 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-              <Receipt size={14} strokeWidth={2} />
-              Add bill
-            </button>
-          </div>
-
-          {showQuickBill && (
-            <div style={{ marginTop: 10, padding: 12, background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 10 }}>
-              {quickBillError && (
-                <div className="error-banner" style={{ marginBottom: 8 }}>
-                  {quickBillError}
+      {/* FEED: chip strip + composer bar */}
+      {panel === 'feed' && (
+        <>
+          {(draft.hangoutTitle.trim() || hasWhen || hasWhere) && (
+            <div style={{ padding: '12px 14px 8px', borderBottom: '0.5px solid var(--border)' }}>
+              {draft.hangoutTitle.trim() && (
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', marginBottom: 8, letterSpacing: -0.2 }}>
+                  {draft.hangoutTitle}
                 </div>
               )}
-              <input value={quickBillDesc} onChange={e => setQuickBillDesc(e.target.value)} placeholder="What was the bill for?"
-                style={{ width: '100%', padding: '9px 12px', background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 8 }} />
-              <input type="number" value={quickBillAmount} onChange={e => setQuickBillAmount(e.target.value)} placeholder="Total amount"
-                style={{ width: '100%', padding: '9px 12px', background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 8 }} />
-              <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>Split with</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 160, overflowY: 'auto', marginBottom: 8 }}>
-                {members.map(m => {
-                  const checked = quickBillSelectedIds.has(m.id)
-                  return (
-                    <div key={m.id} onClick={() => toggleQuickBillMember(m.id)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, background: checked ? 'var(--yellow-soft)' : 'var(--bg2)', border: `1px solid ${checked ? 'var(--yellow)' : 'var(--border2)'}`, cursor: 'pointer' }}>
-                      <div style={{ width: 16, height: 16, borderRadius: 4, flexShrink: 0, border: `1.5px solid ${checked ? 'var(--yellow)' : 'var(--border2)'}`, background: checked ? 'var(--yellow)' : 'transparent', color: '#111', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {checked ? '✓' : ''}
-                      </div>
-                      <span style={{ fontSize: 12, color: 'var(--text)' }}>{m.name}</span>
-                    </div>
-                  )
-                })}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <button onClick={() => setPanel('when')} style={hasWhen ? chipFilled : chipOpen}>
+                  <span style={{ fontSize: 12 }}>📅</span>
+                  {hasWhen ? whenLabel : 'When?'}
+                </button>
+                <button onClick={() => setPanel('where')} style={hasWhere ? chipFilled : chipOpen}>
+                  <span style={{ fontSize: 12 }}>📍</span>
+                  {hasWhere ? whereLabel : 'Where?'}
+                </button>
+                <button onClick={() => setPanel('more')} style={chipOpen}>
+                  <span style={{ fontSize: 12 }}>⋯</span>
+                  More
+                </button>
               </div>
-              {quickBillAmount && !isNaN(parseFloat(quickBillAmount)) && quickBillSelectedIds.size > 0 && (
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 10 }}>
-                  ${(parseFloat(quickBillAmount) / quickBillSelectedIds.size).toFixed(2)} each, split {quickBillSelectedIds.size} ways
+              {hangoutError && <div className="error-banner" style={{ marginTop: 8 }}>{hangoutError}</div>}
+            </div>
+          )}
+
+          {groupSuggestions && groupSuggestions.topVenues?.length > 0 && !draft.hangoutTitle && (
+            <div style={{ padding: '8px 14px', borderBottom: '0.5px solid var(--border)', display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginRight: 2 }}>Your crew loves</span>
+              {groupSuggestions.topVenues.slice(0, 3).map((v: any) => (
+                <button key={v.name}
+                  onClick={() => dispatchDraft({ type: 'set', field: 'hangoutTitle', value: v.name })}
+                  style={{ padding: '4px 10px', borderRadius: 20, border: '1px solid var(--yellow-dim)', background: 'var(--yellow-soft)', color: 'var(--yellow)', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  {v.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px' }}>
+            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              {userInitials}
+            </div>
+            <input
+              value={draft.hangoutTitle}
+              onChange={e => {
+                dispatchDraft({ type: 'set', field: 'hangoutTitle', value: e.target.value })
+                if (activeType !== 'hangout') setActiveType('hangout')
+              }}
+              onFocus={() => { if (activeType !== 'hangout') setActiveType('hangout') }}
+              placeholder={momentPlaceholder}
+              style={{ flex: 1, background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 20, padding: '8px 14px', fontSize: 13, color: 'var(--text)', outline: 'none', fontFamily: 'inherit', caretColor: 'var(--yellow)' }}
+            />
+            <button onClick={() => setPanel('more')}
+              style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--bg3)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, color: 'var(--text3)', fontSize: 18 }}
+              aria-label="More options">+
+            </button>
+            {canPost ? (
+              <button onClick={postHangout} disabled={creating}
+                style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--yellow)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: creating ? 'not-allowed' : 'pointer', flexShrink: 0, fontSize: 15, opacity: creating ? 0.6 : 1 }}
+                aria-label="Post hangout">{creating ? '…' : '↑'}
+              </button>
+            ) : (
+              <button onClick={() => setPanel('moment')}
+                style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--bg3)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, fontSize: 15, color: 'var(--text3)' }}
+                aria-label="Post moment">↑
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', gap: 6, padding: '2px 12px 10px', borderTop: '0.5px solid var(--border)' }}>
+            <button onClick={() => setPanel('moment')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+              📷 Moment
+            </button>
+            <button onClick={() => { setActiveType('hangout'); setPanel('when') }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, border: '1px solid var(--yellow-dim)', background: 'var(--yellow-soft)', color: 'var(--yellow)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              🗓 Plan a hangout
+            </button>
+            <button onClick={() => setPanel('bill')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+              🧾 Bill
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* BACK BAR */}
+      {panel !== 'feed' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: '0.5px solid var(--border)', background: 'var(--bg2)' }}>
+          <button onClick={() => setPanel('feed')}
+            style={{ background: 'none', border: 'none', color: 'var(--text3)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4, padding: 0 }}>
+            ← Back
+          </button>
+          <span style={{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
+            {panel === 'when' ? 'When?' : panel === 'where' ? 'Where?' : panel === 'moment' ? 'Moment' : panel === 'bill' ? 'Add bill' : 'More options'}
+          </span>
+          {draft.hangoutTitle.trim() && (
+            <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {draft.hangoutTitle}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* WHEN PANEL */}
+      {panel === 'when' && (
+        <div style={panelSheet}>
+          <div style={sectionLabel}>Type</div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+            {([
+              { id: 'now' as WhenType, label: 'Now' },
+              { id: 'pick' as WhenType, label: 'Pick a time' },
+              { id: 'weekly' as WhenType, label: 'Every week' },
+            ]).map(({ id, label }) => (
+              <button key={id} onClick={() => dispatchDraft({ type: 'set', field: 'whenType', value: id })}
+                style={{ padding: '7px 14px', borderRadius: 8, border: `1px solid ${draft.whenType === id ? 'var(--yellow)' : 'var(--border2)'}`, background: draft.whenType === id ? 'var(--yellow-soft)' : 'transparent', color: draft.whenType === id ? 'var(--yellow)' : 'var(--text2)', fontSize: 12, fontWeight: draft.whenType === id ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {draft.whenType === 'pick' && (
+            <>
+              <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                {([{ id: 'set' as const, label: 'Set a date' }, { id: 'poll' as const, label: 'Poll the group' }]).map(({ id, label }) => (
+                  <button key={id} onClick={() => dispatchDraft({ type: 'set', field: 'dateMode', value: id })}
+                    style={{ padding: '6px 14px', borderRadius: 20, border: `1px solid ${draft.dateMode === id ? 'var(--yellow)' : 'var(--border2)'}`, background: draft.dateMode === id ? 'var(--yellow-soft)' : 'transparent', color: draft.dateMode === id ? 'var(--yellow)' : 'var(--text3)', fontSize: 11, fontWeight: draft.dateMode === id ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {draft.dateMode === 'set' && (
+                <>
+                  <div style={sectionLabel}>Date</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 14 }}>
+                    {[
+                      { label: 'Today', date: new Date() },
+                      { label: 'Tomorrow', date: new Date(Date.now() + 86400000) },
+                      { label: 'This Friday', date: (() => { const d = new Date(); d.setDate(d.getDate() + ((5 - d.getDay() + 7) % 7 || 7)); return d })() },
+                      { label: 'This Saturday', date: (() => { const d = new Date(); d.setDate(d.getDate() + ((6 - d.getDay() + 7) % 7 || 7)); return d })() },
+                    ].map(({ label, date }) => {
+                      const isSelected = draft.scheduledFor?.toDateString() === date.toDateString()
+                      return (
+                        <button key={label}
+                          onClick={() => {
+                            const d = new Date(date)
+                            if (draft.scheduledFor) { d.setHours(draft.scheduledFor.getHours(), draft.scheduledFor.getMinutes()) }
+                            else { d.setHours(20, 0) }
+                            dispatchDraft({ type: 'set', field: 'scheduledFor', value: d })
+                          }}
+                          style={{ padding: '9px 10px', borderRadius: 9, border: `1px solid ${isSelected ? 'var(--yellow)' : 'var(--border2)'}`, background: isSelected ? '#111' : 'var(--bg3)', color: isSelected ? 'var(--yellow)' : 'var(--text)', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' as const }}>
+                          <div style={{ fontSize: 12, fontWeight: 700 }}>{label}</div>
+                          <div style={{ fontSize: 10, color: isSelected ? 'rgba(248,189,3,0.7)' : 'var(--text3)', marginTop: 1 }}>
+                            {date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  <div style={sectionLabel}>Time</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 14 }}>
+                    {[
+                      { label: '7 PM', h: 19 }, { label: '8 PM', h: 20 }, { label: '9 PM', h: 21 },
+                      { label: '10 PM', h: 22 }, { label: '11 PM', h: 23 }, { label: 'TBD', h: null as null },
+                    ].map(({ label, h }) => {
+                      const isSelected = h !== null && draft.scheduledFor?.getHours() === h
+                      return (
+                        <button key={label}
+                          onClick={() => {
+                            if (h === null) { dispatchDraft({ type: 'set', field: 'scheduledFor', value: null }); return }
+                            const d = draft.scheduledFor ? new Date(draft.scheduledFor) : new Date()
+                            d.setHours(h, 0, 0, 0)
+                            dispatchDraft({ type: 'set', field: 'scheduledFor', value: d })
+                          }}
+                          style={{ padding: '9px 6px', borderRadius: 9, border: `1px solid ${isSelected ? 'var(--yellow)' : 'var(--border2)'}`, background: isSelected ? '#111' : 'var(--bg3)', color: isSelected ? 'var(--yellow)' : 'var(--text)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: isSelected ? 700 : 500, textAlign: 'center' as const }}>
+                          {label}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  <DateTimePicker value={draft.scheduledFor} onChange={date => dispatchDraft({ type: 'set', field: 'scheduledFor', value: date })} minDate={new Date()} />
+                </>
+              )}
+
+              {draft.dateMode === 'poll' && (
+                <div>
+                  <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                    <input type="date" value={pollDateInput} onChange={e => setPollDateInput(e.target.value)} min={new Date().toISOString().split('T')[0]}
+                      style={{ flex: 1, padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const }} />
+                    <button onClick={addPollDate} disabled={!pollDateInput || draft.pollDates.length >= 5}
+                      style={{ padding: '9px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (!pollDateInput || draft.pollDates.length >= 5) ? 0.5 : 1 }}>
+                      Add
+                    </button>
+                  </div>
+                  {draft.pollDates.map(d => (
+                    <div key={d} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, marginBottom: 6 }}>
+                      <span style={{ fontSize: 13, color: 'var(--text)' }}>{new Date(d + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                      <button onClick={() => removePollDate(d)} style={{ background: 'none', border: 'none', color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Remove</button>
+                    </div>
+                  ))}
+                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>{draft.pollDates.length}/5 dates added</div>
+                </div>
+              )}
+            </>
+          )}
+
+          {draft.whenType === 'weekly' && (
+            <div>
+              <div style={sectionLabel}>Day</div>
+              <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+                {DAYS.map((d, i) => (
+                  <button key={d} onClick={() => dispatchDraft({ type: 'set', field: 'recurrenceDay', value: i })}
+                    style={{ flex: 1, padding: '8px 4px', border: `1px solid ${draft.recurrenceDay === i ? 'var(--yellow)' : 'var(--border2)'}`, borderRadius: 6, cursor: 'pointer', background: draft.recurrenceDay === i ? 'var(--yellow-soft)' : 'transparent', color: draft.recurrenceDay === i ? 'var(--yellow)' : 'var(--text2)', fontSize: 11, fontWeight: draft.recurrenceDay === i ? 700 : 500, fontFamily: 'inherit' }}>
+                    {d}
+                  </button>
+                ))}
+              </div>
+              <div style={sectionLabel}>Time</div>
+              <input type="time" value={draft.recurrenceTime} onChange={e => dispatchDraft({ type: 'set', field: 'recurrenceTime', value: e.target.value })}
+                style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const }} />
+            </div>
+          )}
+
+          <button onClick={() => setPanel('feed')} style={{ ...btnYellow, marginTop: 16 }}>
+            {hasWhen ? `Set ${whenLabel}` : 'Done'}
+          </button>
+        </div>
+      )}
+
+      {/* WHERE PANEL */}
+      {panel === 'where' && (
+        <div style={panelSheet}>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' as const }}>
+            {([
+              { id: 'search' as WhereMode, label: 'Find a spot' },
+              { id: 'home' as WhereMode, label: "Someone's place" },
+              { id: 'online' as WhereMode, label: 'Online' },
+              { id: 'cinema' as WhereMode, label: String.fromCodePoint(0x1F3A5) + ' Movies' },
+              { id: 'tbd' as WhereMode, label: 'TBD' },
+            ]).map(({ id, label }) => (
+              <button key={id} onClick={() => dispatchDraft({ type: 'set', field: 'whereMode', value: id })}
+                style={{ padding: '6px 11px', borderRadius: 20, border: `1px solid ${draft.whereMode === id ? '#111' : 'var(--border2)'}`, background: draft.whereMode === id ? '#111' : 'transparent', color: draft.whereMode === id ? '#fff' : 'var(--text3)', fontSize: 11, fontWeight: draft.whereMode === id ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {(draft.whereMode === 'search' || draft.whereMode === 'discover') && !draft.selectedVenue && (
+            <div>
+              <div style={{ display: 'flex', gap: 7, marginBottom: 10 }}>
+                <div style={{ flex: 1, position: 'relative' }}>
+                  <input value={venueSearch} onChange={e => { setVenueSearch(e.target.value); searchVenueByName(e.target.value) }}
+                    placeholder="Bars, restaurants, venues..." autoFocus
+                    style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 9, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const }} />
+                  {venueResults.length > 0 && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 100, overflow: 'hidden', marginTop: 4 }}>
+                      {venueResults.map((s: any) => (
+                        <div key={s.place_id} onClick={() => { selectVenueFromSearch(s); setPanel('feed') }}
+                          style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg3)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{s.main_text}</div>
+                          {s.secondary_text && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{s.secondary_text}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button onClick={() => { dispatchDraft({ type: 'set', field: 'whereMode', value: 'poll' }); fetchVenuePollSuggestions() }}
+                  style={{ padding: '8px 10px', borderRadius: 9, border: '1px solid var(--yellow-dim)', background: 'var(--yellow-soft)', color: 'var(--yellow)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' as const }}>
+                  🗺 Fair spot
+                </button>
+              </div>
+              <Discover members={members} currentUser={currentUser} onVenueSelect={(venue: any) => { dispatchDraft({ type: 'select_venue', venue, whereMode: 'discover' }); setPanel('feed') }} />
+            </div>
+          )}
+
+          {draft.selectedVenue && (draft.whereMode === 'search' || draft.whereMode === 'discover') && (
+            <div>
+              <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                {draft.selectedVenue.photo_url && <img src={draft.selectedVenue.photo_url} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />}
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{draft.selectedVenue.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{draft.selectedVenue.location?.formatted_address}</div>
+                </div>
+                <button onClick={() => dispatchDraft({ type: 'set', field: 'selectedVenue', value: null })}
+                  style={{ padding: '4px 10px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text2)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>Change</button>
+              </div>
+              <button onClick={() => setPanel('feed')} style={btnYellow}>Use this spot</button>
+            </div>
+          )}
+
+          {draft.whereMode === 'poll' && (
+            <div>
+              {fetchingVenuePoll && <div style={{ fontSize: 12, color: 'var(--text3)', padding: '10px 0' }}>Finding venues nearby…</div>}
+              {!fetchingVenuePoll && draft.venuePollOptions.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+                  <div style={sectionLabel}>Group will vote on</div>
+                  {draft.venuePollOptions.map((v: any, i: number) => (
+                    <div key={v.fsq_id || i} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+                      {v.photo_url ? <img src={v.photo_url} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 44, height: 44, borderRadius: 8, background: 'var(--bg2)', flexShrink: 0 }} />}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{v.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{v.location?.formatted_address}</div>
+                      </div>
+                      <button onClick={() => swapVenuePollOption(i)} disabled={venuePollPoolIndex >= venuePollPool.length}
+                        style={{ padding: '5px 10px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text2)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: venuePollPoolIndex >= venuePollPool.length ? 0.4 : 1, flexShrink: 0 }}>
+                        Swap
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => { setShowQuickBill(false); setQuickBillError('') }}
-                  style={{ padding: '8px 14px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Cancel
-                </button>
-                <button onClick={postQuickBill} disabled={!quickBillDesc.trim() || !quickBillAmount || quickBillSelectedIds.size === 0 || quickBillPosting}
-                  style={{ flex: 1, padding: '8px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: !quickBillDesc.trim() || !quickBillAmount || quickBillSelectedIds.size === 0 || quickBillPosting ? 0.5 : 1 }}>
-                  {quickBillPosting ? 'Posting...' : 'Post bill'}
-                </button>
+                <button onClick={() => { dispatchDraft({ type: 'set', field: 'whereMode', value: 'none' }); dispatchDraft({ type: 'set', field: 'venuePollOptions', value: [] }); setVenuePollPool([]); setVenuePollPoolIndex(0) }} style={btnGhost}>Cancel</button>
+                {draft.venuePollOptions.length > 0 && <button onClick={() => setPanel('feed')} style={{ ...btnYellow, width: 'auto', flex: 1 }}>Post as poll</button>}
               </div>
+            </div>
+          )}
+
+          {draft.whereMode === 'cinema' && !draft.selectedVenue && (
+            <div style={{ position: 'relative' }}>
+              <input value={cinemaSearch} onChange={e => { setCinemaSearch(e.target.value); searchCinemaByName(e.target.value) }} placeholder="Search for a cinema..." autoFocus
+                style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const }} />
+              {cinemaResults.length > 0 && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 100, overflow: 'hidden', marginTop: 4 }}>
+                  {cinemaResults.map((s: any) => (
+                    <div key={s.place_id} onClick={() => { selectCinemaFromSearch(s); setCinemaSearch(''); setCinemaResults([]) }}
+                      style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg3)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{s.main_text}</div>
+                      {s.secondary_text && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{s.secondary_text}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {draft.whereMode === 'cinema' && draft.selectedVenue && (
+            <div>
+              <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginBottom: 10 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{draft.selectedVenue.name}</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{draft.selectedVenue.location?.formatted_address}</div>
+                <button onClick={() => dispatchDraft({ type: 'set', field: 'selectedVenue', value: null })} style={{ marginTop: 4, background: 'none', border: 'none', padding: 0, color: 'var(--text3)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}>Change cinema</button>
+              </div>
+              <input value={draft.movieTitle} onChange={e => dispatchDraft({ type: 'set', field: 'movieTitle', value: e.target.value })} placeholder="Movie title"
+                style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const, marginBottom: 10 }} />
+              <DateTimePicker value={draft.movieShowtime} onChange={v => dispatchDraft({ type: 'set', field: 'movieShowtime', value: v })} minDate={new Date()} />
+              <button onClick={() => setPanel('feed')} style={{ ...btnYellow, marginTop: 14 }}>Done</button>
+            </div>
+          )}
+
+          {draft.whereMode === 'online' && (
+            <div>
+              <div style={{ padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, marginBottom: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Video call included</div>
+                <div style={{ fontSize: 12, color: 'var(--text3)' }}>A Daily.co room will be created automatically. Members join directly inside the app.</div>
+              </div>
+              <button onClick={() => setPanel('feed')} style={btnYellow}>Done</button>
+            </div>
+          )}
+
+          {draft.whereMode === 'home' && (
+            <div>
+              <input value={draft.manualAddress} onChange={e => dispatchDraft({ type: 'set', field: 'manualAddress', value: e.target.value })} placeholder="Address (optional — only shown to confirmed attendees)"
+                style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const, marginBottom: 12 }} />
+              <button onClick={() => setPanel('feed')} style={btnYellow}>Done</button>
+            </div>
+          )}
+
+          {draft.whereMode === 'tbd' && (
+            <div>
+              <div style={{ padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text2)', marginBottom: 12 }}>
+                No venue set — the group will figure it out later.
+              </div>
+              <button onClick={() => setPanel('feed')} style={btnYellow}>Done</button>
             </div>
           )}
         </div>
       )}
 
-      {activeType === 'hangout' && (
-        <div style={{ padding: 16 }}>
-
-          {hangoutError && (
-            <div className="error-banner" style={{ marginBottom: 12 }}>
-              {hangoutError}
+      {/* MORE PANEL */}
+      {panel === 'more' && (
+        <div style={panelSheet}>
+          {(draft.hangoutTitle.trim() || hasWhen || hasWhere) && (
+            <div style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 10, padding: '9px 12px', marginBottom: 16, fontSize: 12, color: 'var(--text2)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--yellow)', display: 'inline-block', flexShrink: 0 }} />
+              {[draft.hangoutTitle.trim(), whenLabel, whereLabel].filter(Boolean).join(' · ') || 'New hangout'}
             </div>
           )}
 
-          {groupSuggestions && groupSuggestions.topVenues?.length > 0 && (
-            <div style={{ marginBottom: 14, padding: '10px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 10 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--yellow)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
-                Your group loves
-              </div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {groupSuggestions.topVenues.map((v: any) => (
-                  <button key={v.name}
-                    onClick={() => dispatchDraft({ type: 'set', field: 'hangoutTitle', value: v.name })}
-                    style={{ padding: '5px 10px', borderRadius: 20, border: '1px solid var(--yellow)', background: 'transparent', color: 'var(--yellow)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    {v.name}
-                  </button>
-                ))}
-              </div>
-              {groupSuggestions.preferredDay && (
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>
-                  Your group usually hangs on {groupSuggestions.preferredDay}s
-                </div>
-              )}
-            </div>
-          )}
-
-          <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>What</div>
-            <input value={draft.hangoutTitle} onChange={e => dispatchDraft({ type: 'set', field: 'hangoutTitle', value: e.target.value })}
-              placeholder="Birthday dinner, movie night, just vibes..."
-              style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', fontWeight: 500 }} />
+          <div style={sectionLabel}>Guest list</div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+            {([{ id: 'all' as const, label: 'All members' }, { id: 'selected' as const, label: 'Select members' }]).map(({ id, label }) => (
+              <button key={id} onClick={() => dispatchDraft({ type: 'set', field: 'inviteMode', value: id })}
+                style={{ padding: '6px 14px', borderRadius: 8, border: `1px solid ${draft.inviteMode === id ? 'var(--yellow)' : 'var(--border2)'}`, background: draft.inviteMode === id ? 'var(--yellow-soft)' : 'transparent', color: draft.inviteMode === id ? 'var(--yellow)' : 'var(--text2)', fontSize: 12, fontWeight: draft.inviteMode === id ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                {label}
+              </button>
+            ))}
           </div>
-
-          {/* GROUP BRIEF */}
-          <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Brief</div>
-            <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8 }}>Give the group context before they RSVP</div>
-            <input
-              value={draft.briefNote}
-              onChange={e => dispatchDraft({ type: 'set', field: 'briefNote', value: e.target.value })}
-              placeholder="What is the plan exactly? Any details to know..."
-              style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 8 }}
-            />
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
-              {['Chill', 'Active', 'Party', 'Foodie', 'Culture', 'Outdoors'].map(v => (
-                <button key={v} onClick={() => dispatchDraft({ type: 'set', field: 'briefVibe', value: draft.briefVibe === v ? '' : v })}
-                  style={{ padding: '5px 10px', borderRadius: 20, border: draft.briefVibe === v ? '1px solid var(--yellow)' : '1px solid var(--border2)', background: draft.briefVibe === v ? 'var(--yellow-soft)' : 'transparent', color: draft.briefVibe === v ? 'var(--yellow)' : 'var(--text3)', fontSize: 11, fontWeight: draft.briefVibe === v ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  {v}
-                </button>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              {[{ id: 'free', label: 'Free' }, { id: 'cheap', label: 'Cheap' }, { id: 'mid', label: 'Mid' }, { id: 'splurge', label: 'Splurge' }].map(b => (
-                <button key={b.id} onClick={() => dispatchDraft({ type: 'set', field: 'briefBudget', value: draft.briefBudget === b.id ? '' : b.id })}
-                  style={{ flex: 1, padding: '6px 4px', borderRadius: 6, border: draft.briefBudget === b.id ? '1px solid var(--yellow)' : '1px solid var(--border2)', background: draft.briefBudget === b.id ? 'var(--yellow-soft)' : 'transparent', color: draft.briefBudget === b.id ? 'var(--yellow)' : 'var(--text3)', fontSize: 11, fontWeight: draft.briefBudget === b.id ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  {b.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>When</div>
-            <div style={{ display: 'flex', gap: 6, marginBottom: draft.whenType !== 'pick' ? 0 : 10 }}>
-              {([
-                { id: 'now' as WhenType, label: 'Now' },
-                { id: 'pick' as WhenType, label: 'Pick a time' },
-                { id: 'weekly' as WhenType, label: 'Every week' },
-              ]).map(({ id, label }) => (
-                <button key={id} onClick={() => dispatchDraft({ type: 'set', field: 'whenType', value: id })}
-                  style={{
-                    padding: '6px 14px', borderRadius: 6,
-                    border: `1px solid ${draft.whenType === id ? 'var(--yellow)' : 'var(--border2)'}`,
-                    background: draft.whenType === id ? 'var(--yellow-soft)' : 'transparent',
-                    color: draft.whenType === id ? 'var(--yellow)' : 'var(--text2)',
-                    fontSize: 12, fontWeight: draft.whenType === id ? 700 : 500,
-                    cursor: 'pointer', fontFamily: 'inherit',
-                  }}>
-                  {label}
-                </button>
-              ))}
-            </div>
-            {draft.whenType === 'pick' && (
-              <div style={{ marginTop: 8 }}>
-                <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-                  {([
-                    { id: 'set' as const, label: 'Set a date' },
-                    { id: 'poll' as const, label: 'Poll the group' },
-                  ]).map(({ id, label }) => (
-                    <button key={id} onClick={() => dispatchDraft({ type: 'set', field: 'dateMode', value: id })}
-                      style={{
-                        padding: '5px 12px', borderRadius: 20,
-                        border: `1px solid ${draft.dateMode === id ? 'var(--yellow)' : 'var(--border2)'}`,
-                        background: draft.dateMode === id ? 'var(--yellow-soft)' : 'transparent',
-                        color: draft.dateMode === id ? 'var(--yellow)' : 'var(--text3)',
-                        fontSize: 11, fontWeight: draft.dateMode === id ? 700 : 500,
-                        cursor: 'pointer', fontFamily: 'inherit',
-                      }}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-
-                {draft.dateMode === 'set' ? (
-                  <DateTimePicker
-                    value={draft.scheduledFor}
-                    onChange={date => dispatchDraft({ type: 'set', field: 'scheduledFor', value: date })}
-                    minDate={new Date()}
-                  />
-                ) : (
-                  <div>
-                    <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-                      <input type="date" value={pollDateInput} onChange={e => setPollDateInput(e.target.value)}
-                        min={new Date().toISOString().split('T')[0]}
-                        style={{ flex: 1, padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
-                      <button onClick={addPollDate} disabled={!pollDateInput || draft.pollDates.length >= 5}
-                        style={{ padding: '9px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: 'var(--text)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (!pollDateInput || draft.pollDates.length >= 5) ? 0.5 : 1 }}>
-                        Add
-                      </button>
+          {draft.inviteMode === 'selected' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 12 }}>
+              {members.map(m => {
+                const checked = draft.selectedMemberIds.has(m.id)
+                return (
+                  <div key={m.id} onClick={() => toggleSelectedMember(m.id)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: checked ? 'var(--yellow-soft)' : 'var(--bg3)', border: `1px solid ${checked ? 'var(--yellow)' : 'var(--border2)'}`, cursor: 'pointer' }}>
+                    <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${checked ? 'var(--yellow)' : 'var(--border2)'}`, background: checked ? 'var(--yellow)' : 'transparent', color: '#111', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {checked ? '✓' : ''}
                     </div>
-                    {draft.pollDates.length > 0 && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 6 }}>
-                        {draft.pollDates.map(d => (
-                          <div key={d} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8 }}>
-                            <span style={{ fontSize: 13, color: 'var(--text)' }}>
-                              {new Date(d + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                            </span>
-                            <button onClick={() => removePollDate(d)}
-                              style={{ background: 'none', border: 'none', color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
-                              Remove
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>{draft.pollDates.length}/5 dates added</div>
+                    <span style={{ fontSize: 13, color: 'var(--text)' }}>{m.name}</span>
                   </div>
-                )}
-              </div>
-            )}
-            {draft.whenType === 'weekly' && (
-              <div style={{ marginTop: 8 }}>
-                <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-                  {DAYS.map((d, i) => (
-                    <button key={d} onClick={() => dispatchDraft({ type: 'set', field: 'recurrenceDay', value: i })}
-                      style={{
-                        flex: 1, padding: '8px 4px',
-                        border: `1px solid ${draft.recurrenceDay === i ? 'var(--yellow)' : 'var(--border2)'}`,
-                        borderRadius: 6, cursor: 'pointer',
-                        background: draft.recurrenceDay === i ? 'var(--yellow-soft)' : 'transparent',
-                        color: draft.recurrenceDay === i ? 'var(--yellow)' : 'var(--text2)',
-                        fontSize: 11, fontWeight: draft.recurrenceDay === i ? 700 : 500,
-                        fontFamily: 'inherit',
-                      }}>
-                      {d}
-                    </button>
-                  ))}
-                </div>
-                <input type="time" value={draft.recurrenceTime} onChange={e => dispatchDraft({ type: 'set', field: 'recurrenceTime', value: e.target.value })}
-                  style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', fontWeight: 500 }} />
-              </div>
-            )}
+                )
+              })}
+            </div>
+          )}
+
+          <div style={sectionLabel}>Restrictions</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: 6, marginBottom: 16 }}>
+            {EVENT_RESTRICTION_OPTIONS.map((opt: any) => {
+              const selected = draft.eventRestrictions.includes(opt.id)
+              return (
+                <button key={opt.id} onClick={() => toggleEventRestriction(opt.id)}
+                  style={{ padding: '5px 11px', borderRadius: 20, border: `1px solid ${selected ? 'var(--yellow)' : 'var(--border2)'}`, background: selected ? 'var(--yellow-soft)' : 'transparent', color: selected ? 'var(--yellow)' : 'var(--text3)', fontSize: 11, fontWeight: selected ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  {opt.label}
+                </button>
+              )
+            })}
           </div>
 
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Where</div>
-
-            {draft.whereMode === 'none' && (
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {([
-                  { id: 'tbd', label: 'Figure it out' },
-                  { id: 'home', label: "Someone's place" },
-                  { id: 'search', label: 'Search a place' },
-                  { id: 'discover', label: 'Browse Discover' },
-                  { id: 'online', label: 'Online / Virtual' },
-                  { id: 'cinema', label: String.fromCodePoint(0x1F3A5) + ' Movies' },
-                ] as { id: WhereMode, label: string }[]).map(({ id, label }) => (
-                  <button key={id}
-                    onClick={() => dispatchDraft({ type: 'set', field: 'whereMode', value: id })}
-                    style={{
-                      padding: '6px 14px', borderRadius: 6,
-                      border: '1px solid var(--border2)',
-                      background: 'transparent',
-                      color: 'var(--text2)',
-                      fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
-                    }}>
-                    {label}
-                  </button>
-                ))}
-                <button onClick={() => { dispatchDraft({ type: 'set', field: 'whereMode', value: 'poll' }); fetchVenuePollSuggestions() }}
-                  style={{
-                    padding: '6px 14px', borderRadius: 6,
-                    border: '1px solid var(--yellow)',
-                    background: 'var(--yellow-soft)',
-                    color: 'var(--yellow)',
-                    fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-                  }}>
-                  Let the group decide
-                </button>
-              </div>
-            )}
-
-            {draft.whereMode === 'poll' && (
-              <div>
-                {fetchingVenuePoll && (
-                  <div style={{ fontSize: 12, color: 'var(--text3)', padding: '10px 0' }}>Finding venues nearby...</div>
-                )}
-                {!fetchingVenuePoll && draft.venuePollOptions.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
-                    {draft.venuePollOptions.map((v: any, i: number) => (
-                      <div key={v.fsq_id || i} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
-                        {v.photo_url ? (
-                          <img src={v.photo_url} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
-                        ) : (
-                          <div style={{ width: 44, height: 44, borderRadius: 8, background: 'var(--bg2)', flexShrink: 0 }} />
-                        )}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{v.name}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{v.location?.formatted_address}</div>
-                        </div>
-                        <button onClick={() => swapVenuePollOption(i)} disabled={venuePollPoolIndex >= venuePollPool.length}
-                          style={{ padding: '5px 10px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text2)', fontSize: 11, cursor: venuePollPoolIndex >= venuePollPool.length ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: venuePollPoolIndex >= venuePollPool.length ? 0.4 : 1, flexShrink: 0 }}>
-                          Swap
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <button onClick={() => { dispatchDraft({ type: 'set', field: 'whereMode', value: 'none' }); dispatchDraft({ type: 'set', field: 'venuePollOptions', value: [] }); setVenuePollPool([]); setVenuePollPoolIndex(0) }}
-                  style={{ width: '100%', padding: '8px', background: 'transparent', border: '1px dashed var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Cancel
-                </button>
-              </div>
-            )}
-
-            {draft.whereMode === 'search' && !draft.selectedVenue && (
-              <div style={{ position: 'relative' }}>
-                <input
-                  value={venueSearch}
-                  onChange={e => { setVenueSearch(e.target.value); searchVenueByName(e.target.value) }}
-                  placeholder="e.g. Sooper Tiffin, Yogurty's..."
-                  autoFocus
-                  style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
-                />
-                {searchingVenue && <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>Searching...</div>}
-                {venueResults.length > 0 && (
-                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 100, overflow: 'hidden', marginTop: 4 }}>
-                    {venueResults.map((s: any) => (
-                      <div key={s.place_id} onClick={() => selectVenueFromSearch(s)}
-                        style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
-                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg3)')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{s.main_text}</div>
-                        {s.secondary_text && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{s.secondary_text}</div>}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <button onClick={() => { dispatchDraft({ type: 'set', field: 'whereMode', value: 'none' }); setVenueSearch(''); setVenueResults([]) }}
-                  style={{ width: '100%', marginTop: 8, padding: '8px', background: 'transparent', border: '1px dashed var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Cancel
-                </button>
-              </div>
-            )}
-
-            {draft.whereMode === 'search' && draft.selectedVenue && (
-              <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{draft.selectedVenue.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{draft.selectedVenue.location?.formatted_address}</div>
-                  <button onClick={() => dispatchDraft({ type: 'set', field: 'whereMode', value: 'none' })}
-                    style={{ marginTop: 4, background: 'none', border: 'none', padding: 0, color: 'var(--text3)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}>
-                    Use a different location type
-                  </button>
-                </div>
-                <button onClick={() => dispatchDraft({ type: 'set', field: 'selectedVenue', value: null })}
-                  style={{ padding: '4px 10px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text2)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Change
-                </button>
-              </div>
-            )}
-
-            {draft.whereMode === 'tbd' && (
-              <div style={{ padding: '8px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span>No venue set — you will figure it out</span>
-                <button onClick={() => dispatchDraft({ type: 'set', field: 'whereMode', value: 'none' })} style={{ background: 'none', border: 'none', color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Change</button>
-              </div>
-            )}
-
-            {draft.whereMode === 'discover' && !draft.selectedVenue && (
-              <div>
-                <Discover members={members} currentUser={currentUser} onVenueSelect={(venue: any) => dispatchDraft({ type: 'select_venue', venue, whereMode: 'discover' })} />
-                <button onClick={() => dispatchDraft({ type: 'set', field: 'whereMode', value: 'none' })} style={{ marginTop: 8, width: '100%', padding: '8px', background: 'transparent', border: '1px dashed var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Cancel
-                </button>
-              </div>
-            )}
-
-            {draft.whereMode === 'discover' && draft.selectedVenue && (
-              <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
-                {draft.selectedVenue.photo_url && (
-                  <img src={draft.selectedVenue.photo_url} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
-                )}
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{draft.selectedVenue.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{draft.selectedVenue.location?.formatted_address}</div>
-                  <button onClick={() => dispatchDraft({ type: 'set', field: 'whereMode', value: 'none' })}
-                    style={{ marginTop: 4, background: 'none', border: 'none', padding: 0, color: 'var(--text3)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}>
-                    Use a different location type
-                  </button>
-                </div>
-                <button onClick={() => dispatchDraft({ type: 'set', field: 'selectedVenue', value: null })} style={{ padding: '4px 10px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text2)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Change
-                </button>
-              </div>
-            )}
-
-
-            {draft.whereMode === 'online' && (
-              <div>
-                <div style={{ padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, marginBottom: 6 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Video call included</div>
-                  <div style={{ fontSize: 12, color: 'var(--text3)' }}>A Daily.co room will be created automatically. Members join directly inside the app.</div>
-                </div>
-                <button onClick={() => { dispatchDraft({ type: 'set', field: 'whereMode', value: 'none' }); dispatchDraft({ type: 'set', field: 'meetingUrl', value: '' }) }} style={{ width: '100%', padding: '8px', background: 'transparent', border: '1px dashed var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Cancel
-                </button>
-              </div>
-            )}
-
-            {draft.whereMode === 'home' && (
-              <div>
-                <input value={draft.manualAddress} onChange={e => dispatchDraft({ type: 'set', field: 'manualAddress', value: e.target.value })}
-                  placeholder="Address (optional)"
-                  style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 6 }} />
-                <button onClick={() => { dispatchDraft({ type: 'set', field: 'whereMode', value: 'none' }); dispatchDraft({ type: 'set', field: 'manualAddress', value: '' }) }} style={{ width: '100%', padding: '8px', background: 'transparent', border: '1px dashed var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Cancel
-                </button>
-              </div>
-            )}
-
-            {draft.whereMode === 'cinema' && !draft.selectedVenue && (
-              <div style={{ position: 'relative' }}>
-                <input
-                  value={cinemaSearch}
-                  onChange={e => { setCinemaSearch(e.target.value); searchCinemaByName(e.target.value) }}
-                  placeholder="Search for a cinema..."
-                  autoFocus
-                  style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
-                />
-                {searchingCinema && <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>Searching...</div>}
-                {cinemaResults.length > 0 && (
-                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 100, overflow: 'hidden', marginTop: 4 }}>
-                    {cinemaResults.map((s: any) => (
-                      <div key={s.place_id} onClick={() => selectCinemaFromSearch(s)}
-                        style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
-                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg3)')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{s.main_text}</div>
-                        {s.secondary_text && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{s.secondary_text}</div>}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <button onClick={() => { dispatchDraft({ type: 'set', field: 'whereMode', value: 'none' }); setCinemaSearch(''); setCinemaResults([]) }}
-                  style={{ width: '100%', marginTop: 8, padding: '8px', background: 'transparent', border: '1px dashed var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Cancel
-                </button>
-              </div>
-            )}
-
-            {draft.whereMode === 'cinema' && draft.selectedVenue && (
-              <div>
-                <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{draft.selectedVenue.name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{draft.selectedVenue.location?.formatted_address}</div>
-                    <button onClick={() => dispatchDraft({ type: 'set', field: 'whereMode', value: 'none' })}
-                      style={{ marginTop: 4, background: 'none', border: 'none', padding: 0, color: 'var(--text3)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}>
-                      Use a different location type
-                    </button>
-                  </div>
-                  <button onClick={() => dispatchDraft({ type: 'set', field: 'selectedVenue', value: null })}
-                    style={{ padding: '4px 10px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text2)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    Change
-                  </button>
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>What are you watching?</div>
-                <input value={draft.movieTitle} onChange={e => dispatchDraft({ type: 'set', field: 'movieTitle', value: e.target.value })}
-                  placeholder="Movie title"
-                  style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 10 }} />
-                <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Showtime</div>
-                <DateTimePicker value={draft.movieShowtime} onChange={v => dispatchDraft({ type: 'set', field: 'movieShowtime', value: v })} minDate={new Date()} />
-              </div>
-            )}
+          <div style={sectionLabel}>Surprise mode</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: draft.surpriseMode ? 10 : 16 }}>
+            <button onClick={() => dispatchDraft({ type: 'set', field: 'surpriseMode', value: !draft.surpriseMode })}
+              style={{ width: 32, height: 18, borderRadius: 9, border: 'none', cursor: 'pointer', padding: 0, background: draft.surpriseMode ? 'var(--yellow)' : 'var(--border2)', position: 'relative', flexShrink: 0 }}>
+              <span style={{ position: 'absolute', top: 2, left: draft.surpriseMode ? 16 : 2, width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left 0.15s' }} />
+            </button>
+            <span style={{ fontSize: 13, color: 'var(--text)' }}>Hide from specific members until reveal date</span>
           </div>
-
-          {/* GUEST LIST */}
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Guest list</div>
-            <div style={{ display: 'flex', gap: 6, marginBottom: draft.inviteMode === 'selected' ? 10 : 0 }}>
-              {([
-                { id: 'all' as const, label: 'All members' },
-                { id: 'selected' as const, label: 'Selected members' },
-              ]).map(({ id, label }) => (
-                <button key={id} onClick={() => dispatchDraft({ type: 'set', field: 'inviteMode', value: id })}
-                  style={{
-                    padding: '6px 14px', borderRadius: 6,
-                    border: `1px solid ${draft.inviteMode === id ? 'var(--yellow)' : 'var(--border2)'}`,
-                    background: draft.inviteMode === id ? 'var(--yellow-soft)' : 'transparent',
-                    color: draft.inviteMode === id ? 'var(--yellow)' : 'var(--text2)',
-                    fontSize: 12, fontWeight: draft.inviteMode === id ? 700 : 500,
-                    cursor: 'pointer', fontFamily: 'inherit',
-                  }}>
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            <div style={{ marginTop: 10, marginBottom: 10 }}>
-              <div style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600, marginBottom: 2 }}>Who is this for?</div>
-              <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>Members who don&apos;t match will be flagged, not blocked</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {EVENT_RESTRICTION_OPTIONS.map(opt => {
-                  const selected = draft.eventRestrictions.includes(opt.id)
-                  return (
-                    <button key={opt.id} onClick={() => toggleEventRestriction(opt.id)}
-                      style={{ padding: '6px 12px', borderRadius: 20, border: `1px solid ${selected ? 'var(--yellow)' : 'var(--border2)'}`, background: selected ? 'var(--yellow-soft)' : 'transparent', color: selected ? 'var(--yellow)' : 'var(--text3)', fontSize: 12, fontWeight: selected ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
-                      {opt.label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {draft.inviteMode === 'selected' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
+          {draft.surpriseMode && (
+            <div style={{ marginBottom: 16 }}>
+              <DateTimePicker value={draft.revealAt} onChange={v => dispatchDraft({ type: 'set', field: 'revealAt', value: v })} minDate={new Date()} />
+              <div style={{ marginTop: 10, marginBottom: 6, fontSize: 12, color: 'var(--text2)', fontWeight: 600 }}>Hide from</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {members.map(m => {
-                  const checked = draft.selectedMemberIds.has(m.id)
+                  const checked = draft.surpriseMemberIds.has(m.id)
                   return (
-                    <div key={m.id} onClick={() => toggleSelectedMember(m.id)}
+                    <div key={m.id} onClick={() => toggleSurpriseMember(m.id)}
                       style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: checked ? 'var(--yellow-soft)' : 'var(--bg3)', border: `1px solid ${checked ? 'var(--yellow)' : 'var(--border2)'}`, cursor: 'pointer' }}>
-                      <div style={{ width: 16, height: 16, borderRadius: 4, flexShrink: 0, border: `1.5px solid ${checked ? 'var(--yellow)' : 'var(--border2)'}`, background: checked ? 'var(--yellow)' : 'transparent', color: '#111', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${checked ? 'var(--yellow)' : 'var(--border2)'}`, background: checked ? 'var(--yellow)' : 'transparent', color: '#111', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         {checked ? '✓' : ''}
                       </div>
                       <span style={{ fontSize: 13, color: 'var(--text)' }}>{m.name}</span>
@@ -1357,68 +1303,117 @@ export default function Composer({
                   )
                 })}
               </div>
-            )}
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8 }}>
-              <button onClick={() => dispatchDraft({ type: 'set', field: 'surpriseMode', value: !draft.surpriseMode })}
-                style={{ width: 32, height: 18, borderRadius: 9, border: 'none', cursor: 'pointer', padding: 0, background: draft.surpriseMode ? 'var(--yellow)' : 'var(--border2)', position: 'relative', flexShrink: 0 }}>
-                <span style={{ position: 'absolute', top: 2, left: draft.surpriseMode ? 16 : 2, width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left 0.15s' }} />
-              </button>
-              <span style={{ fontSize: 12, color: 'var(--text)' }}>Surprise mode</span>
             </div>
+          )}
 
-            {draft.surpriseMode && (
-              <div style={{ marginTop: 8 }}>
-                <DateTimePicker value={draft.revealAt} onChange={v => dispatchDraft({ type: 'set', field: 'revealAt', value: v })} minDate={new Date()} />
-                <div style={{ marginTop: 10, marginBottom: 6, fontSize: 12, color: 'var(--text2)', fontWeight: 600 }}>Hide the plan from</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
-                  {members.map(m => {
-                    const checked = draft.surpriseMemberIds.has(m.id)
-                    return (
-                      <div key={m.id} onClick={() => toggleSurpriseMember(m.id)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: checked ? 'var(--yellow-soft)' : 'var(--bg3)', border: `1px solid ${checked ? 'var(--yellow)' : 'var(--border2)'}`, cursor: 'pointer' }}>
-                        <div style={{ width: 16, height: 16, borderRadius: 4, flexShrink: 0, border: `1.5px solid ${checked ? 'var(--yellow)' : 'var(--border2)'}`, background: checked ? 'var(--yellow)' : 'transparent', color: '#111', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {checked ? '✓' : ''}
-                        </div>
-                        <span style={{ fontSize: 13, color: 'var(--text)' }}>{m.name}</span>
-                      </div>
-                    )
-                  })}
-                </div>
-                <div style={{ padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)' }}>
-                  {draft.surpriseMemberIds.size > 0
-                    ? `Hidden from ${draft.surpriseMemberIds.size} member${draft.surpriseMemberIds.size > 1 ? 's' : ''} until reveal date`
-                    : 'Pick who to hide this from above'}
-                </div>
-              </div>
-            )}
+          <div style={sectionLabel}>Group brief</div>
+          <input value={draft.briefNote} onChange={e => dispatchDraft({ type: 'set', field: 'briefNote', value: e.target.value })} placeholder="Any context for the group..."
+            style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const, marginBottom: 8 }} />
+          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' as const, marginBottom: 8 }}>
+            {['Chill', 'Active', 'Party', 'Foodie', 'Culture', 'Outdoors'].map(v => (
+              <button key={v} onClick={() => dispatchDraft({ type: 'set', field: 'briefVibe', value: draft.briefVibe === v ? '' : v })}
+                style={{ padding: '4px 10px', borderRadius: 20, border: `1px solid ${draft.briefVibe === v ? 'var(--yellow)' : 'var(--border2)'}`, background: draft.briefVibe === v ? 'var(--yellow-soft)' : 'transparent', color: draft.briefVibe === v ? 'var(--yellow)' : 'var(--text3)', fontSize: 11, fontWeight: draft.briefVibe === v ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                {v}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 5, marginBottom: 20 }}>
+            {[{ id: 'free', label: 'Free' }, { id: 'cheap', label: 'Cheap' }, { id: 'mid', label: 'Mid' }, { id: 'splurge', label: 'Splurge' }].map(b => (
+              <button key={b.id} onClick={() => dispatchDraft({ type: 'set', field: 'briefBudget', value: draft.briefBudget === b.id ? '' : b.id })}
+                style={{ flex: 1, padding: '6px 4px', borderRadius: 6, border: `1px solid ${draft.briefBudget === b.id ? 'var(--yellow)' : 'var(--border2)'}`, background: draft.briefBudget === b.id ? 'var(--yellow-soft)' : 'transparent', color: draft.briefBudget === b.id ? 'var(--yellow)' : 'var(--text3)', fontSize: 11, fontWeight: draft.briefBudget === b.id ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                {b.label}
+              </button>
+            ))}
           </div>
 
           {confirmingDiscard ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
-              <div style={{ fontSize: 13, color: 'var(--text2)', textAlign: 'center' }}>Discard this plan?</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ fontSize: 13, color: 'var(--text2)', textAlign: 'center' as const }}>Discard this plan?</div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => setConfirmingDiscard(false)} style={{ flex: 1, padding: '10px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Keep editing
-                </button>
-                <button onClick={() => { setConfirmingDiscard(false); reset() }} style={{ flex: 1, padding: '10px', background: 'var(--danger)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Discard
-                </button>
+                <button onClick={() => setConfirmingDiscard(false)} style={{ flex: 1, padding: '10px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Keep editing</button>
+                <button onClick={() => { setConfirmingDiscard(false); reset(); setPanel('feed') }} style={{ flex: 1, padding: '10px', background: 'var(--danger)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Discard</button>
               </div>
             </div>
           ) : (
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={handleCancelHangout} style={{ padding: '10px 16px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-                Cancel
-              </button>
-              <button onClick={postHangout} disabled={creating}
+              <button onClick={handleCancelHangout} style={{ padding: '10px 16px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+              <button onClick={() => { postHangout(); setPanel('feed') }} disabled={creating}
                 style={{ flex: 1, padding: '10px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: creating ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: creating ? 0.6 : 1 }}>
-                {creating ? 'Posting...' : draft.whenType === 'now' ? 'Post now' : 'Post hangout'}
+                {creating ? 'Posting…' : 'Drop it in the group'}
               </button>
             </div>
           )}
         </div>
       )}
+
+      {/* MOMENT PANEL */}
+      {panel === 'moment' && (
+        <div style={panelSheet}>
+          {momentError && <div className="error-banner" style={{ marginBottom: 10 }}>{momentError}</div>}
+          {momentPhotoPreview && (
+            <div style={{ position: 'relative', marginBottom: 10, borderRadius: 10, overflow: 'hidden', aspectRatio: '4/5', background: '#000', maxWidth: 320 }}>
+              {momentMediaType === 'video'
+                ? <video src={momentPhotoPreview} controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                : <img src={momentPhotoPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
+              <button onClick={() => { setMomentPhoto(null); setMomentPhotoPreview(null); setMomentMediaType('image'); if (momentPhotoInputRef.current) momentPhotoInputRef.current.value = '' }}
+                style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>×</button>
+            </div>
+          )}
+          <textarea value={momentText} onChange={e => setMomentText(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) postMoment() }}
+            placeholder={momentPlaceholder} autoFocus rows={3}
+            style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 10, padding: '10px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', resize: 'vertical' as const, marginBottom: 10, lineHeight: 1.5, boxSizing: 'border-box' as const }} />
+          <input type="file" accept="image/*,video/*" ref={momentPhotoInputRef} onChange={handleMomentPhotoSelect} style={{ display: 'none' }} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => momentPhotoInputRef.current?.click()} style={{ ...btnGhost, display: 'flex', alignItems: 'center', gap: 6 }}>
+              📷 {momentPhoto ? 'Change' : 'Add photo'}
+            </button>
+            <button onClick={async () => { await postMoment(); setPanel('feed') }} disabled={(!momentText.trim() && !momentPhoto) || posting}
+              style={{ ...btnYellow, width: 'auto', flex: 1, opacity: (!momentText.trim() && !momentPhoto) || posting ? 0.5 : 1 }}>
+              {posting ? 'Posting…' : 'Post'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* BILL PANEL */}
+      {panel === 'bill' && (
+        <div style={panelSheet}>
+          {quickBillError && <div className="error-banner" style={{ marginBottom: 8 }}>{quickBillError}</div>}
+          <input value={quickBillDesc} onChange={e => setQuickBillDesc(e.target.value)} placeholder="What was the bill for?"
+            style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const, marginBottom: 8 }} />
+          <input type="number" value={quickBillAmount} onChange={e => setQuickBillAmount(e.target.value)} placeholder="Total amount ($)"
+            style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const, marginBottom: 10 }} />
+          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>Split with</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 160, overflowY: 'auto', marginBottom: 10 }}>
+            {members.map(m => {
+              const checked = quickBillSelectedIds.has(m.id)
+              return (
+                <div key={m.id} onClick={() => toggleQuickBillMember(m.id)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, background: checked ? 'var(--yellow-soft)' : 'var(--bg3)', border: `1px solid ${checked ? 'var(--yellow)' : 'var(--border2)'}`, cursor: 'pointer' }}>
+                  <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${checked ? 'var(--yellow)' : 'var(--border2)'}`, background: checked ? 'var(--yellow)' : 'transparent', color: '#111', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {checked ? '✓' : ''}
+                  </div>
+                  <span style={{ fontSize: 12, color: 'var(--text)' }}>{m.name}</span>
+                </div>
+              )
+            })}
+          </div>
+          {quickBillAmount && !isNaN(parseFloat(quickBillAmount)) && quickBillSelectedIds.size > 0 && (
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 10 }}>
+              ${(parseFloat(quickBillAmount) / quickBillSelectedIds.size).toFixed(2)} each, split {quickBillSelectedIds.size} ways
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => { setPanel('feed'); setQuickBillError('') }} style={btnGhost}>Cancel</button>
+            <button onClick={async () => { await postQuickBill(); setPanel('feed') }} disabled={!quickBillDesc.trim() || !quickBillAmount || quickBillSelectedIds.size === 0 || quickBillPosting}
+              style={{ flex: 1, padding: '10px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: !quickBillDesc.trim() || !quickBillAmount || quickBillSelectedIds.size === 0 || quickBillPosting ? 0.5 : 1 }}>
+              {quickBillPosting ? 'Posting…' : 'Post bill'}
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
