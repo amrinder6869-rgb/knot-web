@@ -1,6 +1,5 @@
 'use client'
 import { useState, useReducer, useRef, useEffect } from 'react'
-import { ImageIcon, Calendar, Receipt } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { notifyKnotMembers } from '@/lib/notifications'
 import Discover from '@/components/Discover'
@@ -223,14 +222,14 @@ export default function Composer({
 
   const [cinemaSearch, setCinemaSearch]   = useState('')
   const [cinemaResults, setCinemaResults] = useState<any[]>([])
-  const [searchingCinema, setSearchingCinema] = useState(false)
+  const [, setSearchingCinema] = useState(false)
   const [venueSearch, setVenueSearch]     = useState('')
   const [venueResults, setVenueResults]   = useState<any[]>([])
-  const [searchingVenue, setSearchingVenue] = useState(false)
+  const [, setSearchingVenue] = useState(false)
   const [creating, setCreating]           = useState(false)
   const [hangoutError, setHangoutError]   = useState('')
   const [groupSuggestions, setGroupSuggestions] = useState<any>(null)
-  const [loadingSuggestions, setLoadingSuggestions] = useState(false)
+  const [, setLoadingSuggestions] = useState(false)
   const [pollDateInput, setPollDateInput] = useState('')
   const [confirmingDiscard, setConfirmingDiscard] = useState(false)
   const [fetchingVenuePoll, setFetchingVenuePoll] = useState(false)
@@ -826,14 +825,6 @@ export default function Composer({
   const sectionLabel: React.CSSProperties = {
     fontSize: 10, fontWeight: 700, letterSpacing: '0.07em',
     textTransform: 'uppercase' as const, color: 'var(--text3)', marginBottom: 10,
-  }
-  const moreItem: React.CSSProperties = {
-    display: 'flex', alignItems: 'center', gap: 10,
-    padding: '11px 0', borderBottom: '0.5px solid var(--border)', cursor: 'pointer',
-  }
-  const moreIcon: React.CSSProperties = {
-    width: 32, height: 32, borderRadius: 8, background: 'var(--bg3)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   }
 
   return (
