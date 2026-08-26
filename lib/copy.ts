@@ -63,6 +63,11 @@ export const COMPOSER_PLACEHOLDER = [
   'What are we doing?',
 ]
 
+export const COMPOSER_RESOLVING = {
+  pool: ['Figuring it out.', 'Reading the plan.', 'On it.', 'Working on it.'],
+  rare: ['Give me a sec.'],
+}
+
 export const ONBOARDING = {
   EMPTY: 'Nobody knows about this yet. Start a circle.',
 }
