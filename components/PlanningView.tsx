@@ -427,6 +427,7 @@ const loadHangouts = useCallback(async () => {
       knot_id: knotId, author_id: user.id,
       content: `added a bill — $${amount.toFixed(2)} for ${billDesc.trim()}, split ${splitIds.length} ways`,
       post_type: 'bill',
+      bill_id: bill.id,
     })
 
     setBillPosting(false)

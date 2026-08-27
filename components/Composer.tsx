@@ -161,6 +161,7 @@ export default function Composer({
       author_id: user.id,
       content: `added a bill — $${amount.toFixed(2)} for ${quickBillDesc.trim()}, split ${splitIds.length} ways`,
       post_type: 'bill',
+      bill_id: bill.id,
     })
 
     toast.success('Bill added and split with the group.')
