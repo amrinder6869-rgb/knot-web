@@ -302,6 +302,68 @@ export const PLANNING_CHAT_PLACEHOLDER = [
   'Drop something in the chat.',
 ]
 
+// HangoutChatView — live prompts, RSVP, chips, errors, sheets
+export const LIVE_PHOTO_PROMPT = 'Drop a photo from tonight.'
+export const LIVE_RECEIPT_PROMPT = 'Got a receipt? Add it to the tab.'
+export const HERE_MESSAGE = "I'm here."
+export const CTA_WE_ARE_HERE = 'We are here'
+
+export const RSVP_LABEL_GOING = 'Going'
+export const RSVP_LABEL_MAYBE = 'Maybe'
+export const RSVP_LABEL_CANT_GO = "Can't go"
+
+export const CHIP_WHEN_TODAY = 'Today'
+export const CHIP_WHEN_FRIDAY = 'This Friday'
+export const CHIP_WHEN_WEEKEND = 'This Weekend'
+export const AGENT_WHEN_PROMPT = 'When are you thinking?'
+
+export const CHAT_LOADING = 'Loading...'
+export const CHAT_EMPTY = 'No messages yet. Start the conversation.'
+export const CHAT_ERROR_SIGN_IN = 'You need to be signed in.'
+export const CHAT_ERROR_PLANNER = 'Could not reach the planner. Try again.'
+
+export const ERROR_UPDATE_RSVP = 'Could not update RSVP.'
+export const ERROR_GO_LIVE = 'Could not go live.'
+export const ERROR_UPDATE_HANGOUT = 'Could not update hangout details.'
+export const ERROR_START_CALL = 'Could not start the call room. Try again.'
+export const ERROR_BILL_AMOUNT = 'Enter a valid amount.'
+export const ERROR_ADD_BILL = 'Could not add the bill.'
+export const ERROR_MARK_PAID = 'Could not mark as paid.'
+export const ERROR_SEND_REMINDER = 'Could not send reminder.'
+
+export const TOAST_DATE_CONFIRMED = 'Date confirmed!'
+export const TOAST_ALREADY_NUDGED = 'Already nudged recently.'
+
+export const SHEET_PHOTO = 'Photo'
+export const SHEET_ADD_BILL = 'Add bill'
+export const SHEET_CARPOOL = 'Carpool'
+export const SHEET_CHANGE_PHOTO = 'Change'
+export const SHEET_ADD_PHOTO = 'Add photo'
+export const SHEET_POSTING = 'Posting…'
+export const SHEET_POST = 'Post'
+export const SHEET_POST_BILL = 'Post bill'
+export const SHEET_SPLIT_HINT = 'Split with (leave blank for everyone)'
+export const SHEET_CARPOOL_NO_VENUE = 'Add a venue first.'
+export const SHEET_EDIT_TITLE = 'Edit hangout'
+export const SHEET_EDIT_TITLE_PLACEHOLDER = 'Title'
+export const SHEET_EDIT_VENUE_PLACEHOLDER = 'Venue name'
+export const SHEET_EDIT_ADDRESS_PLACEHOLDER = 'Venue address'
+export const SHEET_EDIT_DATE_LABEL = 'Date and time'
+export const SHEET_CANCEL = 'Cancel'
+export const SHEET_SAVE = 'Save'
+export const SHEET_SAVING = 'Saving...'
+
+export const BILL_ALL_SETTLED = 'All settled.'
+export const BILL_SETTLE_UP = 'Settle up'
+export const BILL_REMIND = 'Remind'
+export const BILL_OWES = 'owes' // "{name} owes ${amount}"
+export const MEMORIES_TITLE = 'Memories'
+export const MEMORIES_EMPTY = 'No photos yet.'
+export const MEMORIES_ATTENDEES = 'attendee' // "{n} attendee(s)"
+export const RATE_VENUE_PREFIX = 'Rate' // "Rate {venue}"
+export const VENUE_OPEN_NOW = 'Open now'
+export const VENUE_CLOSED = 'Closed'
+
 export const CARD_STATE_COPY: Record<string, { title: string; subtitle: string }> = {
   voting: { title: "Let's figure it out", subtitle: 'RSVP so the plan can lock.' },
   planning: { title: "Let's figure it out", subtitle: 'RSVP so the plan can lock.' },

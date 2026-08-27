@@ -36,6 +36,60 @@ import {
   TOAST_INVITE_COPIED,
   TOAST_INVITE_COPY_FAILED,
   ERROR_SIGN_IN_FOR_CALL,
+  ERROR_CANCEL_HANGOUT,
+  ERROR_UPDATE_RSVP,
+  ERROR_GO_LIVE,
+  ERROR_UPDATE_HANGOUT,
+  ERROR_START_CALL,
+  ERROR_BILL_AMOUNT,
+  ERROR_ADD_BILL,
+  ERROR_MARK_PAID,
+  ERROR_SEND_REMINDER,
+  TOAST_HANGOUT_CONFIRMED,
+  TOAST_DATE_CONFIRMED,
+  TOAST_ALREADY_NUDGED,
+  BILL_DESC_PLACEHOLDER,
+  BILL_AMOUNT_PLACEHOLDER,
+  LIVE_PHOTO_PROMPT,
+  LIVE_RECEIPT_PROMPT,
+  HERE_MESSAGE,
+  CTA_WE_ARE_HERE,
+  RSVP_LABEL_GOING,
+  RSVP_LABEL_MAYBE,
+  RSVP_LABEL_CANT_GO,
+  CHIP_WHEN_TODAY,
+  CHIP_WHEN_FRIDAY,
+  CHIP_WHEN_WEEKEND,
+  AGENT_WHEN_PROMPT,
+  CHAT_LOADING,
+  CHAT_EMPTY,
+  CHAT_ERROR_SIGN_IN,
+  CHAT_ERROR_PLANNER,
+  SHEET_PHOTO,
+  SHEET_ADD_BILL,
+  SHEET_CARPOOL,
+  SHEET_CHANGE_PHOTO,
+  SHEET_ADD_PHOTO,
+  SHEET_POSTING,
+  SHEET_POST,
+  SHEET_POST_BILL,
+  SHEET_SPLIT_HINT,
+  SHEET_CARPOOL_NO_VENUE,
+  SHEET_EDIT_TITLE,
+  SHEET_EDIT_TITLE_PLACEHOLDER,
+  SHEET_EDIT_VENUE_PLACEHOLDER,
+  SHEET_EDIT_ADDRESS_PLACEHOLDER,
+  SHEET_EDIT_DATE_LABEL,
+  SHEET_CANCEL,
+  SHEET_SAVE,
+  SHEET_SAVING,
+  BILL_ALL_SETTLED,
+  BILL_SETTLE_UP,
+  BILL_REMIND,
+  MEMORIES_TITLE,
+  MEMORIES_EMPTY,
+  VENUE_OPEN_NOW,
+  VENUE_CLOSED,
 } from '@/lib/copy'
 
 function KnotMark({ size = 20 }: { size?: number }) {
@@ -117,10 +171,6 @@ type ThreadMessage = {
   photo_url?: string
   created_at: string
 }
-
-const LIVE_PHOTO_PROMPT = 'Drop a photo from tonight.'
-const LIVE_RECEIPT_PROMPT = 'Got a receipt? Add it to the tab.'
-const HERE_MESSAGE = "I'm here."
 
 export default function HangoutChatView({
   hangoutId,
@@ -312,6 +362,33 @@ export default function HangoutChatView({
     if (scrollToBottom) scrollThreadToBottom()
   }, [scrollToBottom])
 
+  const ensureAndJoinCall = useCallback(async () => {
+    if (joiningCall || !hangout) return
+    setJoiningCall(true)
+    setActionError('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { setActionError(ERROR_SIGN_IN_FOR_CALL); setJoiningCall(false); return }
+      const res = await fetch('/api/daily/create-room', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+        body: JSON.stringify({ hangoutId: hangout.id }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.url) { setActionError(data.error || ERROR_START_CALL); setJoiningCall(false); return }
+      if (data.url !== hangout.meeting_url) {
+        await supabase.from('hangouts').update({ meeting_url: data.url }).eq('id', hangout.id)
+        setHangout((h: any) => ({ ...h, meeting_url: data.url }))
+      }
+      setCallRoomUrl(data.url)
+      setShowDailyCall(true)
+    } catch {
+      setActionError(ERROR_START_CALL)
+    } finally {
+      setJoiningCall(false)
+    }
+  }, [joiningCall, hangout])
+
   useEffect(() => { loadHangout() }, [loadHangout])
 
   useEffect(() => {
@@ -360,7 +437,7 @@ export default function HangoutChatView({
     if (phase !== 'confirmed' && phase !== 'live') return
     autoJoinStartedRef.current = true
     ensureAndJoinCall()
-  }, [autoJoinCall, loading, hangout, phase])
+  }, [autoJoinCall, loading, hangout, phase, ensureAndJoinCall])
 
   useEffect(() => {
     if (phase !== 'live' || !agentId || loadingMessages || livePromptedRef.current) return
@@ -439,7 +516,7 @@ export default function HangoutChatView({
       setResolvingLine(getRandomTagged(AGENT_RESOLVING_STATES))
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        if (!session) { setChatError('You need to be signed in.'); return }
+        if (!session) { setChatError(CHAT_ERROR_SIGN_IN); return }
         const res = await fetch('/api/planning-agent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
@@ -462,7 +539,7 @@ export default function HangoutChatView({
         setPendingRevenue(data.revenue_suggestion ?? null)
         attachVenueSuggestions(freshMessages, data.venue_suggestions)
       } catch {
-        setChatError('Could not reach the planner. Try again.')
+        setChatError(CHAT_ERROR_PLANNER)
       } finally {
         setResolving(false)
       }
@@ -479,7 +556,7 @@ export default function HangoutChatView({
       { hangout_id: hangoutId, user_id: currentUser.id, status },
       { onConflict: 'hangout_id,user_id' }
     )
-    if (error) { setActionError('Could not update RSVP.'); return }
+    if (error) { setActionError(ERROR_UPDATE_RSVP); return }
     track(supabase, 'hangout_rsvp', { hangout_id: hangoutId, status })
     await loadHangout()
     onChanged?.()
@@ -505,7 +582,7 @@ export default function HangoutChatView({
     const { error } = await supabase.from('hangouts').update({ post_id: postId, planning_status: 'locked', status: 'confirmed' }).eq('id', hangout.id)
     setPendingAction(null)
     if (error) { toast.error(TOAST_ERROR); return }
-    toast.success('Locked.')
+    toast.success(TOAST_HANGOUT_CONFIRMED)
     await loadHangout()
     onChanged?.()
   }
@@ -515,7 +592,7 @@ export default function HangoutChatView({
     setActionError('')
     const actorName = currentUser.name || 'Someone'
     const { error } = await supabase.from('hangouts').update({ status: 'live', is_live: true }).eq('id', hangout.id)
-    if (error) { setActionError('Could not go live.'); return }
+    if (error) { setActionError(ERROR_GO_LIVE); return }
     await supabase.from('posts').insert({ knot_id: knotId, author_id: currentUser.id, content: `${actorName} is at ${hangout.venue_name || hangout.title} \u2014 the night is on!`, post_type: 'moment' })
     await loadHangout()
     onChanged?.()
@@ -533,7 +610,7 @@ export default function HangoutChatView({
     const { error } = await supabase.from('hangouts').update({ status: 'cancelled', is_live: false, planning_status: 'abandoned' }).eq('id', hangout.id).eq('created_by', currentUser.id)
     setPendingAction(null)
     setMenuOpen(false)
-    if (error) { toast.error('Could not cancel the hangout.'); return }
+    if (error) { toast.error(ERROR_CANCEL_HANGOUT); return }
     await loadHangout()
     onChanged?.()
   }
@@ -549,7 +626,7 @@ export default function HangoutChatView({
     }
     const { error } = await supabase.from('hangouts').update(updates).eq('id', hangout.id).eq('created_by', currentUser.id)
     setEditSaving(false)
-    if (error) { toast.error('Could not update hangout details.'); return }
+    if (error) { toast.error(ERROR_UPDATE_HANGOUT); return }
     setSheet(null)
     await loadHangout()
     onChanged?.()
@@ -564,33 +641,6 @@ export default function HangoutChatView({
       toast.success(TOAST_INVITE_COPIED)
     } catch {
       toast.error(TOAST_INVITE_COPY_FAILED)
-    }
-  }
-
-  async function ensureAndJoinCall() {
-    if (joiningCall) return
-    setJoiningCall(true)
-    setActionError('')
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) { setActionError(ERROR_SIGN_IN_FOR_CALL); setJoiningCall(false); return }
-      const res = await fetch('/api/daily/create-room', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
-        body: JSON.stringify({ hangoutId: hangout.id }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.url) { setActionError(data.error || 'Could not start the call room. Try again.'); setJoiningCall(false); return }
-      if (data.url !== hangout.meeting_url) {
-        await supabase.from('hangouts').update({ meeting_url: data.url }).eq('id', hangout.id)
-        setHangout((h: any) => ({ ...h, meeting_url: data.url }))
-      }
-      setCallRoomUrl(data.url)
-      setShowDailyCall(true)
-    } catch {
-      setActionError('Could not start the call room. Try again.')
-    } finally {
-      setJoiningCall(false)
     }
   }
 
@@ -619,11 +669,11 @@ export default function HangoutChatView({
       content: `${getRandom(AGENT_MESSAGES.VENUE_CONFIRMED)} ${venue.name} locked in.`,
     })
     if (wasDateOpen) {
-      await supabase.from('hangout_messages').insert({ hangout_id: hangout.id, author_id: agentId, content: 'When are you thinking?' })
+      await supabase.from('hangout_messages').insert({ hangout_id: hangout.id, author_id: agentId, content: AGENT_WHEN_PROMPT })
       setPendingChips([
-        { label: 'Today', action: 'when', value: 'today' },
-        { label: 'This Friday', action: 'when', value: 'friday' },
-        { label: 'This Weekend', action: 'when', value: 'weekend' },
+        { label: CHIP_WHEN_TODAY, action: 'when', value: 'today' },
+        { label: CHIP_WHEN_FRIDAY, action: 'when', value: 'friday' },
+        { label: CHIP_WHEN_WEEKEND, action: 'when', value: 'weekend' },
       ])
     }
     await loadHangout()
@@ -711,7 +761,7 @@ export default function HangoutChatView({
   async function postBill() {
     if (!billDesc.trim() || !billAmount || billPosting || !knotId) return
     const amount = parseFloat(billAmount)
-    if (isNaN(amount) || amount <= 0) { setBillError('Enter a valid amount.'); return }
+    if (isNaN(amount) || amount <= 0) { setBillError(ERROR_BILL_AMOUNT); return }
     const splitIds = billSelectedIds.size > 0 ? Array.from(billSelectedIds) : members.map(m => m.id)
     setBillPosting(true)
     setBillError('')
@@ -721,7 +771,7 @@ export default function HangoutChatView({
     const { data: bill, error } = await supabase.from('bills').insert({
       knot_id: knotId, hangout_id: hangoutId, added_by: user.id, total_amount: amount, description: billDesc.trim(), split_type: 'equal',
     }).select().single()
-    if (error || !bill) { setBillError('Could not add the bill.'); setBillPosting(false); return }
+    if (error || !bill) { setBillError(ERROR_ADD_BILL); setBillPosting(false); return }
     await supabase.from('bill_splits').insert(
       splitIds.map((uid: string) => ({ bill_id: bill.id, user_id: uid, amount: parseFloat(share.toFixed(2)), settled: uid === user.id }))
     )
@@ -736,7 +786,7 @@ export default function HangoutChatView({
 
   async function markSplitSettled(splitId: string) {
     const { error } = await supabase.from('bill_splits').update({ settled: true, settled_at: new Date().toISOString() }).eq('id', splitId)
-    if (error) { toast.error('Could not mark as paid.'); return }
+    if (error) { toast.error(ERROR_MARK_PAID); return }
     await loadHangout()
   }
 
@@ -745,7 +795,7 @@ export default function HangoutChatView({
     const lastRaw = split.last_reminded_at || split.reminder_sent_at
     const last = lastRaw ? new Date(lastRaw).getTime() : 0
     if (last && Date.now() - last < DAY_MS) {
-      toast.success('Already nudged recently.')
+      toast.success(TOAST_ALREADY_NUDGED)
       return
     }
     setRemindingId(split.id)
@@ -755,7 +805,7 @@ export default function HangoutChatView({
       const retry = await supabase.from('bill_splits').update({ reminder_sent_at: now }).eq('id', split.id)
       error = retry.error
     }
-    if (error) { toast.error('Could not send reminder.'); setRemindingId(null); return }
+    if (error) { toast.error(ERROR_SEND_REMINDER); setRemindingId(null); return }
     const creditorName = currentUser.name || 'a friend'
     const amount = parseFloat(split.amount).toFixed(2)
     const title = hangout.title || hangout.venue_name || 'this hangout'
@@ -802,7 +852,7 @@ export default function HangoutChatView({
     const scheduledIso = new Date(time ? `${date}T${time}` : `${date}T00:00:00`).toISOString()
     await supabase.from('hangouts').update({ scheduled_for: scheduledIso, status: 'confirmed', planning_status: 'locked' }).eq('id', hangout.id)
     if (poll) await supabase.from('availability_polls').update({ status: 'closed', closed_at: new Date().toISOString() }).eq('id', poll.id)
-    toast.success('Date confirmed!')
+    toast.success(TOAST_DATE_CONFIRMED)
     await loadHangout()
   }
 
@@ -820,7 +870,7 @@ export default function HangoutChatView({
   if (loading || !hangout) {
     return (
       <div style={{ flex: 1, minHeight: 0, height: '100%', background: '#F5F3EE', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text3)', fontSize: 13 }}>
-        Loading...
+        {CHAT_LOADING}
       </div>
     )
   }
@@ -908,13 +958,13 @@ export default function HangoutChatView({
             {phase === 'confirmed' && isCreator && (
               <button type="button" onClick={goLive}
                 style={{ padding: '8px 14px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 10 }}>
-                We are here
+                {CTA_WE_ARE_HERE}
               </button>
             )}
             {phase === 'live' && !checkedIn && (
               <button type="button" onClick={checkIn}
                 style={{ padding: '8px 14px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 10 }}>
-                We are here
+                {CTA_WE_ARE_HERE}
               </button>
             )}
             {(phase === 'confirmed' || phase === 'live') && (
@@ -941,7 +991,7 @@ export default function HangoutChatView({
               <div style={{ marginTop: 10 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Bills · ${totalSpend.toFixed(2)} total</div>
                 {unsettled.length === 0 ? (
-                  <div style={{ fontSize: 12, color: 'var(--sage)' }}>All settled.</div>
+                  <div style={{ fontSize: 12, color: 'var(--sage)' }}>{BILL_ALL_SETTLED}</div>
                 ) : unsettled.map((s: any) => {
                   const canRemind = (isTreasurer || s.bill?.added_by === currentUser?.id) && s.user_id !== currentUser?.id
                   return (
@@ -950,7 +1000,7 @@ export default function HangoutChatView({
                       {canRemind && (
                         <button type="button" disabled={remindingId === s.id} onClick={() => remindSplit(s)}
                           style={{ padding: '3px 8px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: remindingId === s.id ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
-                          Remind
+                          {BILL_REMIND}
                         </button>
                       )}
                     </div>
@@ -966,9 +1016,9 @@ export default function HangoutChatView({
 
       <div ref={listRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 16, background: '#fff' }}>
         {loadingMessages ? (
-          <div style={{ fontSize: 13, color: 'var(--text3)', textAlign: 'center', padding: 20 }}>Loading...</div>
+          <div style={{ fontSize: 13, color: 'var(--text3)', textAlign: 'center', padding: 20 }}>{CHAT_LOADING}</div>
         ) : messages.length === 0 && phase === 'planning' ? (
-          <div style={{ fontSize: 13, color: 'var(--text3)', textAlign: 'center', padding: '40px 20px' }}>No messages yet. Start the conversation.</div>
+          <div style={{ fontSize: 13, color: 'var(--text3)', textAlign: 'center', padding: '40px 20px' }}>{CHAT_EMPTY}</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {messages.map((m, i) => {
@@ -1036,7 +1086,7 @@ export default function HangoutChatView({
                                 )}
                                 {v.open_now != null && (
                                   <span style={{ fontSize: 10, color: v.open_now ? 'var(--sage)' : 'var(--danger)' }}>
-                                    {v.open_now ? 'Open now' : 'Closed'}
+                                    {v.open_now ? VENUE_OPEN_NOW : VENUE_CLOSED}
                                   </span>
                                 )}
                               </div>
@@ -1066,13 +1116,13 @@ export default function HangoutChatView({
                             {!s.settled && s.user_id === currentUser?.id && (
                               <button type="button" onClick={() => markSplitSettled(s.id)}
                                 style={{ padding: '3px 8px', background: 'var(--yellow)', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-                                Settle up
+                                {BILL_SETTLE_UP}
                               </button>
                             )}
                             {canRemind && (
                               <button type="button" disabled={remindingId === s.id} onClick={() => remindSplit(s)}
                                 style={{ padding: '3px 8px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: remindingId === s.id ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
-                                Remind
+                                {BILL_REMIND}
                               </button>
                             )}
                           </div>
@@ -1106,7 +1156,7 @@ export default function HangoutChatView({
 
             {phase === 'ended' && (
               <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 12 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Memories</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>{MEMORIES_TITLE}</div>
                 {photos.length > 0 ? (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, marginBottom: 10 }}>
                     {photos.map(p => (
@@ -1120,7 +1170,7 @@ export default function HangoutChatView({
                     ))}
                   </div>
                 ) : (
-                  <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8 }}>No photos yet.</div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8 }}>{MEMORIES_EMPTY}</div>
                 )}
                 <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5 }}>
                   {goingCount} attendee{goingCount === 1 ? '' : 's'}
@@ -1158,15 +1208,15 @@ export default function HangoutChatView({
         <div style={{ display: 'flex', gap: 6, padding: '8px 12px', background: '#fff', borderTop: '1px solid var(--border)' }}>
           <button type="button" onClick={() => rsvp('yes')}
             style={{ padding: '6px 12px', borderRadius: 20, background: 'var(--yellow)', border: 'none', color: '#111', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-            Going
+            {RSVP_LABEL_GOING}
           </button>
           <button type="button" onClick={() => rsvp('maybe')}
             style={{ padding: '6px 12px', borderRadius: 20, background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-            Maybe
+            {RSVP_LABEL_MAYBE}
           </button>
           <button type="button" onClick={() => rsvp('no')}
             style={{ padding: '6px 12px', borderRadius: 20, background: 'var(--bg3)', border: '1px solid var(--border2)', color: 'var(--danger)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-            Can&apos;t go
+            {RSVP_LABEL_CANT_GO}
           </button>
         </div>
       )}
@@ -1211,15 +1261,15 @@ export default function HangoutChatView({
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border2)', margin: '4px auto 12px' }} />
             <div onClick={() => setSheet('moment')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 4px', cursor: 'pointer' }}>
               <i className="ti ti-camera" style={{ fontSize: ICON_SIZE.nav, color: 'var(--text3)' }} />
-              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Photo</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{SHEET_PHOTO}</span>
             </div>
             <div onClick={() => setSheet('bill')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 4px', cursor: 'pointer' }}>
               <i className="ti ti-receipt" style={{ fontSize: ICON_SIZE.nav, color: 'var(--text3)' }} />
-              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Add bill</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{SHEET_ADD_BILL}</span>
             </div>
             <div onClick={() => setSheet('carpool')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 4px', cursor: 'pointer' }}>
               <i className="ti ti-car" style={{ fontSize: ICON_SIZE.nav, color: 'var(--text3)' }} />
-              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Carpool</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{SHEET_CARPOOL}</span>
             </div>
           </div>
         </>
@@ -1244,11 +1294,11 @@ export default function HangoutChatView({
             <input type="file" accept="image/*" ref={photoInputRef} onChange={handlePhotoSelect} style={{ display: 'none' }} />
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="button" onClick={() => photoInputRef.current?.click()} style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 10, color: 'var(--text2)', fontFamily: 'inherit', fontSize: 12, fontWeight: 500, padding: '9px 14px', cursor: 'pointer' }}>
-                {momentPhoto ? 'Change' : 'Add photo'}
+                {momentPhoto ? SHEET_CHANGE_PHOTO : SHEET_ADD_PHOTO}
               </button>
               <button type="button" onClick={postMoment} disabled={(!momentText.trim() && !momentPhoto) || momentPosting}
                 style={{ flex: 1, padding: '10px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (!momentText.trim() && !momentPhoto) || momentPosting ? 0.5 : 1 }}>
-                {momentPosting ? 'Posting…' : 'Post'}
+                {momentPosting ? SHEET_POSTING : SHEET_POST}
               </button>
             </div>
           </div>
@@ -1261,11 +1311,11 @@ export default function HangoutChatView({
           <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', zIndex: 411, padding: '16px 16px calc(16px + env(safe-area-inset-bottom, 0px))', maxWidth: 480, margin: '0 auto', maxHeight: '80vh', overflowY: 'auto' }}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border2)', margin: '4px auto 12px' }} />
             {billError && <div className="error-banner" style={{ marginBottom: 8 }}>{billError}</div>}
-            <input value={billDesc} onChange={e => setBillDesc(e.target.value)} placeholder="What was the bill for?"
+            <input value={billDesc} onChange={e => setBillDesc(e.target.value)} placeholder={BILL_DESC_PLACEHOLDER}
               style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 8 }} />
-            <input type="number" value={billAmount} onChange={e => setBillAmount(e.target.value)} placeholder="Total amount ($)"
+            <input type="number" value={billAmount} onChange={e => setBillAmount(e.target.value)} placeholder={BILL_AMOUNT_PLACEHOLDER}
               style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 10 }} />
-            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>Split with (leave blank for everyone)</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>{SHEET_SPLIT_HINT}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 140, overflowY: 'auto', marginBottom: 10 }}>
               {members.map(m => {
                 const checked = billSelectedIds.has(m.id)
@@ -1279,7 +1329,7 @@ export default function HangoutChatView({
             </div>
             <button type="button" onClick={postBill} disabled={!billDesc.trim() || !billAmount || billPosting}
               style={{ width: '100%', padding: '10px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: !billDesc.trim() || !billAmount || billPosting ? 0.5 : 1 }}>
-              {billPosting ? 'Posting…' : 'Post bill'}
+              {billPosting ? SHEET_POSTING : SHEET_POST_BILL}
             </button>
           </div>
         </>
@@ -1298,7 +1348,7 @@ export default function HangoutChatView({
                   style={{ display: 'block', padding: '12px 4px', fontSize: 14, fontWeight: 600, color: 'var(--text)', textDecoration: 'none' }}>Lyft</a>
               </>
             ) : (
-              <div style={{ fontSize: 13, color: 'var(--text3)', padding: '8px 4px' }}>Add a venue first.</div>
+              <div style={{ fontSize: 13, color: 'var(--text3)', padding: '8px 4px' }}>{SHEET_CARPOOL_NO_VENUE}</div>
             )}
           </div>
         </>
@@ -1308,22 +1358,22 @@ export default function HangoutChatView({
         <>
           <div onClick={() => setSheet(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 410 }} />
           <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', zIndex: 411, padding: '16px 16px calc(16px + env(safe-area-inset-bottom, 0px))', maxWidth: 480, margin: '0 auto', maxHeight: '80vh', overflowY: 'auto' }}>
-            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Edit hangout</div>
-            <input value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="Title"
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>{SHEET_EDIT_TITLE}</div>
+            <input value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder={SHEET_EDIT_TITLE_PLACEHOLDER}
               style={{ width: '100%', padding: '8px 10px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 6 }} />
-            <input value={editVenueName} onChange={e => setEditVenueName(e.target.value)} placeholder="Venue name"
+            <input value={editVenueName} onChange={e => setEditVenueName(e.target.value)} placeholder={SHEET_EDIT_VENUE_PLACEHOLDER}
               style={{ width: '100%', padding: '8px 10px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 6 }} />
-            <input value={editVenueAddress} onChange={e => setEditVenueAddress(e.target.value)} placeholder="Venue address"
+            <input value={editVenueAddress} onChange={e => setEditVenueAddress(e.target.value)} placeholder={SHEET_EDIT_ADDRESS_PLACEHOLDER}
               style={{ width: '100%', padding: '8px 10px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 8 }} />
             <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>Date and time</div>
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>{SHEET_EDIT_DATE_LABEL}</div>
               <DateTimePicker value={editScheduledFor} onChange={setEditScheduledFor} />
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" onClick={() => setSheet(null)} style={{ padding: '8px 12px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+              <button type="button" onClick={() => setSheet(null)} style={{ padding: '8px 12px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>{SHEET_CANCEL}</button>
               <button type="button" onClick={saveEditHangout} disabled={editSaving}
                 style={{ padding: '8px 12px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: editSaving ? 0.5 : 1 }}>
-                {editSaving ? 'Saving...' : 'Save'}
+                {editSaving ? SHEET_SAVING : SHEET_SAVE}
               </button>
             </div>
           </div>
