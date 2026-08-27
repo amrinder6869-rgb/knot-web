@@ -8,7 +8,7 @@ import { supabase, getSignedUrl } from '@/lib/supabase'
 import Feed from '@/components/Feed'
 import VibesCounter from '@/components/VibesCounter'
 import HangoutChatView from '@/components/HangoutChatView'
-import AttentionStrip from '@/components/AttentionStrip'
+import AttentionStrip, { type OpenChatOpts } from '@/components/AttentionStrip'
 import PlansList from '@/components/PlansList'
 import BillSplit from '@/components/BillSplit'
 import Members from '@/components/Members'
@@ -113,7 +113,11 @@ export default function Dashboard() {
   const [creatingEvent, setCreatingEvent]         = useState(false)
   const [eventError, setEventError]               = useState('')
   const [createdEventLink, setCreatedEventLink]   = useState<string | null>(null)
-  const [activeHangoutId, setActiveHangoutId]     = useState<string | null>(null)
+  const [activeChat, setActiveChat]               = useState<OpenChatOpts | null>(null)
+
+  function openHangoutChat(opts: OpenChatOpts | string) {
+    setActiveChat(typeof opts === 'string' ? { hangoutId: opts } : opts)
+  }
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -730,7 +734,7 @@ export default function Dashboard() {
                   <AttentionStrip
                     currentUser={profile}
                     knots={knots}
-                    onOpenChat={(opts) => setActiveHangoutId(opts.hangoutId)}
+                    onOpenChat={openHangoutChat}
                   />
                   <Feed
                     members={knotMembers}
@@ -739,7 +743,7 @@ export default function Dashboard() {
                     knotId={activeKnot?.id}
                     currentUser={profile}
                     onOpenBills={() => setActive('split')}
-                    onOpenChat={setActiveHangoutId}
+                    onOpenChat={openHangoutChat}
                   />
                 </>
               )}
@@ -748,7 +752,7 @@ export default function Dashboard() {
                   currentUser={profile ?? (user ? { id: user.id, name: (user.user_metadata?.name as string) || 'You' } : null)}
                   knots={knots}
                   activeKnotId={activeKnot?.id}
-                  onOpenChat={(opts) => setActiveHangoutId(opts.hangoutId)}
+                  onOpenChat={openHangoutChat}
                 />
               )}
               {active === 'split'     && <BillSplit members={knotMembers} knotId={activeKnot?.id} currentUser={profile} />}
@@ -857,7 +861,7 @@ export default function Dashboard() {
                 <AttentionStrip
                   currentUser={profile}
                   knots={knots}
-                  onOpenChat={(opts) => setActiveHangoutId(opts.hangoutId)}
+                  onOpenChat={openHangoutChat}
                 />
                 <HomeFeed knots={knots} onSelectKnot={(k) => switchKnot(k)} />
               </>
@@ -1292,18 +1296,20 @@ export default function Dashboard() {
         </div>
       )}
 
-      {activeHangoutId && (
+      {activeChat && (
         <>
           <div
             className="hangout-chat-backdrop"
-            onClick={() => setActiveHangoutId(null)}
+            onClick={() => setActiveChat(null)}
           />
           <div className="hangout-chat-panel">
             <HangoutChatView
-              hangoutId={activeHangoutId}
+              hangoutId={activeChat.hangoutId}
               knotId={activeKnot?.id}
               currentUser={profile ?? { id: user!.id, name: (user!.user_metadata?.name as string) || 'You' }}
-              onClose={() => setActiveHangoutId(null)}
+              scrollTarget={activeChat.scrollTarget ?? null}
+              scrollToBottom={activeChat.scrollToBottom ?? true}
+              onClose={() => setActiveChat(null)}
             />
           </div>
         </>

@@ -139,7 +139,6 @@ export default function PlansList({
     }
     try {
       const { data, error } = await supabase.rpc('create_hangout', { p_input: pInput })
-      console.log('[create_hangout] handleNewPlan response', { data, error, pInput })
       if (error || !data || data.error) {
         console.error('[handleNewPlan] rpc failed', { error, data })
         toast.error(TOAST_ERROR)

@@ -395,7 +395,6 @@ export default function HangoutChatView({
   }, [hangout, loading, loadingMessages, messages.length, currentUser?.id, loadMessages, attachVenueSuggestions])
 
   async function sendChat(overrideText?: string) {
-    console.log('[sendChat] called', new Date().toISOString())
     const text = (overrideText ?? chatInput).trim()
     if (!text || sendingRef.current || resolving || sending || !knotId || !currentUser?.id) return
     sendingRef.current = true

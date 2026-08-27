@@ -217,7 +217,6 @@ export default function Composer({
     }
     try {
       const { data, error } = await supabase.rpc('create_hangout', { p_input: pInput })
-      console.log('[create_hangout] startPlan response', { data, error, pInput })
       if (error || !data || data.error) {
         console.error('[startPlan] rpc failed', { error, data })
         toast.error(TOAST_ERROR)

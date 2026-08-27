@@ -1,4 +1,4 @@
-export const UPCOMING_PLANNING_STATUSES = ['voting', 'confirmed', 'live'] as const
+export const UPCOMING_PLANNING_STATUSES = ['planning', 'draft', 'locked', 'voting', 'confirmed', 'live'] as const
 export const PAST_PLANNING_STATUSES = ['ended', 'cancelled'] as const
 
 export type HangoutPhase = 'planning' | 'confirmed' | 'live' | 'ended' | 'cancelled'

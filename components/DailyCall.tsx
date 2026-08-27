@@ -12,9 +12,12 @@ export function DailyCall({ roomUrl, onLeave }: DailyCallProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<ReturnType<typeof DailyIframe.createFrame> | null>(null)
   const onLeaveRef = useRef(onLeave)
-  onLeaveRef.current = onLeave
   const [joined, setJoined] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    onLeaveRef.current = onLeave
+  }, [onLeave])
 
   useEffect(() => {
     const el = containerRef.current
