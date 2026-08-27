@@ -26,12 +26,12 @@ Respond only with valid JSON:
 }
 
 Rules:
-- agent_message null when the message has no planning relevance. Let it be a normal chat message.
+- agent_message null only when the message has no planning relevance at all. Never null when venueSearchQuery is set — see the venue rule below.
 - chips maximum three. Labels maximum three words each.
 - plan_updates only when a chip has been tapped confirming a value. Never from inference alone. The one exception is plan_updates.title — see the title rules below.
 - revenue_suggestion only when directly relevant to what was just discussed. One per message maximum. Never unsolicited.
 - If two members propose conflicting values, return agent_message using the conflict copy and plan_updates as null.
-- venueSearchQuery: set only when the group names or asks about a specific place worth looking up (e.g. "Boston Pizza near Toronto"). Combine the venue name with a location hint from the message or plan state if one exists. Null otherwise. Never set alongside plan_updates.venue_name in the same reply — a search proposes options, it does not confirm one.
+- venueSearchQuery: set this whenever the message contains any of the following — a named specific venue ("Bar Isabel", "Boston Pizza"); a venue type or category ("bars", "restaurants", "coffee shops", "parks"); a phrase asking for venue suggestions ("show me some", "find me a", "what are good", "bars near me", "somewhere to eat", "a place to grab drinks"); or an activity that implies a venue ("let's grab drinks", "want to go for dinner", "movie night"). Format it as "[venue type or name] near [city]", using the sender's city given above — if unknown, use "near Toronto". Examples: "bars near me" → "bars near Toronto". "show me some restaurants" → "restaurants near Toronto". "Boston Pizza" → "Boston Pizza near Toronto". "somewhere to grab food" → "restaurants near Toronto". Null otherwise. Never set alongside plan_updates.venue_name in the same reply — a search proposes options, it does not confirm one. Whenever venueSearchQuery is set, agent_message must be exactly "Here are some options nearby." — never null.
 
 Title rules (plan_updates.title) — this is the only field you may set from inference alone, and only on the message that starts a new plan:
 - A named venue is mentioned → title is the venue name. "Boston Pizza Friday 7pm" → title: "Boston Pizza".
@@ -220,8 +220,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ agent_message: null, chips: null, plan_updates: null, todo_updates: null, revenue_suggestion: null })
     }
 
+    // Fetched up front so the model can resolve "near me" itself in
+    // venueSearchQuery — searchVenues() below uses the model's query as-is,
+    // with no server-side location appended.
+    const { data: senderProfile } = await serviceClient
+      .from('profiles')
+      .select('resident_city')
+      .eq('id', senderId)
+      .maybeSingle()
+    const locationHint = senderProfile?.resident_city?.trim() || 'Toronto'
+
     const contextLines = [
       `Current plan state: ${current_plan_state ? JSON.stringify(current_plan_state) : 'no active plan yet'}`,
+      `Sender's city: ${locationHint}`,
       `Message: "${message.trim()}"`,
     ].join('\n')
 
@@ -288,15 +299,9 @@ export async function POST(request: Request) {
     const venueSearchQuery: string | null = typeof parsed.venueSearchQuery === 'string' ? parsed.venueSearchQuery.trim() : null
     let venueSuggestions: Awaited<ReturnType<typeof searchVenues>> = []
     if (venueSearchQuery && !skipVenueSearch) {
-      const { data: senderProfile } = await serviceClient
-        .from('profiles')
-        .select('resident_city')
-        .eq('id', senderId)
-        .maybeSingle()
-      const locationHint = senderProfile?.resident_city?.trim() || 'Toronto'
-      venueSuggestions = await searchVenues(`${venueSearchQuery} near ${locationHint}`, token)
+      venueSuggestions = await searchVenues(venueSearchQuery, token)
     }
-    if (venueSuggestions.length > 0) agentMessage = AGENT_VENUE_PROMPT
+    if (venueSearchQuery && !skipVenueSearch) agentMessage = AGENT_VENUE_PROMPT
 
     // A hangout gets created the first time the conversation produces
     // anything worth keeping — either a confirmed field (planUpdates) or
