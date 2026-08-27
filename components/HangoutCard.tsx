@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { Skeleton } from '@/components/Skeleton'
 import { useToast } from '@/components/ToastProvider'
 import MemberAvatar from '@/components/MemberAvatar'
+import CoverImagePicker from '@/components/CoverImagePicker'
 import { ACTIVITY_ICONS, ICON_SIZE } from '@/lib/constants'
 import { CARD_STATE_COPY, CHIP_WHEN, CHIP_WHEN_DATE, CHIP_WHERE, CONFIRM_CANCEL_HANGOUT, ERROR_CANCEL_HANGOUT, CANCELLING_HANGOUT, MENU_CANCEL_HANGOUT, MENU_EDIT_HANGOUT, MENU_JOIN_CALL, MENU_SHARE_INVITE, PLAN_UNTITLED, TOAST_INVITE_COPIED, TOAST_INVITE_COPY_FAILED } from '@/lib/copy'
 import { cardStateKey } from '@/lib/hangoutPhase'
@@ -50,9 +51,10 @@ type HangoutCardProps = {
   onOpenChat: (opts: OpenChatOpts) => void
 }
 
-export default function HangoutCard({ post, data, currentUser, onRefresh, onOpenChat }: HangoutCardProps) {
+export default function HangoutCard({ post, data, currentUser, knotId, onRefresh, onOpenChat }: HangoutCardProps) {
   const toast = useToast()
   const [hangout, setHangout] = useState<any>(data.hangout)
+  const [showCoverPicker, setShowCoverPicker] = useState(false)
   const [rsvps, setRsvps] = useState<any[]>(data.rsvps ?? [])
   const [comments, setComments] = useState<any[]>(data.comments ?? [])
   const [invites, setInvites] = useState<any[]>(data.invites ?? [])
@@ -135,13 +137,26 @@ export default function HangoutCard({ post, data, currentUser, onRefresh, onOpen
   }
 
   return (
+    <>
     <div
       role="button"
       tabIndex={0}
       onClick={() => openChat()}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openChat() } }}
-      style={{ background: '#fff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', padding: 12, marginBottom: 10, cursor: 'pointer' }}
+      style={{ background: '#fff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 10, cursor: 'pointer', overflow: 'hidden' }}
     >
+      {hangout.cover_image_url && (
+        <div style={{ position: 'relative', width: '100%', height: 160 }}>
+          <img src={hangout.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: '14px 14px 0 0' }} />
+          {isCreator && (
+            <button type="button" onClick={e => { e.stopPropagation(); setShowCoverPicker(true) }} aria-label="Change cover photo"
+              style={{ position: 'absolute', bottom: 8, right: 8, width: 32, height: 32, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <i className="ti ti-camera" style={{ fontSize: ICON_SIZE.card, color: '#fff' }} />
+            </button>
+          )}
+        </div>
+      )}
+      <div style={{ padding: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
         <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <i className={`ti ${iconClass}`} style={{ fontSize: ICON_SIZE.nav, color: 'var(--yellow)' }} />
@@ -233,7 +248,20 @@ export default function HangoutCard({ post, data, currentUser, onRefresh, onOpen
         <span style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{comments.length} comment{comments.length === 1 ? '' : 's'}</span>
         {timestamp && <span style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{timeAgo(timestamp)}</span>}
       </div>
+      </div>
     </div>
+    {showCoverPicker && (
+      <div onClick={e => e.stopPropagation()}>
+        <CoverImagePicker
+          hangoutId={hangout.id}
+          knotId={knotId}
+          currentUser={currentUser}
+          onClose={() => setShowCoverPicker(false)}
+          onSet={url => setHangout((prev: any) => ({ ...prev, cover_image_url: url }))}
+        />
+      </div>
+    )}
+    </>
   )
 }
 

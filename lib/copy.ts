@@ -371,6 +371,14 @@ export const RATE_VENUE_PREFIX = 'Rate' // "Rate {venue}"
 export const VENUE_OPEN_NOW = 'Open now'
 export const VENUE_CLOSED = 'Closed'
 
+export const COVER_IMAGE_SET = 'Cover set.'
+export const COVER_IMAGE_UPLOADING = 'Uploading...'
+export const COVER_IMAGE_PICKER_TITLE = 'Set a cover'
+export const COVER_IMAGE_LIBRARY_TAB = 'From library'
+export const COVER_IMAGE_UPLOAD_TAB = 'Upload photo'
+export const COVER_IMAGE_SET_BUTTON = 'Set cover'
+export const COVER_IMAGE_PREMIUM_LABEL = 'Coming soon'
+
 export const CARD_STATE_COPY: Record<string, { title: string; subtitle: string }> = {
   voting: { title: "Let's figure it out", subtitle: 'RSVP so the plan can lock.' },
   planning: { title: "Let's figure it out", subtitle: 'RSVP so the plan can lock.' },

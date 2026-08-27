@@ -6,6 +6,7 @@ import { useToast } from '@/components/ToastProvider'
 import DateTimePicker from '@/components/DateTimePicker'
 import { DailyCall } from '@/components/DailyCall'
 import AvailabilityPoll from '@/components/AvailabilityPoll'
+import CoverImagePicker from '@/components/CoverImagePicker'
 import VenuePoll from '@/components/VenuePoll'
 import { ACTIVITY_ICONS, ICON_SIZE } from '@/lib/constants'
 import { createNotification } from '@/lib/notify'
@@ -230,6 +231,7 @@ export default function HangoutChatView({
   const welcomeStartedRef = useRef<string | null>(null)
 
   const [sheet, setSheet] = useState<null | 'plus' | 'moment' | 'bill' | 'carpool' | 'edit'>(null)
+  const [showCoverPicker, setShowCoverPicker] = useState(false)
   const [momentText, setMomentText] = useState('')
   const [momentPhoto, setMomentPhoto] = useState<File | null>(null)
   const [momentPhotoPreview, setMomentPhotoPreview] = useState<string | null>(null)
@@ -947,6 +949,18 @@ export default function HangoutChatView({
           <i className="ti ti-chevron-down" style={{ fontSize: 14, color: '#b38c00', flexShrink: 0 }} />
         </div>
         {boardExpanded && (
+          <>
+          {hangout.cover_image_url && (
+            <div style={{ position: 'relative', width: '100%', height: 200 }}>
+              <img src={hangout.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              {isCreator && (
+                <button type="button" onClick={() => setShowCoverPicker(true)} aria-label="Change cover photo"
+                  style={{ position: 'absolute', bottom: 8, right: 8, width: 32, height: 32, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                  <i className="ti ti-camera" style={{ fontSize: ICON_SIZE.card, color: '#fff' }} />
+                </button>
+              )}
+            </div>
+          )}
           <div style={{ borderTop: '1px solid var(--border)', padding: 16, maxHeight: 360, overflowY: 'auto' }}>
             <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>{hangout.brief || hangout.venue_address || ''}</div>
             {phase === 'planning' && isCreator && (
@@ -1009,6 +1023,7 @@ export default function HangoutChatView({
               </div>
             )}
           </div>
+          </>
         )}
       </div>
 
@@ -1378,6 +1393,16 @@ export default function HangoutChatView({
             </div>
           </div>
         </>
+      )}
+
+      {showCoverPicker && (
+        <CoverImagePicker
+          hangoutId={hangout.id}
+          knotId={knotId as string}
+          currentUser={currentUser}
+          onClose={() => setShowCoverPicker(false)}
+          onSet={url => setHangout((h: any) => ({ ...h, cover_image_url: url }))}
+        />
       )}
     </div>
   )
