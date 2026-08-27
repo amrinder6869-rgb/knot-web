@@ -92,33 +92,42 @@ export default function PlansList({
 
   useEffect(() => { load() }, [load])
 
-  async function startPlan() {
+  async function handleNewPlan() {
+    if (creating) return
     const knotId = activeKnotId || knots[0]?.id
-    if (!knotId || creating || !currentUser?.id) return
-    setCreating(true)
-    const actorName = currentUser.name || 'Someone'
-    const { data, error } = await supabase.rpc('create_hangout', {
-      p_input: {
-        knot_id: knotId,
-        title: PLAN_UNTITLED,
-        type: 'planned',
-        post_content: `${actorName} started a plan`,
-        post_type: 'hangout',
-      },
-    })
-    if (error || !data || data.error) {
+    const { data: sessionData } = await supabase.auth.getUser()
+    const userId = currentUser?.id || sessionData.user?.id
+    if (!knotId || !userId) {
       toast.error(TOAST_ERROR)
-      setCreating(false)
       return
     }
-    const newId = data.hangout_id as string
-    await supabase.from('hangouts').update({
-      planning_status: 'voting',
-      last_planning_activity_at: new Date().toISOString(),
-    }).eq('id', newId)
-    setCreating(false)
-    onOpenChat({ hangoutId: newId, scrollToBottom: true })
-    await load()
+    setCreating(true)
+    try {
+      const { data, error } = await supabase
+        .from('hangouts')
+        .insert({
+          knot_id: knotId,
+          created_by: userId,
+          title: PLAN_UNTITLED,
+          planning_status: 'voting',
+          status: 'voting',
+          type: 'planned',
+        })
+        .select('id')
+        .single()
+      if (error || !data) {
+        console.error('[handleNewPlan] insert failed', { error, data, knotId, userId })
+        toast.error(error?.message || TOAST_ERROR)
+        return
+      }
+      onOpenChat({ hangoutId: data.id, scrollToBottom: true })
+      await load()
+    } catch (err) {
+      console.error('[handleNewPlan] failed', err)
+      toast.error(err instanceof Error ? err.message : TOAST_ERROR)
+    } finally {
+      setCreating(false)
+    }
   }
 
   function buildCardData(hangout: any) {
@@ -171,7 +180,7 @@ export default function PlansList({
           <div style={{ fontSize: 20, fontWeight: 700 }}>Plans</div>
           <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>Upcoming across your Knots</div>
         </div>
-        <button type="button" onClick={startPlan} disabled={creating || knots.length === 0}
+        <button type="button" onClick={handleNewPlan} disabled={creating || knots.length === 0}
           style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--yellow)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: creating ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: creating ? 0.6 : 1 }}
           aria-label="Start a plan">
           <i className="ti ti-plus" style={{ fontSize: ICON_SIZE.nav, color: '#111' }} />

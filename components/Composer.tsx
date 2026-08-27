@@ -596,19 +596,19 @@ export default function Composer({
     }
   }
 
-  async function postHangout() {
-    if (!currentUser || creating) return
+  async function postHangout(): Promise<boolean> {
+    if (!currentUser || creating) return false
 
     const isPollMode = draft.whenType === 'pick' && draft.dateMode === 'poll'
     if (isPollMode && draft.pollDates.length < 2) {
       setHangoutError('Add at least 2 dates to poll the group.')
-      return
+      return false
     }
 
     const isVenuePollMode = draft.whereMode === 'poll'
     if (isVenuePollMode && draft.venuePollOptions.length === 0) {
       setHangoutError('Fetch venue suggestions before posting, or pick a different location option.')
-      return
+      return false
     }
 
     setCreating(true)
@@ -625,8 +625,9 @@ export default function Composer({
       startTime   = new Date().toISOString()
       hangoutType = 'spontaneous'
     } else if (draft.whenType === 'pick') {
-      if (!isPollMode) {
-        if (!draft.scheduledFor) { setHangoutError('Please pick a date and time.'); setCreating(false); return }
+      // Agent-resolved plans often have no date yet. Post as TBD instead of
+      // failing after the preview has already been dismissed.
+      if (!isPollMode && draft.scheduledFor) {
         startTime = draft.scheduledFor.toISOString()
       }
     } else if (draft.whenType === 'weekly') {
@@ -637,7 +638,7 @@ export default function Composer({
     if (draft.whereMode === 'cinema') hangoutType = 'planned'
 
     const { data: { user: authUser } } = await supabase.auth.getUser()
-    if (!authUser) { setHangoutError('You need to be signed in to post.'); setCreating(false); return }
+    if (!authUser) { setHangoutError('You need to be signed in to post.'); setCreating(false); return false }
 
     const actorName = currentUser.name || 'Someone'
     let content = ''
@@ -709,7 +710,21 @@ export default function Composer({
       }))
     }
 
-    const { data, error } = await supabase.rpc('create_hangout', { p_input: pInput })
+    let data: any
+    let error: any
+    try {
+      const result = await supabase.rpc('create_hangout', { p_input: pInput })
+      data = result.data
+      error = result.error
+      console.log('[create_hangout] response', { data, error, pInput })
+    } catch (err) {
+      console.error('[create_hangout] threw', err)
+      const message = err instanceof Error ? err.message : 'Could not create the hangout. Please try again.'
+      toast.error(message)
+      setHangoutError(message)
+      setCreating(false)
+      return false
+    }
 
     if (error || !data || data.error) {
       const code = data?.error
@@ -718,11 +733,21 @@ export default function Composer({
         code === 'not_member'        ? 'You are not a member of this Knot.' :
         'Could not create the hangout. Please try again.'
       toast.error(message)
+      setHangoutError(message)
       setCreating(false)
-      return
+      return false
     }
 
     const newHangoutId = data.hangout_id as string
+    if (newHangoutId) {
+      const { error: statusError } = await supabase
+        .from('hangouts')
+        .update({ planning_status: 'voting' })
+        .eq('id', newHangoutId)
+      if (statusError) {
+        console.warn('[create_hangout] planning_status update failed', statusError)
+      }
+    }
 
     track(supabase, 'hangout_created', {
       hangout_id: newHangoutId,
@@ -738,17 +763,22 @@ export default function Composer({
       }
     }
 
-    await notifyKnotMembers({
-      knotId,
-      actorId:  authUser.id,
-      type:     'new_hangout',
-      message:  content,
-      entityId: newHangoutId,
-    })
+    try {
+      await notifyKnotMembers({
+        knotId,
+        actorId:  authUser.id,
+        type:     'new_hangout',
+        message:  content,
+        entityId: newHangoutId,
+      })
+    } catch (notifyErr) {
+      console.warn('[create_hangout] notify failed', notifyErr)
+    }
 
     setCreating(false)
     reset()
     onPosted()
+    return true
   }
 
   useEffect(() => {
@@ -834,8 +864,9 @@ export default function Composer({
     }
   }
 
-  function dropInGroup() {
-    postHangout()
+  async function dropInGroup() {
+    const ok = await postHangout()
+    if (!ok) return
     setComposerPhase('idle')
     setInputText('')
     setAgentPayload(null)

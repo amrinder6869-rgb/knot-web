@@ -745,7 +745,7 @@ export default function Dashboard() {
               )}
               {active === 'hangout'   && (
                 <PlansList
-                  currentUser={profile}
+                  currentUser={profile ?? (user ? { id: user.id, name: (user.user_metadata?.name as string) || 'You' } : null)}
                   knots={knots}
                   activeKnotId={activeKnot?.id}
                   onOpenChat={(opts) => setOpenChat(opts)}
@@ -1292,10 +1292,10 @@ export default function Dashboard() {
         </div>
       )}
 
-      {openChat && profile && (
+      {openChat && (profile || user) && (
         <HangoutChatView
           hangoutId={openChat.hangoutId}
-          currentUser={profile}
+          currentUser={profile ?? { id: user!.id, name: (user!.user_metadata?.name as string) || 'You' }}
           onClose={() => setOpenChat(null)}
           scrollToBottom={openChat.scrollToBottom !== false}
           scrollTarget={openChat.scrollTarget || null}
