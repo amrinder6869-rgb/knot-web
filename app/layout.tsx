@@ -22,7 +22,7 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#F8BD03" />
         {/* Tabler Icons — the only icon set used in this codebase (ti ti-* classes). */}
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.1/dist/tabler-icons.min.css" />
       </head>
       <body className={manrope.className}>
         <ToastProvider>{children}</ToastProvider>
