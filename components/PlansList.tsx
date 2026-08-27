@@ -149,7 +149,7 @@ export default function PlansList({
       }
       const { error: statusError } = await supabase
         .from('hangouts')
-        .update({ planning_status: 'voting' })
+        .update({ planning_status: 'voting', title: PLAN_UNTITLED })
         .eq('id', newHangoutId)
       if (statusError) {
         console.warn('[handleNewPlan] planning_status update failed', statusError)

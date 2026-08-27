@@ -12,6 +12,7 @@ type ReactionBarProps = {
   reactions: ReactionCount[]
   onToggle: (emoji: string) => void
   compact?: boolean
+  iconTrigger?: boolean
   dark?: boolean
   disabled?: boolean
 }
@@ -20,6 +21,7 @@ export default function ReactionBar({
   reactions,
   onToggle,
   compact = false,
+  iconTrigger = false,
   dark = false,
   disabled = false,
 }: ReactionBarProps) {
@@ -50,8 +52,8 @@ export default function ReactionBar({
   const fontSize = compact ? 11 : 12
 
   return (
-    <div ref={rootRef} style={{ display: 'inline-flex', gap: 5, flexWrap: 'wrap', alignItems: 'center', position: 'relative' }}>
-      {reactions.map(r => (
+    <div ref={rootRef} style={{ display: 'inline-flex', gap: 5, flexWrap: iconTrigger ? 'nowrap' : 'wrap', alignItems: 'center', position: 'relative' }}>
+      {!iconTrigger && reactions.map(r => (
         <button
           key={r.e}
           type="button"
@@ -85,7 +87,21 @@ export default function ReactionBar({
         onClick={() => setOpen(o => !o)}
         aria-label="Add reaction"
         aria-expanded={open}
-        style={{
+        style={iconTrigger ? {
+          width: 24,
+          height: 24,
+          padding: 0,
+          borderRadius: '50%',
+          background: open ? 'var(--yellow-soft)' : 'var(--bg3)',
+          border: `1px solid ${open ? 'var(--yellow)' : 'var(--border2)'}`,
+          color: open ? 'var(--yellow)' : muted,
+          cursor: disabled ? 'default' : 'pointer',
+          fontFamily: 'inherit',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        } : {
           padding: compact ? '2px 7px' : '4px 8px',
           borderRadius: 999,
           background: open
@@ -101,8 +117,10 @@ export default function ReactionBar({
           gap: 4,
         }}
       >
-        <SmilePlus size={compact ? 12 : 14} strokeWidth={2} />
-        {!compact && reactions.length === 0 ? 'React' : null}
+        {iconTrigger
+          ? <i className="ti ti-mood-smile" style={{ fontSize: 14, color: open ? 'var(--yellow)' : muted }} />
+          : <SmilePlus size={compact ? 12 : 14} strokeWidth={2} />}
+        {!iconTrigger && !compact && reactions.length === 0 ? 'React' : null}
       </button>
 
       {open && (

@@ -6,7 +6,7 @@ import { useToast } from '@/components/ToastProvider'
 import ReactionBar from '@/components/ReactionBar'
 import MemberAvatar from '@/components/MemberAvatar'
 import { ACTIVITY_ICONS, ICON_SIZE } from '@/lib/constants'
-import { CARD_STATE_COPY, CONFIRM_CANCEL_HANGOUT } from '@/lib/copy'
+import { CARD_STATE_COPY, CHIP_WHEN, CHIP_WHERE, CONFIRM_CANCEL_HANGOUT, PLAN_UNTITLED } from '@/lib/copy'
 import { cardStateKey } from '@/lib/hangoutPhase'
 
 function timeAgo(date: string) {
@@ -89,11 +89,14 @@ export default function HangoutCard({ post, data, currentUser, onRefresh, onTogg
   const going = rsvps.filter((r: any) => r.status === 'yes')
   const goingCount = going.length
   const scheduled = hangout.scheduled_for ? new Date(hangout.scheduled_for) : null
-  const dateLabel = scheduled ? scheduled.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'Date TBD'
-  const timeLabel = scheduled ? scheduled.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : 'Time TBD'
-  const venueLabel = hangout.venue_name || 'Venue TBD'
+  const dateOpen = !scheduled
+  const timeOpen = !scheduled
+  const venueOpen = !hangout.venue_name
+  const dateLabel = scheduled ? scheduled.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : CHIP_WHEN
+  const timeLabel = scheduled ? scheduled.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : CHIP_WHEN
+  const venueLabel = hangout.venue_name || CHIP_WHERE
   const iconClass = activityIcon(hangout)
-  const title = hangout.title || hangout.venue_name || 'Hangout'
+  const title = hangout.title || hangout.venue_name || PLAN_UNTITLED
   const timestamp = post?.created_at || hangout.created_at
 
   function openChat() {
@@ -156,7 +159,7 @@ export default function HangoutCard({ post, data, currentUser, onRefresh, onTogg
           <button
             type="button"
             aria-label="Hangout menu"
-            onClick={() => setMenuOpen(v => !v)}
+            onClick={e => { e.stopPropagation(); setMenuOpen(v => !v) }}
             style={{ width: 32, height: 32, borderRadius: 8, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}
           >
             <i className="ti ti-dots" style={{ fontSize: ICON_SIZE.card, color: 'var(--text3)' }} />
@@ -190,11 +193,11 @@ export default function HangoutCard({ post, data, currentUser, onRefresh, onTogg
       </div>
 
       <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 10, fontSize: 11, color: 'var(--text2)' }}>
-        <span style={{ whiteSpace: 'nowrap' }}>{dateLabel}</span>
+        <span style={{ whiteSpace: 'nowrap', ...(dateOpen ? { color: 'var(--text3)', fontStyle: 'italic' as const } : {}) }}>{dateLabel}</span>
         <span style={{ color: 'var(--border2)' }}>·</span>
-        <span style={{ whiteSpace: 'nowrap' }}>{timeLabel}</span>
+        <span style={{ whiteSpace: 'nowrap', ...(timeOpen ? { color: 'var(--text3)', fontStyle: 'italic' as const } : {}) }}>{timeLabel}</span>
         <span style={{ color: 'var(--border2)' }}>·</span>
-        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{venueLabel}</span>
+        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', ...(venueOpen ? { color: 'var(--text3)', fontStyle: 'italic' as const } : {}) }}>{venueLabel}</span>
         <span style={{ color: 'var(--border2)' }}>·</span>
         <span style={{ whiteSpace: 'nowrap' }}>{goingCount} RSVP{goingCount === 1 ? '' : 's'}</span>
       </div>
@@ -210,16 +213,14 @@ export default function HangoutCard({ post, data, currentUser, onRefresh, onTogg
             <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 6 }}>+{goingCount - 4}</span>
           )}
         </div>
-        <span style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{goingCount} going</span>
+        {onToggleReaction && (
+          <div onClick={e => e.stopPropagation()} style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+            <ReactionBar compact iconTrigger reactions={post.reactions || []} onToggle={onToggleReaction} />
+          </div>
+        )}
         <span style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{comments.length} comment{comments.length === 1 ? '' : 's'}</span>
         {timestamp && <span style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{timeAgo(timestamp)}</span>}
       </div>
-
-      {onToggleReaction && (
-        <div style={{ marginTop: 8 }} onClick={e => e.stopPropagation()}>
-          <ReactionBar compact reactions={post.reactions || []} onToggle={onToggleReaction} />
-        </div>
-      )}
     </div>
   )
 }
