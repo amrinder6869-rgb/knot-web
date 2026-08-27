@@ -78,6 +78,31 @@ This report documents all remediation work performed against the product audit (
 
 ---
 
+## Phase 5 — HangoutChatView copy & hook-deps (P2 follow-up)
+
+**Goal:** Finish deferred copy migration in `HangoutChatView`; fix straightforward `exhaustive-deps` warnings in changed files.
+
+| # | Area | Status | Change |
+|---|------|--------|--------|
+| 1 | HangoutChatView inline copy | ✅ Fixed | ~60 strings moved to `lib/copy.ts`: RSVP labels, live prompts, when chips, bill/moment sheet copy, error toasts, venue status |
+| 2 | Bill/moment placeholders | ✅ Fixed | Reused `BILL_DESC_PLACEHOLDER` / `BILL_AMOUNT_PLACEHOLDER`; added sheet/edit constants |
+| 3 | `ensureAndJoinCall` hook-deps | ✅ Fixed | Wrapped in `useCallback`; added to auto-join effect deps |
+| 4 | `HomeEvents` hook-deps | ✅ Fixed | `load` wrapped in `useCallback`; stable `knotIdsKey` dep |
+
+**Files changed:** 3 (`lib/copy.ts`, `components/HangoutChatView.tsx`, `components/HomeEvents.tsx`)
+
+**Verification:** `npx tsc --noEmit` pass; `npx eslint app components lib` — 0 errors, 25 warnings (down from 27)
+
+### Still deferred
+
+| Item | Notes |
+|------|-------|
+| Agent-generated chip labels | Dynamic chips from `/api/planning-agent` remain server-driven |
+| `timeAgo` / date divider strings | Low-priority locale formatting helpers |
+| Remaining hook-deps (23 warnings) | Unchanged files; intentional stale-closure patterns in game/merchant loaders |
+
+---
+
 ## Audit item resolution summary
 
 | Category (original audit) | Before | After |
@@ -104,8 +129,8 @@ This report documents all remediation work performed against the product audit (
 
 | Item | Notes |
 |------|-------|
-| Full copy migration | Key surfaces done; `HangoutChatView` chip labels, agent prompts, and edge-case toasts remain inline |
-| ESLint hook-deps warnings | 27 warnings; intentional stale-closure patterns in several data loaders |
+| Full copy migration | Key surfaces done; agent-generated chip labels and time-format helpers remain inline |
+| ESLint hook-deps warnings | 25 warnings (down from 27); intentional stale-closure patterns in game/merchant loaders |
 | Lock status display unification | `hangoutPhase()` maps both `locked` and legacy `confirmed` planning_status to phase `confirmed` — backward compatible |
 | Design UX audit (separate doc) | Reactions UI, invite encoding, Avatar unification, landing redesign — not in scope for this remediation |
 
@@ -116,7 +141,7 @@ This report documents all remediation work performed against the product audit (
 | File | Phases |
 |------|--------|
 | `lib/hangoutPhase.ts` | 1, 3 |
-| `lib/copy.ts` | 2, 4 |
+| `lib/copy.ts` | 2, 4, 5 |
 | `app/dashboard/page.tsx` | 1, 2, 3 |
 | `app/page.tsx` | 4 |
 | `app/invite/[token]/page.tsx` | 4 |
@@ -128,8 +153,8 @@ This report documents all remediation work performed against the product audit (
 | `components/Games.tsx` | 2, 4 |
 | `components/Hangout.tsx` | 2 |
 | `components/HangoutCard.tsx` | 2, 3, 4 |
-| `components/HangoutChatView.tsx` | 1, 2, 3 |
-| `components/HomeEvents.tsx` | 1, 3, 4 |
+| `components/HangoutChatView.tsx` | 1, 2, 3, 5 |
+| `components/HomeEvents.tsx` | 1, 3, 4, 5 |
 | `components/PlanningView.tsx` | 2, 3, 4 |
 | `components/PlansList.tsx` | 1, 2 |
 | `components/VenuePoll.tsx` | 3 |
@@ -142,7 +167,7 @@ This report documents all remediation work performed against the product audit (
 | Check | Result |
 |-------|--------|
 | `npx tsc --noEmit` | ✅ Pass |
-| `npx eslint app components lib` | ✅ 0 errors, 27 warnings |
+| `npx eslint app components lib` | ✅ 0 errors, 25 warnings |
 | `npm run build` | ❌ Pre-existing Stripe API key missing (unrelated) |
 
 ---
@@ -150,6 +175,6 @@ This report documents all remediation work performed against the product audit (
 ## Recommended follow-up (out of scope)
 
 1. **Design UX audit P0** — Reactions UI, invite page encoding, letter-placeholder icons, yellow-for-errors
-2. **Remaining copy sweep** — `HangoutChatView` agent chip labels, RSVP strings, live prompts
-3. **Hook-deps triage** — Wrap loaders in `useCallback` where stale data is observed in production
+2. **Remaining copy sweep** — Agent-generated chip labels, `timeAgo` / date divider helpers
+3. **Hook-deps triage** — 25 warnings remain in game/merchant/notification loaders
 4. **Data migration** — Backfill any hangouts with legacy `planning_status: 'confirmed'` to `'locked'`
