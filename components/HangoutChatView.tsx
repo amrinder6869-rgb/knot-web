@@ -372,13 +372,23 @@ export default function HangoutChatView({
 
   async function sendChat(overrideText?: string) {
     const text = (overrideText ?? chatInput).trim()
-    if (!text || sendingRef.current || resolving || !knotId) return
+    if (!text || sendingRef.current || resolving || !knotId || !currentUser?.id) return
     sendingRef.current = true
-    setChatInput('')
     setChatError('')
     setPendingChips(null)
     setPendingRevenue(null)
     setPendingVenues(null)
+
+    const { error: msgError } = await supabase
+      .from('hangout_messages')
+      .insert({ hangout_id: hangoutId, author_id: currentUser.id, content: text })
+    if (msgError) {
+      toast.error(TOAST_ERROR)
+      sendingRef.current = false
+      return
+    }
+    setChatInput('')
+
     setResolving(true)
     setResolvingLine(getRandomTagged(AGENT_RESOLVING_STATES))
     try {
@@ -868,6 +878,7 @@ export default function HangoutChatView({
               const isAgent = !!(agentId && m.author_id === agentId)
               const isMine = m.author_id === currentUser?.id
               const name = isAgent ? 'Knot' : (isMine ? (currentUser?.name || 'You') : (members.find(mm => mm.id === m.author_id)?.name || 'Someone'))
+              const avatarUrl = isAgent ? null : (isMine ? (currentUser?.avatar_url || null) : (members.find(mm => mm.id === m.author_id)?.avatar_url || null))
               const showDateDivider = i > 0 && (new Date(m.created_at).getTime() - new Date(messages[i - 1].created_at).getTime()) > HOUR_MS
               return (
                 <div key={m.id} style={{ display: 'contents' }}>
@@ -879,8 +890,10 @@ export default function HangoutChatView({
                       <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#FFFBEE', border: '1px solid rgba(248,189,3,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <KnotMark size={14} />
                       </div>
+                    ) : avatarUrl ? (
+                      <img src={avatarUrl} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                     ) : (
-                      <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--yellow)', color: 'var(--text)', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--yellow)', color: 'var(--text)', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         {getInitials(name)}
                       </div>
                     )}
@@ -888,12 +901,12 @@ export default function HangoutChatView({
                       {!isMine && <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', marginBottom: 2 }}>{name}</span>}
                       <div style={{
                         padding: m.photo_url ? 4 : '8px 12px', borderRadius: 12,
-                        background: isAgent ? '#FFFBEE' : (isMine ? 'var(--yellow)' : 'var(--bg3)'),
-                        border: isAgent ? '1px solid rgba(248,189,3,0.25)' : 'none',
+                        background: isAgent ? '#FFFBEE' : (isMine ? '#111' : '#fff'),
+                        border: isAgent ? '1px solid rgba(248,189,3,0.25)' : (isMine ? 'none' : '0.5px solid rgba(0,0,0,0.08)'),
                       }}>
                         {m.photo_url && <img src={m.photo_url} alt="" style={{ display: 'block', maxWidth: '100%', borderRadius: 8, marginBottom: m.content ? 6 : 0 }} />}
                         {m.content && (
-                          <span style={{ fontSize: 13, lineHeight: 1.4, color: 'var(--text)', whiteSpace: 'pre-wrap', padding: m.photo_url ? '0 6px 4px' : 0, display: 'block' }}>{m.content}</span>
+                          <span style={{ fontSize: 13, lineHeight: 1.4, color: isMine ? '#fff' : 'var(--text)', whiteSpace: 'pre-wrap', padding: m.photo_url ? '0 6px 4px' : 0, display: 'block' }}>{m.content}</span>
                         )}
                       </div>
                       <span style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{timeAgo(m.created_at)}</span>
