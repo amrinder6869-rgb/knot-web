@@ -11,7 +11,7 @@ import {
 import { supabase, getSignedUrl } from '@/lib/supabase'
 import Feed from '@/components/Feed'
 import VibesCounter from '@/components/VibesCounter'
-import Hangout from '@/components/Hangout'
+import PlanningView from '@/components/PlanningView'
 import BillSplit from '@/components/BillSplit'
 import Members from '@/components/Members'
 import Memories from '@/components/Memories'
@@ -719,7 +719,7 @@ export default function Dashboard() {
             <div>
               {active === 'discover'  && <Discover  members={knotMembers} currentUser={profile} />}
               {active === 'feed'      && <Feed      members={knotMembers} knotName={activeKnot.name} knotEmoji={activeKnot.emoji} knotId={activeKnot?.id} currentUser={profile} onOpenBills={() => setActive('split')} />}
-              {active === 'hangout'   && <Hangout   members={knotMembers} knotId={activeKnot?.id} currentUser={profile} />}
+              {active === 'hangout'   && <PlanningView members={knotMembers} knotId={activeKnot?.id} currentUser={profile} />}
               {active === 'split'     && <BillSplit members={knotMembers} knotId={activeKnot?.id} currentUser={profile} />}
               {active === 'members'   && <Members   members={knotMembers} knotId={activeKnot?.id} />}
               {active === 'memories'  && <Memories  members={knotMembers} knotId={activeKnot?.id} />}

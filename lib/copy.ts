@@ -5,6 +5,15 @@ export function getRandom<T>(arr: T[], rareArr?: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]
 }
 
+// Draws from a single tagged pool: 9 in 10 calls pick a non-rare entry,
+// 1 in 10 calls pick from the full pool (rare entries included).
+type Tagged = { text: string; rare: boolean }
+export function getRandomTagged(items: Tagged[]): string {
+  const common = items.filter(i => !i.rare)
+  const pool = (Math.random() < 0.1 || common.length === 0) ? items : common
+  return pool[Math.floor(Math.random() * pool.length)].text
+}
+
 export const LOADING = {
   members: { pool: ['Gathering the crew.', 'Roll call.', 'Seeing who is around.'], rare: ['Still waiting on the one who said five minutes.'] },
   venues: { pool: ['Finding the move.', 'Looking around.', 'Scouting it out.'], rare: ["Choosing a restaurant: humanity's hardest problem."] },
@@ -71,3 +80,134 @@ export const COMPOSER_RESOLVING = {
 export const ONBOARDING = {
   EMPTY: 'Nobody knows about this yet. Start a circle.',
 }
+
+// ---------------------------------------------------------------------------
+// Planning view additions — additive only. The nested exports above (LOADING,
+// EMPTY, TOAST, CONFIRM, VIBES_MILESTONE) stay as-is since Composer.tsx,
+// Feed.tsx, dashboard/page.tsx, BillSplit.tsx, Discover.tsx, MostLikelyTo.tsx,
+// and Memories.tsx already depend on that shape. COMPOSER_RESOLVING above is
+// also untouched (Composer.tsx uses its {pool,rare} shape) — the planning
+// agent's resolving-state pool is named AGENT_RESOLVING_STATES instead, since
+// it uses a different, single-array {text,rare} tagged shape via getRandomTagged.
+// ---------------------------------------------------------------------------
+
+export const AGENT_RESOLVING_STATES: { text: string; rare: boolean }[] = [
+  { text: 'Figuring it out.', rare: false },
+  { text: 'Reading the plan.', rare: false },
+  { text: 'On it.', rare: false },
+  { text: 'Give me a sec.', rare: true },
+]
+
+// Agent message pools — all agent chat messages drawn from these
+export const AGENT_MESSAGES = {
+  PLAN_CREATED: ['Plan started.', 'Added to the plan.', 'Got it.'],
+  VENUE_CONFIRMED: ['On it.', 'Added.', 'Done.'],
+  TIME_CONFIRMED: ['Locked.', 'Set.', 'Done.'],
+  BILL_SPLIT_EQUAL: ['Split equally. Added to bills.', 'Done — added to bills.'],
+  BILL_SPLIT_ITEMISED: ["Here's the breakdown. Tap your name on each item."],
+  NUDGE_SENT: ['Nudged.', 'Done.'],
+  LOCKED: ['Locked in.', "It's happening."],
+  CONFLICT: ['Someone else just changed that. Take a look.'],
+  REVENUE_RESTAURANT: ['Want me to grab a table?', 'I can sort the booking.'],
+  REVENUE_TRANSPORT: ['Sort your ride?', 'Uber time?'],
+  REVENUE_PRINTS: ['Order prints from tonight?'],
+}
+
+export const LOADING_MEMBERS: { text: string; rare: boolean }[] = [
+  { text: 'Gathering the crew.', rare: false },
+  { text: 'Roll call.', rare: false },
+  { text: 'Seeing who is around.', rare: false },
+  { text: 'Still waiting on the one who said five minutes.', rare: true },
+]
+export const LOADING_VENUES: { text: string; rare: boolean }[] = [
+  { text: 'Finding the move.', rare: false },
+  { text: 'Looking around.', rare: false },
+  { text: 'Scouting it out.', rare: false },
+  { text: "Choosing a restaurant: humanity's hardest problem.", rare: true },
+]
+export const LOADING_BILL_SPLIT: { text: string; rare: boolean }[] = [
+  { text: 'Running the numbers.', rare: false },
+  { text: "Doing the math so you don't have to.", rare: false },
+  { text: 'Friendship test incoming.', rare: true },
+]
+export const LOADING_MEMORIES: { text: string; rare: boolean }[] = [
+  { text: 'Digging through the lore.', rare: false },
+  { text: 'Pulling up the archive.', rare: false },
+]
+export const LOADING_GENERIC: { text: string; rare: boolean }[] = [
+  { text: 'Give us a sec.', rare: false },
+  { text: 'Working on it.', rare: false },
+  { text: 'On it.', rare: false },
+  { text: 'This will be quick.', rare: false },
+  { text: 'Nobody panic. We are loading.', rare: true },
+]
+
+export const EMPTY_KNOTS = 'Your circle does not exist yet. Make one.'
+export const EMPTY_HANGOUTS = 'Weekend looking suspiciously empty.'
+export const EMPTY_MEMORIES = 'Future nostalgia goes here.'
+export const EMPTY_BILLS = 'Financial peace.'
+export const EMPTY_FEED = 'Group chat is asleep.'
+export const EMPTY_DISCOVER = 'Nothing matched. Try a different vibe.'
+export const EMPTY_GAMES = 'Too peaceful in here.'
+export const EMPTY_TODO = "You're all caught up."
+
+export const TOAST_HANGOUT_CREATED = 'Plan is up. See who is in.'
+export const TOAST_RSVP_GOING = 'Bet.'
+export const TOAST_RSVP_MAYBE = 'We will take it.'
+export const TOAST_RSVP_OUT = 'Rain check.'
+export const TOAST_BILL_ADDED = 'Added to the tab.'
+export const TOAST_BILL_SETTLED = 'Financial peace.'
+export const TOAST_MOMENT_POSTED = 'Canon.'
+export const TOAST_HANGOUT_CONFIRMED = 'Locked.'
+export const TOAST_HANGOUT_LIVE = 'It is go time.'
+export const TOAST_HANGOUT_ENDED = 'That is a wrap.'
+export const TOAST_ERROR = 'That was not supposed to happen.'
+export const TOAST_KNOT_DELETED = 'Circle closed.'
+export const TOAST_CONFLICT = 'Someone else just changed that. Take a look.'
+
+export const CONFIRM_DELETE_KNOT = 'Close this circle? Everything inside disappears. This cannot be undone.'
+export const CONFIRM_LEAVE_KNOT = 'Leave this circle? You will need a new invite to come back.'
+export const CONFIRM_DELETE_MOMENT = 'Delete this? It is gone for everyone.'
+export const CONFIRM_CANCEL_HANGOUT = 'Cancel this plan? Everyone will be notified. This cannot be undone.'
+
+export const VIBES_FIRST_HANGOUT = 'We outside.'
+export const VIBES_ATTENDING = 'Showing up counts.'
+export const VIBES_SETTLED_BILL = 'Math survived.'
+export const VIBES_WON_GAME = 'Deserved.'
+export const VIBES_POSTED_MOMENT = 'Canon.'
+export const VIBES_STREAK = 'Consistently outside.'
+export const VIBES_1000 = 'Touch grass.'
+
+// CTA_POST / CTA_CONFIRM — locked from architecture doc, do not change
+export const CTA_POST = 'Drop it in the group'
+export const CTA_CONFIRM = 'Lock it in'
+
+// Hangout state titles — locked, plain
+export const STATE_VOTING = "Let's figure it out"
+export const STATE_CONFIRMED = 'Locked in'
+export const STATE_LIVE = 'Happening now'
+export const STATE_ENDED = 'Done'
+export const STATE_CANCELLED = 'Called off'
+
+// Open chip labels — locked
+export const CHIP_WHERE = 'Where?'
+export const CHIP_WHEN = 'What time?'
+export const CHIP_INFERRED_HINT = 'Tap to confirm'
+
+export const NOTIF_MEMBER_JOINED = 'pulled up.' // prepend member name
+export const NOTIF_FRESH_DROP = 'Fresh drop.'
+export const NOTIF_HANGOUT_STARTING = 'It is go time.'
+export const NOTIF_HANGOUT_ENDED = 'Memories secured.'
+
+export const PLAN_BOARD_HINT = 'tap for full plan'
+export const PLAN_BOARD_LIVE = 'Live'
+export const PLAN_FIELD_NOT_BOOKED = 'Not booked'
+export const PLAN_FIELD_TBD = 'TBD'
+export const PLAN_FIELD_POLL_OPEN = 'Poll open'
+
+export const TODO_RSVP_SUB = 'is waiting' // prepend organiser name
+export const TODO_VOTE_LABEL = 'Vote'
+export const TODO_SETTLE_LABEL = 'Settle'
+export const TODO_RSVP_ACTION = 'Going'
+export const TODO_VOTE_ACTION = 'Vote'
+export const TODO_SETTLE_ACTION = 'Pay'
