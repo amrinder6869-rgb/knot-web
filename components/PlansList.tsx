@@ -102,29 +102,63 @@ export default function PlansList({
       return
     }
     setCreating(true)
+    const actorName = currentUser?.name || 'Someone'
+    // Same p_input shape as Composer.tsx postHangout — create_hangout is
+    // SECURITY DEFINER and bypasses hangouts INSERT RLS.
+    const pInput: Record<string, any> = {
+      knot_id:            knotId,
+      title:               PLAN_UNTITLED,
+      type:                'planned',
+      scheduled_for:       null,
+      venue_name:          null,
+      venue_address:       null,
+      venue_place_id:      null,
+      venue_lat:           null,
+      venue_lng:           null,
+      venue_category:      null,
+      venue_maps_url:      null,
+      venue_booking_url:   null,
+      meeting_url:         null,
+      brief:               null,
+      brief_vibe:          null,
+      brief_budget:        null,
+      movie_title:         null,
+      movie_showtime:      null,
+      event_restrictions:  [],
+      invite_mode:         'all',
+      is_surprise:         false,
+      reveal_at:           null,
+      poll_mode:           false,
+      poll_title:          PLAN_UNTITLED,
+      is_standalone:       false,
+      post_content:        `${actorName} started a plan`,
+      post_type:           'hangout',
+    }
     try {
-      const { data, error } = await supabase
-        .from('hangouts')
-        .insert({
-          knot_id: knotId,
-          created_by: userId,
-          title: PLAN_UNTITLED,
-          planning_status: 'voting',
-          status: 'voting',
-          type: 'planned',
-        })
-        .select('id')
-        .single()
-      if (error || !data) {
-        console.error('[handleNewPlan] insert failed', { error, data, knotId, userId })
-        toast.error(error?.message || TOAST_ERROR)
+      const { data, error } = await supabase.rpc('create_hangout', { p_input: pInput })
+      console.log('[create_hangout] handleNewPlan response', { data, error, pInput })
+      if (error || !data || data.error) {
+        console.error('[handleNewPlan] rpc failed', { error, data })
+        toast.error(TOAST_ERROR)
         return
       }
-      onOpenChat({ hangoutId: data.id, scrollToBottom: true })
+      const newHangoutId = data.hangout_id as string
+      if (!newHangoutId) {
+        toast.error(TOAST_ERROR)
+        return
+      }
+      const { error: statusError } = await supabase
+        .from('hangouts')
+        .update({ planning_status: 'voting' })
+        .eq('id', newHangoutId)
+      if (statusError) {
+        console.warn('[handleNewPlan] planning_status update failed', statusError)
+      }
+      onOpenChat({ hangoutId: newHangoutId, scrollToBottom: true })
       await load()
     } catch (err) {
       console.error('[handleNewPlan] failed', err)
-      toast.error(err instanceof Error ? err.message : TOAST_ERROR)
+      toast.error(TOAST_ERROR)
     } finally {
       setCreating(false)
     }
