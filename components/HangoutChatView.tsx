@@ -150,7 +150,7 @@ export default function HangoutChatView({
   const [chatError, setChatError] = useState('')
   const [pendingChips, setPendingChips] = useState<{ label: string; action: string; value: any }[] | null>(null)
   const [pendingRevenue, setPendingRevenue] = useState<{ type: string; label: string; url: string } | null>(null)
-  const [pendingVenues, setPendingVenues] = useState<VenueSuggestion[] | null>(null)
+  const [venuesByMessageId, setVenuesByMessageId] = useState<Record<string, VenueSuggestion[]>>({})
   const [confirmingVenueId, setConfirmingVenueId] = useState<string | null>(null)
   const sendingRef = useRef(false)
   const [chatPlaceholder] = useState(() => getRandom(PLANNING_CHAT_PLACEHOLDER))
@@ -266,7 +266,15 @@ export default function HangoutChatView({
         { onConflict: 'user_id,hangout_id' }
       )
     }
+    return withUrls
   }, [hangoutId, currentUser?.id, scrollToBottom])
+
+  const attachVenueSuggestions = useCallback((freshMessages: ThreadMessage[], venues: VenueSuggestion[] | null | undefined) => {
+    if (!venues || venues.length === 0) return
+    const lastAgentMessage = [...freshMessages].reverse().find(m => agentId && m.author_id === agentId)
+    if (!lastAgentMessage) return
+    setVenuesByMessageId(prev => ({ ...prev, [lastAgentMessage.id]: venues }))
+  }, [agentId])
 
   const appendMessage = useCallback(async (raw: any) => {
     let photo_url: string | undefined
@@ -361,14 +369,14 @@ export default function HangoutChatView({
           }),
         })
         const data = await res.json()
-        await loadMessages()
+        const freshMessages = await loadMessages()
         setPendingChips(data.chips ?? null)
-        setPendingVenues(data.venue_suggestions ?? null)
+        attachVenueSuggestions(freshMessages, data.venue_suggestions)
       } catch {
         welcomeStartedRef.current = null
       }
     })()
-  }, [hangout, loading, loadingMessages, messages.length, currentUser?.id, loadMessages])
+  }, [hangout, loading, loadingMessages, messages.length, currentUser?.id, loadMessages, attachVenueSuggestions])
 
   async function sendChat(overrideText?: string) {
     const text = (overrideText ?? chatInput).trim()
@@ -377,7 +385,6 @@ export default function HangoutChatView({
     setChatError('')
     setPendingChips(null)
     setPendingRevenue(null)
-    setPendingVenues(null)
 
     const { error: msgError } = await supabase
       .from('hangout_messages')
@@ -411,10 +418,10 @@ export default function HangoutChatView({
       })
       const data = await res.json()
       await loadHangout()
-      await loadMessages()
+      const freshMessages = await loadMessages()
       setPendingChips(data.chips ?? null)
       setPendingRevenue(data.revenue_suggestion ?? null)
-      setPendingVenues(data.venue_suggestions ?? null)
+      attachVenueSuggestions(freshMessages, data.venue_suggestions)
     } catch {
       setChatError('Could not reach the planner. Try again.')
     }
@@ -544,11 +551,12 @@ export default function HangoutChatView({
     }
   }
 
-  async function confirmVenue(venue: VenueSuggestion) {
+  async function confirmVenue(venue: VenueSuggestion, triggerMessageId: string) {
     if (!hangout?.id || confirmingVenueId) return
     setConfirmingVenueId(venue.place_id)
     const currentTitle = hangout.title?.trim()
     const shouldSetTitle = !currentTitle || currentTitle === PLAN_UNTITLED
+    const wasDateOpen = !hangout.scheduled_for
     const { error } = await supabase.from('hangouts').update({
       venue_name: venue.name,
       venue_address: venue.formatted_address,
@@ -557,9 +565,26 @@ export default function HangoutChatView({
     }).eq('id', hangout.id)
     setConfirmingVenueId(null)
     if (error) { toast.error(TOAST_ERROR); return }
-    setPendingVenues(null)
-    await supabase.from('hangout_messages').insert({ hangout_id: hangout.id, author_id: agentId, content: getRandom(AGENT_MESSAGES.VENUE_CONFIRMED) })
+    setVenuesByMessageId(prev => {
+      const next = { ...prev }
+      delete next[triggerMessageId]
+      return next
+    })
+    await supabase.from('hangout_messages').insert({
+      hangout_id: hangout.id,
+      author_id: agentId,
+      content: `${getRandom(AGENT_MESSAGES.VENUE_CONFIRMED)} ${venue.name} locked in.`,
+    })
+    if (wasDateOpen) {
+      await supabase.from('hangout_messages').insert({ hangout_id: hangout.id, author_id: agentId, content: 'When are you thinking?' })
+      setPendingChips([
+        { label: 'Today', action: 'when', value: 'today' },
+        { label: 'This Friday', action: 'when', value: 'friday' },
+        { label: 'This Weekend', action: 'when', value: 'weekend' },
+      ])
+    }
     await loadHangout()
+    await loadMessages()
   }
 
   async function tapChip(chip: { label: string; action?: string; value?: any }) {
@@ -879,6 +904,7 @@ export default function HangoutChatView({
               const isMine = m.author_id === currentUser?.id
               const name = isAgent ? 'Knot' : (isMine ? (currentUser?.name || 'You') : (members.find(mm => mm.id === m.author_id)?.name || 'Someone'))
               const avatarUrl = isAgent ? null : (isMine ? (currentUser?.avatar_url || null) : (members.find(mm => mm.id === m.author_id)?.avatar_url || null))
+              const venueOptions = venuesByMessageId[m.id]
               const showDateDivider = i > 0 && (new Date(m.created_at).getTime() - new Date(messages[i - 1].created_at).getTime()) > HOUR_MS
               return (
                 <div key={m.id} style={{ display: 'contents' }}>
@@ -912,28 +938,28 @@ export default function HangoutChatView({
                       <span style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{timeAgo(m.created_at)}</span>
                     </div>
                   </div>
+                  {venueOptions && venueOptions.length > 0 && !resolving && (
+                    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingLeft: 34 }}>
+                      {venueOptions.map(v => {
+                        const busy = confirmingVenueId === v.place_id
+                        return (
+                          <button key={v.place_id} type="button" onClick={() => confirmVenue(v, m.id)} disabled={busy}
+                            style={{ flexShrink: 0, width: 168, textAlign: 'left', background: '#fff', border: '1px solid var(--border2)', borderRadius: 10, overflow: 'hidden', cursor: busy ? 'wait' : 'pointer', fontFamily: 'inherit', padding: 0, opacity: busy ? 0.6 : 1 }}>
+                            <div style={{ width: '100%', height: 90, background: 'var(--bg3)' }}>
+                              {v.photo_url && <img src={v.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
+                            </div>
+                            <div style={{ padding: '8px 10px' }}>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.name}</div>
+                              <div style={{ fontSize: 10, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{v.formatted_address}</div>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               )
             })}
-            {pendingVenues && pendingVenues.length > 0 && !resolving && (
-              <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingLeft: 34 }}>
-                {pendingVenues.map(v => {
-                  const busy = confirmingVenueId === v.place_id
-                  return (
-                    <button key={v.place_id} type="button" onClick={() => confirmVenue(v)} disabled={busy}
-                      style={{ flexShrink: 0, width: 168, textAlign: 'left', background: '#fff', border: '1px solid var(--border2)', borderRadius: 10, overflow: 'hidden', cursor: busy ? 'wait' : 'pointer', fontFamily: 'inherit', padding: 0, opacity: busy ? 0.6 : 1 }}>
-                      <div style={{ width: '100%', height: 90, background: 'var(--bg3)' }}>
-                        {v.photo_url && <img src={v.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
-                      </div>
-                      <div style={{ padding: '8px 10px' }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.name}</div>
-                        <div style={{ fontSize: 10, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{v.formatted_address}</div>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
 
             {phase !== 'cancelled' && bills.length > 0 && (
               <div ref={billRef} style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 12, background: 'var(--bg3)' }}>

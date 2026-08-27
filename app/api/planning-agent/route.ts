@@ -97,7 +97,6 @@ async function welcomeForHangout(
   serviceClient: any,
   hangoutId: string,
   agentUserId: string,
-  token: string,
 ) {
   const { count } = await serviceClient
     .from('hangout_messages')
@@ -121,7 +120,6 @@ async function welcomeForHangout(
   const untitled = !title || title === PLAN_UNTITLED || title === 'Hangout'
   let agentMessage = getRandom(AGENT_MESSAGES.WELCOME)
   let chips: { label: string; action: string; value: any }[] | null = null
-  let venueSuggestions: Awaited<ReturnType<typeof searchVenues>> = []
 
   if (phase === 'confirmed' || phase === 'locked') {
     const when = hangout.scheduled_for
@@ -145,7 +143,6 @@ async function welcomeForHangout(
     ]
   } else if (!hangout.venue_name) {
     agentMessage = 'Where are you going?'
-    venueSuggestions = await searchVenues(title, token)
   }
 
   if (agentMessage) {
@@ -159,7 +156,7 @@ async function welcomeForHangout(
   return {
     agent_message: agentMessage,
     chips,
-    venue_suggestions: venueSuggestions.length > 0 ? venueSuggestions : null,
+    venue_suggestions: null as any[] | null,
   }
 }
 
@@ -205,7 +202,7 @@ export async function POST(request: Request) {
 
     if (message.trim() === '__init__') {
       if (!hangout_id) return NextResponse.json({ error: 'Missing hangout_id' }, { status: 400 })
-      const welcome = await welcomeForHangout(serviceClient, hangout_id, agentUserId, token)
+      const welcome = await welcomeForHangout(serviceClient, hangout_id, agentUserId)
       return NextResponse.json({
         agent_message: welcome.agent_message,
         chips: welcome.chips,
@@ -266,9 +263,24 @@ export async function POST(request: Request) {
     // Google Places lookup happens before any hangout write below, and its
     // result (not the model's raw text) becomes the message — canned copy for
     // a fixed outcome, same as the confirmation pools further down.
+    // Suppress a repeat search while the group hasn't yet responded to the
+    // last round of suggestions — otherwise "Here are some options nearby."
+    // reposts on every message until someone taps a venue card.
+    let skipVenueSearch = false
+    if (hangout_id && !current_plan_state?.venue_name) {
+      const { data: lastMsg } = await serviceClient
+        .from('hangout_messages')
+        .select('content, author_id')
+        .eq('hangout_id', hangout_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      skipVenueSearch = !!(lastMsg && lastMsg.author_id === agentUserId && lastMsg.content?.includes(AGENT_VENUE_PROMPT))
+    }
+
     const venueSearchQuery: string | null = typeof parsed.venueSearchQuery === 'string' ? parsed.venueSearchQuery.trim() : null
     let venueSuggestions: Awaited<ReturnType<typeof searchVenues>> = []
-    if (venueSearchQuery) {
+    if (venueSearchQuery && !skipVenueSearch) {
       const { data: senderProfile } = await serviceClient
         .from('profiles')
         .select('resident_city')
