@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useState, use } from 'react'
 import { AlertCircle, Clock, ShieldCheck } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -244,13 +245,13 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
 function DeadEndActions() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <a href="/dashboard"
+      <Link href="/dashboard"
         style={{ display: 'block', width: '100%', padding: '11px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 14, fontWeight: 600, fontFamily: 'inherit', textDecoration: 'none', boxSizing: 'border-box' }}>
         Go to dashboard
-      </a>
-      <a href="/" style={{ fontSize: 13, color: 'var(--text3)', textDecoration: 'none' }}>
+      </Link>
+      <Link href="/" style={{ fontSize: 13, color: 'var(--text3)', textDecoration: 'none' }}>
         Learn more about Knot
-      </a>
+      </Link>
     </div>
   )
 }
