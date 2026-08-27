@@ -649,10 +649,19 @@ export default function HangoutChatView({
 
   async function remindSplit(split: any) {
     if (!currentUser?.id || remindingId) return
-    const last = split.last_reminded_at ? new Date(split.last_reminded_at).getTime() : 0
-    if (Date.now() - last < DAY_MS) return
+    const lastRaw = split.last_reminded_at || split.reminder_sent_at
+    const last = lastRaw ? new Date(lastRaw).getTime() : 0
+    if (last && Date.now() - last < DAY_MS) {
+      toast.success('Already nudged recently.')
+      return
+    }
     setRemindingId(split.id)
-    const { error } = await supabase.from('bill_splits').update({ last_reminded_at: new Date().toISOString() }).eq('id', split.id)
+    const now = new Date().toISOString()
+    let { error } = await supabase.from('bill_splits').update({ last_reminded_at: now }).eq('id', split.id)
+    if (error) {
+      const retry = await supabase.from('bill_splits').update({ reminder_sent_at: now }).eq('id', split.id)
+      error = retry.error
+    }
     if (error) { toast.error('Could not send reminder.'); setRemindingId(null); return }
     const creditorName = currentUser.name || 'a friend'
     const amount = parseFloat(split.amount).toFixed(2)
@@ -665,11 +674,13 @@ export default function HangoutChatView({
       entityId: split.id,
       message: `You owe ${creditorName} $${amount} from ${title}. Settle up in Knot.`,
     })
-    await supabase.from('hangout_messages').insert({
-      hangout_id: hangoutId,
-      author_id: agentId,
-      content: getRandom(AGENT_MESSAGES.BILL_REMINDER),
-    })
+    if (agentId) {
+      await supabase.from('hangout_messages').insert({
+        hangout_id: hangoutId,
+        author_id: agentId,
+        content: getRandom(AGENT_MESSAGES.BILL_REMINDER),
+      })
+    }
     setRemindingId(null)
     await loadHangout()
     await loadMessages()
@@ -817,9 +828,25 @@ export default function HangoutChatView({
                 <VenuePoll hangoutId={hangout.id} options={options} currentUser={currentUser} isCreator={isCreator} members={members} onRefresh={loadHangout} />
               )}
             </div>
-            {bills.length > 0 && (
-              <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text2)' }}>
-                Bills · ${totalSpend.toFixed(2)} total
+            {phase !== 'cancelled' && bills.length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Bills · ${totalSpend.toFixed(2)} total</div>
+                {unsettled.length === 0 ? (
+                  <div style={{ fontSize: 12, color: 'var(--sage)' }}>All settled.</div>
+                ) : unsettled.map((s: any) => {
+                  const canRemind = (isTreasurer || s.bill?.added_by === currentUser?.id) && s.user_id !== currentUser?.id
+                  return (
+                    <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '4px 0' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text)' }}>{s.profiles?.name || 'Someone'} owes ${parseFloat(s.amount).toFixed(2)}</span>
+                      {canRemind && (
+                        <button type="button" disabled={remindingId === s.id} onClick={() => remindSplit(s)}
+                          style={{ padding: '3px 8px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: remindingId === s.id ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                          Remind
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
@@ -893,16 +920,14 @@ export default function HangoutChatView({
               </div>
             )}
 
-            {(phase === 'ended' || phase === 'live') && bills.length > 0 && (
+            {phase !== 'cancelled' && bills.length > 0 && (
               <div ref={billRef} style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 12, background: 'var(--bg3)' }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Bill summary · ${totalSpend.toFixed(2)}</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Bills · ${totalSpend.toFixed(2)}</div>
                 {bills.map((b: any) => (
                   <div key={b.id} style={{ marginBottom: 8 }}>
                     <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 4 }}>{b.description}</div>
                     {(b.bill_splits || []).map((s: any) => {
                       const canRemind = !s.settled && (isTreasurer || b.added_by === currentUser?.id) && s.user_id !== currentUser?.id
-                      const last = s.last_reminded_at ? new Date(s.last_reminded_at).getTime() : 0
-                      const cooling = Date.now() - last < DAY_MS
                       return (
                         <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '4px 0' }}>
                           <span style={{ fontSize: 12, color: 'var(--text)' }}>{s.profiles?.name || 'Someone'}</span>
@@ -914,10 +939,10 @@ export default function HangoutChatView({
                                 Settle up
                               </button>
                             )}
-                            {phase === 'ended' && canRemind && (
-                              <button type="button" disabled={cooling || remindingId === s.id} onClick={() => remindSplit(s)}
-                                style={{ padding: '3px 8px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: cooling ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: cooling ? 0.5 : 1 }}>
-                                {cooling ? 'Reminded' : 'Remind'}
+                            {canRemind && (
+                              <button type="button" disabled={remindingId === s.id} onClick={() => remindSplit(s)}
+                                style={{ padding: '3px 8px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: remindingId === s.id ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                                Remind
                               </button>
                             )}
                           </div>

@@ -519,7 +519,7 @@ export default function Feed({ members, knotName, knotEmoji, knotId, currentUser
         </div>
       </div>
 
-      <Composer knotId={knotId} currentUser={currentUser} members={members} onPosted={loadPosts} />
+      <Composer knotId={knotId} currentUser={currentUser} members={members} onPosted={loadPosts} onOpenChat={onOpenChat} />
 
       {momentActionError && (
         <div className="error-banner" style={{ marginBottom: 12 }}>
@@ -556,7 +556,6 @@ export default function Feed({ members, knotName, knotEmoji, knotId, currentUser
               knotId={knotId}
               members={members}
               onRefresh={loadPosts}
-              onToggleReaction={(emoji) => toggleReaction(p.id, emoji)}
               onOpenChat={onOpenChat}
             />
           )

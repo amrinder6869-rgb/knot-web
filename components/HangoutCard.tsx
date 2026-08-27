@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Skeleton } from '@/components/Skeleton'
 import { useToast } from '@/components/ToastProvider'
-import ReactionBar from '@/components/ReactionBar'
 import MemberAvatar from '@/components/MemberAvatar'
 import { ACTIVITY_ICONS, ICON_SIZE } from '@/lib/constants'
 import { CARD_STATE_COPY, CHIP_WHEN, CHIP_WHERE, CONFIRM_CANCEL_HANGOUT, PLAN_UNTITLED } from '@/lib/copy'
@@ -47,11 +46,10 @@ type HangoutCardProps = {
   knotId: string
   members: any[]
   onRefresh: () => void
-  onToggleReaction?: (emoji: string) => void
   onOpenChat: (hangoutId: string) => void
 }
 
-export default function HangoutCard({ post, data, currentUser, onRefresh, onToggleReaction, onOpenChat }: HangoutCardProps) {
+export default function HangoutCard({ post, data, currentUser, onRefresh, onOpenChat }: HangoutCardProps) {
   const toast = useToast()
   const [hangout, setHangout] = useState<any>(data.hangout)
   const [rsvps, setRsvps] = useState<any[]>(data.rsvps ?? [])
@@ -192,7 +190,11 @@ export default function HangoutCard({ post, data, currentUser, onRefresh, onTogg
         <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 1 }}>{stateCopy.subtitle}</div>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 10, fontSize: 11, color: 'var(--text2)' }}>
+      <div
+        onClick={e => e.stopPropagation()}
+        onKeyDown={e => e.stopPropagation()}
+        style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 10, fontSize: 11, color: 'var(--text2)' }}
+      >
         <span style={{ whiteSpace: 'nowrap', ...(dateOpen ? { color: 'var(--text3)', fontStyle: 'italic' as const } : {}) }}>{dateLabel}</span>
         <span style={{ color: 'var(--border2)' }}>·</span>
         <span style={{ whiteSpace: 'nowrap', ...(timeOpen ? { color: 'var(--text3)', fontStyle: 'italic' as const } : {}) }}>{timeLabel}</span>
@@ -202,7 +204,11 @@ export default function HangoutCard({ post, data, currentUser, onRefresh, onTogg
         <span style={{ whiteSpace: 'nowrap' }}>{goingCount} RSVP{goingCount === 1 ? '' : 's'}</span>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div
+        onClick={e => e.stopPropagation()}
+        onKeyDown={e => e.stopPropagation()}
+        style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+      >
         <div style={{ display: 'flex', flex: 1, minWidth: 0, alignItems: 'center' }}>
           {going.slice(0, 4).map((r: any, i: number) => (
             <div key={r.user_id} style={{ marginLeft: i > 0 ? -6 : 0, border: '2px solid #fff', borderRadius: '50%', lineHeight: 0 }}>
@@ -213,15 +219,6 @@ export default function HangoutCard({ post, data, currentUser, onRefresh, onTogg
             <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 6 }}>+{goingCount - 4}</span>
           )}
         </div>
-        {onToggleReaction && (
-          <div
-            onClick={e => e.stopPropagation()}
-            onKeyDown={e => e.stopPropagation()}
-            style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}
-          >
-            <ReactionBar compact iconTrigger reactions={post.reactions || []} onToggle={onToggleReaction} />
-          </div>
-        )}
         <span style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{comments.length} comment{comments.length === 1 ? '' : 's'}</span>
         {timestamp && <span style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{timeAgo(timestamp)}</span>}
       </div>
