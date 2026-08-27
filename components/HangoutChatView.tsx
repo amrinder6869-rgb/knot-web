@@ -285,7 +285,6 @@ export default function HangoutChatView({
   }, [hangoutId, currentUser?.id, scrollToBottom])
 
   const attachVenueSuggestions = useCallback((freshMessages: ThreadMessage[], venues: VenueSuggestion[] | null | undefined) => {
-    console.log('[attachVenueSuggestions] called, venues length:', venues?.length, 'messages length:', freshMessages?.length)
     if (!venues || venues.length === 0) return
     const lastAgentMessage = [...freshMessages].reverse().find(m => agentId && m.author_id === agentId)
     if (!lastAgentMessage) return
@@ -433,9 +432,6 @@ export default function HangoutChatView({
         }),
       })
       const data = await res.json()
-      console.log('[sendChat] data keys:', Object.keys(data))
-      console.log('[sendChat] venue_suggestions:', data.venue_suggestions)
-      console.log('[sendChat] data.agent_message:', data.agent_message)
       await loadHangout()
       const freshMessages = await loadMessages()
       setPendingChips(data.chips ?? null)
@@ -790,9 +786,6 @@ export default function HangoutChatView({
 
   const title = hangout.title || hangout.venue_name || PLAN_UNTITLED
 
-  // TEMP debug: confirm venuesByMessageId keys line up with rendered message ids.
-  console.log('[venue-cards] venuesByMessageId keys:', Object.keys(venuesByMessageId), venuesByMessageId)
-
   return (
     <div style={{ flex: 1, minHeight: 0, height: '100%', background: '#F5F3EE', display: 'flex', flexDirection: 'column', fontFamily: 'Manrope, sans-serif' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', paddingTop: 'calc(10px + env(safe-area-inset-top, 0px))', borderBottom: '1px solid var(--border)', background: 'var(--glass-bg)', backdropFilter: 'blur(16px)', flexShrink: 0 }}>
@@ -961,10 +954,11 @@ export default function HangoutChatView({
                         padding: m.photo_url ? 4 : '8px 12px', borderRadius: 12,
                         background: isAgent ? '#FFFBEE' : (isMine ? '#111' : '#fff'),
                         border: isAgent ? '1px solid rgba(248,189,3,0.25)' : (isMine ? 'none' : '0.5px solid rgba(0,0,0,0.08)'),
+                        color: isAgent ? '#111' : (isMine ? '#fff' : 'var(--text)'),
                       }}>
                         {m.photo_url && <img src={m.photo_url} alt="" style={{ display: 'block', maxWidth: '100%', borderRadius: 8, marginBottom: m.content ? 6 : 0 }} />}
                         {m.content && (
-                          <span style={{ fontSize: 13, lineHeight: 1.4, color: isMine ? '#fff' : 'var(--text)', whiteSpace: 'pre-wrap', padding: m.photo_url ? '0 6px 4px' : 0, display: 'block' }}>{m.content}</span>
+                          <span style={{ fontSize: 13, lineHeight: 1.4, color: isAgent ? '#111' : (isMine ? '#fff' : 'var(--text)'), whiteSpace: 'pre-wrap', padding: m.photo_url ? '0 6px 4px' : 0, display: 'block' }}>{m.content}</span>
                         )}
                       </div>
                       <span style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{timeAgo(m.created_at)}</span>
