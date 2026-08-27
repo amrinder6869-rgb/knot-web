@@ -153,6 +153,7 @@ export default function HangoutChatView({
   const [loadingMessages, setLoadingMessages] = useState(true)
   const [chatInput, setChatInput] = useState('')
   const [resolving, setResolving] = useState(false)
+  const [sending, setSending] = useState(false)
   const [resolvingLine, setResolvingLine] = useState('')
   const [chatError, setChatError] = useState('')
   const [pendingChips, setPendingChips] = useState<{ label: string; action: string; value: any }[] | null>(null)
@@ -396,53 +397,58 @@ export default function HangoutChatView({
   async function sendChat(overrideText?: string) {
     console.log('[sendChat] called', new Date().toISOString())
     const text = (overrideText ?? chatInput).trim()
-    if (!text || sendingRef.current || resolving || !knotId || !currentUser?.id) return
+    if (!text || sendingRef.current || resolving || sending || !knotId || !currentUser?.id) return
     sendingRef.current = true
-    setChatError('')
-    setPendingChips(null)
-    setPendingRevenue(null)
-
-    const { error: msgError } = await supabase
-      .from('hangout_messages')
-      .insert({ hangout_id: hangoutId, author_id: currentUser.id, content: text })
-    if (msgError) {
-      toast.error(TOAST_ERROR)
-      sendingRef.current = false
-      return
-    }
-    setChatInput('')
-
-    setResolving(true)
-    setResolvingLine(getRandomTagged(AGENT_RESOLVING_STATES))
+    setSending(true)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) { setChatError('You need to be signed in.'); sendingRef.current = false; setResolving(false); return }
-      const res = await fetch('/api/planning-agent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
-        body: JSON.stringify({
-          message: text,
-          hangout_id: hangoutId,
-          knot_id: knotId,
-          current_plan_state: hangout ? {
-            title: hangout.title,
-            venue_name: hangout.venue_name,
-            scheduled_for: hangout.scheduled_for,
-            status: hangout.status,
-          } : null,
-        }),
-      })
-      const data = await res.json()
-      await loadHangout()
-      const freshMessages = await loadMessages()
-      setPendingChips(data.chips ?? null)
-      setPendingRevenue(data.revenue_suggestion ?? null)
-      attachVenueSuggestions(freshMessages, data.venue_suggestions)
-    } catch {
-      setChatError('Could not reach the planner. Try again.')
+      setChatError('')
+      setPendingChips(null)
+      setPendingRevenue(null)
+
+      const { error: msgError } = await supabase
+        .from('hangout_messages')
+        .insert({ hangout_id: hangoutId, author_id: currentUser.id, content: text })
+      if (msgError) {
+        toast.error(TOAST_ERROR)
+        return
+      }
+      setChatInput('')
+
+      setResolving(true)
+      setResolvingLine(getRandomTagged(AGENT_RESOLVING_STATES))
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) { setChatError('You need to be signed in.'); return }
+        const res = await fetch('/api/planning-agent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+          body: JSON.stringify({
+            message: text,
+            hangout_id: hangoutId,
+            knot_id: knotId,
+            current_plan_state: hangout ? {
+              title: hangout.title,
+              venue_name: hangout.venue_name,
+              scheduled_for: hangout.scheduled_for,
+              status: hangout.status,
+            } : null,
+          }),
+        })
+        const data = await res.json()
+        await loadHangout()
+        const freshMessages = await loadMessages()
+        setPendingChips(data.chips ?? null)
+        setPendingRevenue(data.revenue_suggestion ?? null)
+        attachVenueSuggestions(freshMessages, data.venue_suggestions)
+      } catch {
+        setChatError('Could not reach the planner. Try again.')
+      } finally {
+        setResolving(false)
+      }
+    } finally {
+      sendingRef.current = false
+      setSending(false)
     }
-    sendingRef.current = false
-    setResolving(false)
   }
 
   async function rsvp(status: string) {
@@ -1134,14 +1140,22 @@ export default function HangoutChatView({
           <input
             value={chatInput}
             onChange={e => setChatInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && chatInput.trim()) sendChat() }}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                if (!sending && chatInput.trim()) sendChat()
+              }
+            }}
             placeholder={chatPlaceholder}
             style={{ flex: 1, background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 20, padding: '8px 14px', fontSize: 13, color: 'var(--text)', outline: 'none', fontFamily: 'inherit', caretColor: 'var(--yellow)' }}
           />
-          <button type="button" onClick={() => { if (chatInput.trim()) sendChat(); else setSheet('moment') }} disabled={resolving}
-            style={{ width: 34, height: 34, borderRadius: '50%', background: chatInput.trim() ? 'var(--yellow)' : 'var(--bg3)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: resolving ? 'not-allowed' : 'pointer', flexShrink: 0, opacity: resolving ? 0.6 : 1 }}
+          <button type="button" onClick={() => { if (chatInput.trim()) sendChat(); else setSheet('moment') }} disabled={resolving || sending}
+            style={{ width: 34, height: 34, borderRadius: '50%', background: chatInput.trim() ? 'var(--yellow)' : 'var(--bg3)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (resolving || sending) ? 'not-allowed' : 'pointer', flexShrink: 0, opacity: (resolving || sending) ? 0.5 : 1 }}
             aria-label="Send">
-            <i className="ti ti-send" style={{ fontSize: ICON_SIZE.nav, color: '#111' }} />
+            {sending
+              ? <i className="ti ti-loader-2" style={{ fontSize: ICON_SIZE.nav, color: '#888', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
+              : <i className="ti ti-send" style={{ fontSize: ICON_SIZE.nav, color: '#111' }} />
+            }
           </button>
         </div>
       )}

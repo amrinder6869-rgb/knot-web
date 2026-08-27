@@ -215,7 +215,10 @@ export async function POST(request: Request) {
     }
 
     const apiKey = process.env.ANTHROPIC_API_KEY
-    if (!apiKey) return NextResponse.json({ agent_message: null, chips: null, plan_updates: null, todo_updates: null, revenue_suggestion: null })
+    if (!apiKey) {
+      console.error('[planning-agent] ANTHROPIC_API_KEY missing')
+      return NextResponse.json({ agent_message: null, chips: null, plan_updates: null, todo_updates: null, revenue_suggestion: null })
+    }
 
     const contextLines = [
       `Current plan state: ${current_plan_state ? JSON.stringify(current_plan_state) : 'no active plan yet'}`,
@@ -238,6 +241,8 @@ export async function POST(request: Request) {
     })
 
     if (!response.ok) {
+      const errText = await response.text().catch(() => '')
+      console.error('[planning-agent] Anthropic API error:', response.status, errText)
       return NextResponse.json({ agent_message: null, chips: null, plan_updates: null, todo_updates: null, revenue_suggestion: null })
     }
 
@@ -248,9 +253,11 @@ export async function POST(request: Request) {
     try {
       const clean = text.replace(/```json|```/g, '').trim()
       parsed = JSON.parse(clean)
-    } catch {
+    } catch (err) {
+      console.error('[planning-agent] failed to parse model response as JSON:', err, 'raw text:', text)
       return NextResponse.json({ agent_message: null, chips: null, plan_updates: null, todo_updates: null, revenue_suggestion: null })
     }
+    console.log('[route] venueSearchQuery:', parsed.venueSearchQuery)
 
     const planUpdates = filterPlanUpdates(parsed.plan_updates ?? null)
     let resolvedHangoutId: string | null = hangout_id || null
@@ -381,7 +388,8 @@ export async function POST(request: Request) {
       venue_suggestions: venueSuggestions.length > 0 ? venueSuggestions : null,
       hangout_id: resolvedHangoutId,
     })
-  } catch {
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+  } catch (err) {
+    console.error('[planning-agent] unhandled error:', err)
+    return NextResponse.json({ error: 'internal' }, { status: 500 })
   }
 }
