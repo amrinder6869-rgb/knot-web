@@ -124,7 +124,15 @@ export async function POST(request: Request) {
     // relevance (questions, clarifications) where no pool fits.
     let agentMessage: string | null = parsed.agent_message ?? null
 
-    if (planUpdates) {
+    // A hangout gets created the first time the conversation produces
+    // anything worth keeping — either a confirmed field (planUpdates) or
+    // just a relevant reply (agentMessage non-null). The model correctly
+    // withholds plan_updates until a chip is tapped (see system prompt), so
+    // gating creation on planUpdates alone would mean the very first message
+    // in a fresh knot has nowhere for the agent's reply to attach.
+    const needsHangout = !resolvedHangoutId && (planUpdates || agentMessage)
+
+    if (needsHangout || (planUpdates && resolvedHangoutId)) {
       const serviceClient = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -132,10 +140,10 @@ export async function POST(request: Request) {
       const wasNewPlan = !resolvedHangoutId
       let writeFailed = false
 
-      if (!resolvedHangoutId) {
+      if (wasNewPlan) {
         const { data: newHangout, error: createError } = await serviceClient
           .from('hangouts')
-          .insert({ knot_id, created_by: senderId, status: 'voting', ...planUpdates })
+          .insert({ knot_id, created_by: senderId, status: 'voting', ...(planUpdates || {}) })
           .select('id')
           .single()
         if (createError || !newHangout) {
@@ -143,7 +151,7 @@ export async function POST(request: Request) {
         } else {
           resolvedHangoutId = newHangout.id
         }
-      } else {
+      } else if (planUpdates) {
         const { error: updateError } = await serviceClient
           .from('hangouts')
           .update(planUpdates)
@@ -153,7 +161,7 @@ export async function POST(request: Request) {
 
       if (writeFailed) {
         agentMessage = getRandom(AGENT_MESSAGES.CONFLICT)
-      } else if (resolvedHangoutId) {
+      } else if (planUpdates && resolvedHangoutId) {
         // Pick the confirmation copy matching what actually changed.
         if (wasNewPlan) agentMessage = getRandom(AGENT_MESSAGES.PLAN_CREATED)
         else if ('venue_name' in planUpdates || 'venue_address' in planUpdates) agentMessage = getRandom(AGENT_MESSAGES.VENUE_CONFIRMED)
