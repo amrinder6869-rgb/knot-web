@@ -1,7 +1,29 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import {
+  GAMES_CANCEL_LOBBY,
+  GAMES_COMING_SOON,
+  GAMES_EMPTY_SUB,
+  GAMES_EMPTY_TITLE,
+  GAMES_ERROR_CANCEL,
+  GAMES_ERROR_CREATE,
+  GAMES_ERROR_JOIN,
+  GAMES_ERROR_JOIN_PLAYER,
+  GAMES_ERROR_LOAD,
+  GAMES_JOIN,
+  GAMES_LOADING,
+  GAMES_RECENT,
+  GAMES_REJOIN,
+  GAMES_STATUS_ACTIVE,
+  GAMES_STATUS_FINISHED,
+  GAMES_STATUS_WAITING,
+  GAMES_SUBTITLE,
+  GAMES_TITLE,
+} from '@/lib/copy'
 import AmongUsLite from '@/components/AmongUsLite'
+import MostLikelyTo from '@/components/MostLikelyTo'
+import Ludo from '@/components/Ludo'
 import Snake from '@/components/Snake'
 import Tetris from '@/components/Tetris'
 
@@ -14,6 +36,24 @@ const GAMES_REGISTRY = [
     description: 'Secret roles, shared tasks, and emergency meetings. Vote out the impostor before they win.',
     players: '4\u201310 players',
     mode: 'Async rounds',
+    status: 'available' as const,
+    kind: 'lobby' as const,
+  },
+  {
+    id: 'most_likely_to',
+    name: 'Most Likely To',
+    description: 'Vote on who in the group is most likely to do something ridiculous.',
+    players: '2+ players',
+    mode: 'Async rounds',
+    status: 'available' as const,
+    kind: 'lobby' as const,
+  },
+  {
+    id: 'ludo',
+    name: 'Ludo',
+    description: 'Classic board game. Roll the dice, race your pieces home, and block your friends.',
+    players: '2\u20134 players',
+    mode: 'Turn-based',
     status: 'available' as const,
     kind: 'lobby' as const,
   },
@@ -56,7 +96,7 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
       .select('*, profiles:created_by(name)')
       .eq('knot_id', knotId)
       .order('created_at', { ascending: false })
-    if (fetchError) { setError('Could not load games.'); setLoading(false); return }
+    if (fetchError) { setError(GAMES_ERROR_LOAD); setLoading(false); return }
     if (data) setGames(data)
     setLoading(false)
   }
@@ -82,10 +122,10 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
       .insert({ knot_id: knotId, created_by: currentUser.id, game_type: gameId, status: 'waiting' })
       .select().single()
 
-    if (insertError || !data) { setError('Could not create the game. Please try again.'); return }
+    if (insertError || !data) { setError(GAMES_ERROR_CREATE); return }
 
     const { error: joinError } = await supabase.from('game_players').insert({ game_id: data.id, user_id: currentUser.id, color: 'var(--yellow)', alive: true })
-    if (joinError) { setError('Game created, but you could not be added as a player.'); return }
+    if (joinError) { setError(GAMES_ERROR_JOIN_PLAYER); return }
 
     setActiveGame(data)
     loadGames()
@@ -100,7 +140,7 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
     if (!alreadyIn) {
       const color = colors[(existingPlayers?.length || 0) % colors.length]
       const { error: joinError } = await supabase.from('game_players').insert({ game_id: game.id, user_id: currentUser.id, color, alive: true })
-      if (joinError) { setError('Could not join the game.'); return }
+      if (joinError) { setError(GAMES_ERROR_JOIN); return }
     }
     setActiveGame(game)
   }
@@ -116,7 +156,7 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
       .eq('created_by', currentUser.id)
       .eq('status', 'waiting')
     if (deleteError) {
-      setError('Could not cancel the lobby. Please try again.')
+      setError(GAMES_ERROR_CANCEL)
       return
     }
     if (activeGame?.id === game.id) setActiveGame(null)
@@ -135,23 +175,44 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
     <Tetris knotId={knotId} currentUser={currentUser} onBack={() => setInstantGame(null)} />
   )
 
-  if (activeGame?.id) return (
-    <div>
-      <AmongUsLite
-        game={activeGame}
-        members={members}
-        currentUser={currentUser}
-        knotId={knotId}
-        onEnd={() => { setActiveGame(null); loadGames() }}
-        onRefreshGame={refreshActiveGame}
-      />
-    </div>
-  )
+  if (activeGame?.id) {
+    if (activeGame.game_type === 'most_likely_to') {
+      return (
+        <MostLikelyTo
+          game={activeGame}
+          members={members}
+          currentUser={currentUser}
+          onEnd={() => { setActiveGame(null); loadGames() }}
+        />
+      )
+    }
+    if (activeGame.game_type === 'ludo') {
+      return (
+        <Ludo
+          game={activeGame}
+          currentUser={currentUser}
+          onEnd={() => { setActiveGame(null); loadGames() }}
+        />
+      )
+    }
+    return (
+      <div>
+        <AmongUsLite
+          game={activeGame}
+          members={members}
+          currentUser={currentUser}
+          knotId={knotId}
+          onEnd={() => { setActiveGame(null); loadGames() }}
+          onRefreshGame={refreshActiveGame}
+        />
+      </div>
+    )
+  }
 
   return (
     <div style={{ maxWidth: 700 }}>
-      <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Games</div>
-      <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 24 }}>Play together inside your Knot.</div>
+      <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>{GAMES_TITLE}</div>
+      <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 24 }}>{GAMES_SUBTITLE}</div>
 
       {error && (
         <div className="error-banner" style={{ marginBottom: 20 }}>
@@ -176,7 +237,7 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                 <div style={{ fontSize: 15, fontWeight: 700 }}>{g.name}</div>
                 {!isAvailable && (
-                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--bg3)', color: 'var(--text3)', fontWeight: 600 }}>Coming soon</span>
+                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--bg3)', color: 'var(--text3)', fontWeight: 600 }}>{GAMES_COMING_SOON}</span>
                 )}
               </div>
               <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5, marginBottom: 14 }}>{g.description}</div>
@@ -190,10 +251,10 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
       </div>
 
       {loading ? (
-        <div style={{ fontSize: 13, color: 'var(--text2)' }}>Loading games...</div>
+        <div style={{ fontSize: 13, color: 'var(--text2)' }}>{GAMES_LOADING}</div>
       ) : games.length > 0 ? (
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Recent games</div>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>{GAMES_RECENT}</div>
           {games.map(g => {
             const registryEntry = GAMES_REGISTRY.find(r => r.id === g.game_type)
             return (
@@ -206,18 +267,18 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
                   <div style={{ fontSize: 12, color: 'var(--text2)' }}>Started by {g.profiles?.name || 'someone'}</div>
                 </div>
                 <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 20, background: g.status === 'active' ? 'var(--sage-soft)' : g.status === 'waiting' ? 'var(--amber-soft)' : 'var(--bg3)', color: g.status === 'active' ? 'var(--sage)' : g.status === 'waiting' ? 'var(--amber)' : 'var(--text3)' }}>
-                  {g.status === 'waiting' ? 'Waiting' : g.status === 'active' ? 'In progress' : 'Finished'}
+                  {g.status === 'waiting' ? GAMES_STATUS_WAITING : g.status === 'active' ? GAMES_STATUS_ACTIVE : GAMES_STATUS_FINISHED}
                 </span>
                 {g.status !== 'finished' && (
                   <button onClick={() => joinGame(g)}
                     style={{ padding: '6px 14px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    {g.status === 'waiting' ? 'Join' : 'Rejoin'}
+                    {g.status === 'waiting' ? GAMES_JOIN : GAMES_REJOIN}
                   </button>
                 )}
                 {g.status === 'waiting' && g.created_by === currentUser?.id && (
                   <button onClick={() => cancelLobby(g)}
                     style={{ padding: '6px 12px', background: 'transparent', border: '1px solid var(--danger-dim)', borderRadius: 8, color: 'var(--danger)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    Cancel lobby
+                    {GAMES_CANCEL_LOBBY}
                   </button>
                 )}
               </div>
@@ -226,8 +287,8 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
         </div>
       ) : (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text2)' }}>
-          <div style={{ fontWeight: 600, marginBottom: 6 }}>No games yet</div>
-          <div style={{ fontSize: 13, color: 'var(--text3)' }}>Start a game above to play with your Knot.</div>
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>{GAMES_EMPTY_TITLE}</div>
+          <div style={{ fontSize: 13, color: 'var(--text3)' }}>{GAMES_EMPTY_SUB}</div>
         </div>
       )}
     </div>

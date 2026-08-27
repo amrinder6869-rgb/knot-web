@@ -7,12 +7,7 @@ import { ICON_SIZE } from '@/lib/constants'
 import { EMPTY_HANGOUTS, PLAN_UNTITLED, TOAST_ERROR } from '@/lib/copy'
 import { useToast } from '@/components/ToastProvider'
 import { UPCOMING_PLANNING_STATUSES, PAST_PLANNING_STATUSES } from '@/lib/hangoutPhase'
-
-type OpenChatOpts = {
-  hangoutId: string
-  scrollToBottom?: boolean
-  scrollTarget?: 'poll' | 'bill' | null
-}
+import type { OpenChatOpts } from '@/components/AttentionStrip'
 
 export default function PlansList({
   currentUser,
@@ -139,7 +134,6 @@ export default function PlansList({
     }
     try {
       const { data, error } = await supabase.rpc('create_hangout', { p_input: pInput })
-      console.log('[create_hangout] handleNewPlan response', { data, error, pInput })
       if (error || !data || data.error) {
         console.error('[handleNewPlan] rpc failed', { error, data })
         toast.error(TOAST_ERROR)
@@ -198,7 +192,7 @@ export default function PlansList({
         knotId={h.knot_id}
         members={membersByKnot.get(h.knot_id) || []}
         onRefresh={load}
-        onOpenChat={(id) => onOpenChat({ hangoutId: id, scrollToBottom: true })}
+        onOpenChat={onOpenChat}
       />
     )
   }

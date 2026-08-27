@@ -40,7 +40,11 @@ import {
   PLANNER_TOAST_SAVED,
   PLANNER_TOAST_ABANDONED,
   PLANNER_TOAST_RESUMED,
+  PLANNER_TODO_HEADER,
+  BILL_DESC_PLACEHOLDER,
+  BILL_AMOUNT_PLACEHOLDER,
 } from '@/lib/copy'
+import type { OpenChatOpts } from '@/components/AttentionStrip'
 
 // TODO: replace with /public/knot-logo.png once the asset is exported.
 function KnotMark({ size = 20 }: { size?: number }) {
@@ -110,11 +114,12 @@ type ThreadMessage = {
   revenue_suggestion?: { type: string; label: string; url: string } | null
 }
 
-export default function PlanningView({ knotId, currentUser, members, onNavigateToFeed }: {
+export default function PlanningView({ knotId, currentUser, members, onNavigateToFeed, onOpenChat }: {
   knotId?: string
   currentUser?: any
   members: any[]
   onNavigateToFeed?: () => void
+  onOpenChat?: (opts: OpenChatOpts) => void
 }) {
   const agentId = process.env.NEXT_PUBLIC_KNOT_AGENT_USER_ID || ''
   const toast = useToast()
@@ -167,12 +172,12 @@ export default function PlanningView({ knotId, currentUser, members, onNavigateT
   // already have a post_id by the time anyone can see them — the post_id
   // guard is what actually keeps them out of the Planner, not planning_status.
   const planningHangouts = useMemo(() => hangouts
-    .filter(h => h.planning_status === 'planning' && !h.post_id)
-    .sort((a, b) => new Date(b.last_planning_activity_at).getTime() - new Date(a.last_planning_activity_at).getTime()),
+    .filter(h => h.planning_status === 'planning')
+    .sort((a, b) => new Date(b.last_planning_activity_at || b.created_at).getTime() - new Date(a.last_planning_activity_at || a.created_at).getTime()),
     [hangouts])
   const draftHangouts = useMemo(() => hangouts
-    .filter(h => h.planning_status === 'draft' && !h.post_id)
-    .sort((a, b) => new Date(b.last_planning_activity_at).getTime() - new Date(a.last_planning_activity_at).getTime()),
+    .filter(h => h.planning_status === 'draft')
+    .sort((a, b) => new Date(b.last_planning_activity_at || b.created_at).getTime() - new Date(a.last_planning_activity_at || a.created_at).getTime()),
     [hangouts])
   const lockedHangouts = useMemo(() => hangouts
     .filter(h => h.planning_status === 'locked')
@@ -801,7 +806,7 @@ const loadHangouts = useCallback(async () => {
       {/* SURFACE 3: TODO STRIP */}
       <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderTop: 'none', borderRadius: 0, padding: '10px 14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: todoCount > 0 ? 8 : 0 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>Your actions</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>{PLANNER_TODO_HEADER}</span>
           {todoCount > 0 && (
             <span style={{ padding: '1px 7px', borderRadius: 20, background: 'var(--yellow)', color: '#111', fontSize: 10, fontWeight: 700 }}>{todoCount}</span>
           )}
@@ -827,7 +832,10 @@ const loadHangouts = useCallback(async () => {
                 <div style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {TODO_VOTE_LABEL} · {(p.title || 'Poll').slice(0, 30)}
                 </div>
-                <button onClick={() => setBoardExpanded(true)}
+                <button onClick={() => {
+                  if (onOpenChat) onOpenChat({ hangoutId: p.hangout_id, scrollTarget: 'poll' })
+                  else setBoardExpanded(true)
+                }}
                   style={{ padding: '5px 10px', background: 'var(--yellow)', border: 'none', borderRadius: 6, color: '#111', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
                   {TODO_VOTE_ACTION}
                 </button>
@@ -838,7 +846,11 @@ const loadHangouts = useCallback(async () => {
                 <div style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {TODO_SETTLE_LABEL} · {s.bill?.description || 'Bill'} · ${parseFloat(s.amount).toFixed(2)}
                 </div>
-                <button onClick={() => setSheet(null)}
+                <button onClick={() => {
+                  const billHangoutId = s.bill?.hangout_id || activeHangout?.id
+                  if (onOpenChat && billHangoutId) onOpenChat({ hangoutId: billHangoutId, scrollTarget: 'bill' })
+                  else setSheet('bill')
+                }}
                   style={{ padding: '5px 10px', background: 'var(--yellow)', border: 'none', borderRadius: 6, color: '#111', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
                   {TODO_SETTLE_ACTION}
                 </button>
@@ -930,9 +942,9 @@ const loadHangouts = useCallback(async () => {
           <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', zIndex: 201, padding: '16px 16px calc(16px + env(safe-area-inset-bottom, 0px))', maxWidth: 480, margin: '0 auto', maxHeight: '80vh', overflowY: 'auto' as const }}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border2)', margin: '4px auto 12px' }} />
             {billError && <div className="error-banner" style={{ marginBottom: 8 }}>{billError}</div>}
-            <input value={billDesc} onChange={e => setBillDesc(e.target.value)} placeholder="What was the bill for?"
+            <input value={billDesc} onChange={e => setBillDesc(e.target.value)} placeholder={BILL_DESC_PLACEHOLDER}
               style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const, marginBottom: 8 }} />
-            <input type="number" value={billAmount} onChange={e => setBillAmount(e.target.value)} placeholder="Total amount ($)"
+            <input type="number" value={billAmount} onChange={e => setBillAmount(e.target.value)} placeholder={BILL_AMOUNT_PLACEHOLDER}
               style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const, marginBottom: 10 }} />
             <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>Split with (leave blank for everyone)</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 140, overflowY: 'auto', marginBottom: 10 }}>

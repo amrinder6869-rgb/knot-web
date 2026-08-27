@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -117,9 +118,9 @@ export default function Home() {
 
       <p style={{ marginTop: 24, fontSize: 12, color: 'var(--text3)' }}>No ads. No algorithm. No public profiles.</p>
 
-      <a href="/merchant" style={{ marginTop: 16, fontSize: 12, color: 'var(--text3)', textDecoration: 'none', borderBottom: '1px solid var(--border)', paddingBottom: 1 }}>
+      <Link href="/merchant" style={{ marginTop: 16, fontSize: 12, color: 'var(--text3)', textDecoration: 'none', borderBottom: '1px solid var(--border)', paddingBottom: 1 }}>
         Are you a restaurant or experience business? List on Knot →
-      </a>
+      </Link>
     </div>
   )
 

@@ -268,8 +268,6 @@ export async function POST(request: Request) {
       console.error('[planning-agent] failed to parse model response as JSON:', err, 'raw text:', text)
       return NextResponse.json({ agent_message: null, chips: null, plan_updates: null, todo_updates: null, revenue_suggestion: null })
     }
-    console.log('[route] venueSearchQuery:', parsed.venueSearchQuery)
-
     const planUpdates = filterPlanUpdates(parsed.plan_updates ?? null)
     let resolvedHangoutId: string | null = hangout_id || null
     // Confirmation-type replies (a value was actually written) come from the

@@ -1,5 +1,5 @@
-export const UPCOMING_PLANNING_STATUSES = ['voting', 'confirmed', 'live'] as const
-export const PAST_PLANNING_STATUSES = ['ended', 'cancelled'] as const
+export const UPCOMING_PLANNING_STATUSES = ['planning', 'draft', 'locked', 'voting', 'confirmed', 'live'] as const
+export const PAST_PLANNING_STATUSES = ['ended', 'cancelled', 'abandoned'] as const
 
 export type HangoutPhase = 'planning' | 'confirmed' | 'live' | 'ended' | 'cancelled'
 
@@ -10,6 +10,11 @@ export function hangoutPhase(h: any): HangoutPhase {
   if (ps === 'ended' || h?.status === 'ended') return 'ended'
   if (ps === 'confirmed' || ps === 'locked') return 'confirmed'
   return 'planning'
+}
+
+export function isUpcomingHangout(h: any): boolean {
+  const phase = hangoutPhase(h)
+  return phase === 'planning' || phase === 'confirmed'
 }
 
 export function cardStateKey(h: any): string {
