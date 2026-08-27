@@ -111,6 +111,7 @@ export const AGENT_MESSAGES = {
   REVENUE_RESTAURANT: ['Want me to grab a table?', 'I can sort the booking.'],
   REVENUE_TRANSPORT: ['Sort your ride?', 'Uber time?'],
   REVENUE_PRINTS: ['Order prints from tonight?'],
+  BILL_REMINDER: ['Still a few bills outstanding.', 'Gentle reminder — bills are open.'],
 }
 
 export const LOADING_MEMBERS: { text: string; rare: boolean }[] = [
@@ -215,6 +216,8 @@ export const TODO_SETTLE_ACTION = 'Pay'
 // Planner lifecycle — three sections (planning, draft, locked) plus the
 // abandoned terminal state. Locked/abandoned plans leave the Planner
 // entirely: locked ones live in the Feed, abandoned ones just disappear.
+export const PLANNER_SECTION_ACTIVE = 'Planning now'
+export const ATTENTION_STRIP_HEADER = 'Needs your attention'
 export const PLANNER_SECTION_PLANNING = 'Planning now'
 export const PLANNER_SECTION_DRAFTS = 'Drafts'
 export const PLANNER_SECTION_LOCKED = 'Locked in'
@@ -245,3 +248,15 @@ export const PLANNING_CHAT_PLACEHOLDER = [
   'What are we doing?',
   'Drop something in the chat.',
 ]
+
+export const CARD_STATE_COPY: Record<string, { title: string; subtitle: string }> = {
+  voting: { title: "Let's figure it out", subtitle: 'RSVP so the plan can lock.' },
+  planning: { title: "Let's figure it out", subtitle: 'RSVP so the plan can lock.' },
+  draft: { title: "Let's figure it out", subtitle: 'RSVP so the plan can lock.' },
+  confirmed: { title: 'Locked in', subtitle: 'See you there.' },
+  locked: { title: 'Locked in', subtitle: 'See you there.' },
+  live: { title: 'Happening now', subtitle: "You're either there or you're not." },
+  ended: { title: 'Done', subtitle: 'Hope it was worth the group chat.' },
+  cancelled: { title: 'Called off', subtitle: 'Next time.' },
+  abandoned: { title: 'Called off', subtitle: 'Next time.' },
+}

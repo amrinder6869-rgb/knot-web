@@ -12,7 +12,7 @@ import {
   type ReactionCount,
 } from '@/lib/reactions'
 
-export default function Hangout({ members, knotId, currentUser }: { members: any[], knotId?: string, currentUser?: any }) {
+export default function Hangout({ members, knotId, currentUser, onOpenChat }: { members: any[], knotId?: string, currentUser?: any, onOpenChat?: (hangoutId: string) => void }) {
   const [posts, setPosts]     = useState<any[]>([])
   const [bundle, setBundle]   = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -42,6 +42,8 @@ export default function Hangout({ members, knotId, currentUser }: { members: any
       if (debounceTimer) clearTimeout(debounceTimer)
       supabase.removeChannel(channel)
     }
+    // loadHangoutPosts closes over knotId which is already in deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [knotId])
 
   async function loadHangoutPosts() {
@@ -162,6 +164,7 @@ export default function Hangout({ members, knotId, currentUser }: { members: any
             members={members}
             onRefresh={loadHangoutPosts}
             onToggleReaction={(emoji) => toggleReaction(post.id, emoji)}
+            onOpenChat={onOpenChat}
           />
         )
       })}

@@ -7,7 +7,9 @@ import { useState, useEffect } from 'react'
 import { supabase, getSignedUrl } from '@/lib/supabase'
 import Feed from '@/components/Feed'
 import VibesCounter from '@/components/VibesCounter'
-import PlanningView from '@/components/PlanningView'
+import HangoutChatView from '@/components/HangoutChatView'
+import AttentionStrip from '@/components/AttentionStrip'
+import PlansList from '@/components/PlansList'
 import BillSplit from '@/components/BillSplit'
 import Members from '@/components/Members'
 import Memories from '@/components/Memories'
@@ -111,6 +113,7 @@ export default function Dashboard() {
   const [creatingEvent, setCreatingEvent]         = useState(false)
   const [eventError, setEventError]               = useState('')
   const [createdEventLink, setCreatedEventLink]   = useState<string | null>(null)
+  const [openChat, setOpenChat]                   = useState<{ hangoutId: string; scrollToBottom?: boolean; scrollTarget?: 'poll' | 'bill' | null } | null>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -722,8 +725,32 @@ export default function Dashboard() {
           <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px', paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 0px))', display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, alignItems: 'start' }} className="desktop-layout">
             <div>
               {active === 'discover'  && <Discover  members={knotMembers} currentUser={profile} />}
-              {active === 'feed'      && <Feed      members={knotMembers} knotName={activeKnot.name} knotEmoji={activeKnot.emoji} knotId={activeKnot?.id} currentUser={profile} onOpenBills={() => setActive('split')} />}
-              {active === 'hangout'   && <PlanningView members={knotMembers} knotId={activeKnot?.id} currentUser={profile} onNavigateToFeed={() => setActive('feed')} />}
+              {active === 'feed'      && (
+                <>
+                  <AttentionStrip
+                    currentUser={profile}
+                    knots={knots}
+                    onOpenChat={(opts) => setOpenChat(opts)}
+                  />
+                  <Feed
+                    members={knotMembers}
+                    knotName={activeKnot.name}
+                    knotEmoji={activeKnot.emoji}
+                    knotId={activeKnot?.id}
+                    currentUser={profile}
+                    onOpenBills={() => setActive('split')}
+                    onOpenChat={(hangoutId) => setOpenChat({ hangoutId, scrollToBottom: true })}
+                  />
+                </>
+              )}
+              {active === 'hangout'   && (
+                <PlansList
+                  currentUser={profile}
+                  knots={knots}
+                  activeKnotId={activeKnot?.id}
+                  onOpenChat={(opts) => setOpenChat(opts)}
+                />
+              )}
               {active === 'split'     && <BillSplit members={knotMembers} knotId={activeKnot?.id} currentUser={profile} />}
               {active === 'members'   && <Members   members={knotMembers} knotId={activeKnot?.id} />}
               {active === 'memories'  && <Memories  members={knotMembers} knotId={activeKnot?.id} />}
@@ -826,7 +853,14 @@ export default function Dashboard() {
             </div>
 
             {homeTab === 'feed' && (
-              <HomeFeed knots={knots} onSelectKnot={(k) => switchKnot(k)} />
+              <>
+                <AttentionStrip
+                  currentUser={profile}
+                  knots={knots}
+                  onOpenChat={(opts) => setOpenChat(opts)}
+                />
+                <HomeFeed knots={knots} onSelectKnot={(k) => switchKnot(k)} />
+              </>
             )}
             {homeTab === 'events' && (
               <HomeEvents knots={knots} onOpenKnotTab={(k, tabId) => { switchKnot(k); setActive(tabId) }} />
@@ -1256,6 +1290,16 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {openChat && profile && (
+        <HangoutChatView
+          hangoutId={openChat.hangoutId}
+          currentUser={profile}
+          onClose={() => setOpenChat(null)}
+          scrollToBottom={openChat.scrollToBottom !== false}
+          scrollTarget={openChat.scrollTarget || null}
+        />
       )}
     </div>
   )

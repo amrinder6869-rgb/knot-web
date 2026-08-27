@@ -90,8 +90,8 @@ function timeAgo(date: string) {
   return `${Math.floor(seconds / 86400)}d ago`
 }
 
-export default function Feed({ members, knotName, knotEmoji, knotId, currentUser, onOpenBills }: {
-  members: any[], knotName: string, knotEmoji?: string, knotId?: string, currentUser?: any, onOpenBills?: () => void
+export default function Feed({ members, knotName, knotEmoji, knotId, currentUser, onOpenBills, onOpenChat }: {
+  members: any[], knotName: string, knotEmoji?: string, knotId?: string, currentUser?: any, onOpenBills?: () => void, onOpenChat?: (hangoutId: string) => void
 }) {
   const [posts, setPosts]     = useState<Post[]>([])
   const [showOrientCard, setShowOrientCard] = useState(false)
@@ -155,6 +155,8 @@ export default function Feed({ members, knotName, knotEmoji, knotId, currentUser
       if (debounceTimer) clearTimeout(debounceTimer)
       supabase.removeChannel(channel)
     }
+    // loadPosts / loadBillBalance close over knotId which is already in deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [knotId])
 
   async function loadPosts() {
@@ -555,6 +557,7 @@ export default function Feed({ members, knotName, knotEmoji, knotId, currentUser
               members={members}
               onRefresh={loadPosts}
               onToggleReaction={(emoji) => toggleReaction(p.id, emoji)}
+              onOpenChat={onOpenChat}
             />
           )
         }
