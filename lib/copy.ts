@@ -157,6 +157,13 @@ export const EMPTY_FEED = 'Group chat is asleep.'
 export const EMPTY_DISCOVER = 'Nothing matched. Try a different vibe.'
 export const EMPTY_GAMES = 'Too peaceful in here.'
 export const EMPTY_TODO = "You're all caught up."
+export const EMPTY_FEED_SUB = 'Post a moment, plan a hangout, or add a bill above.'
+export const EMPTY_BILLS_SUB = 'Add a bill to start tracking shared expenses.'
+export const EMPTY_MEMORIES_SUB = 'Drop a photo from your next hangout.'
+export const EMPTY_HANGOUTS_SUB = 'Tap + to start planning something.'
+export const ONBOARDING_SUBTITLE = "This helps your crew know it's you."
+export const GAMES_NEED_MEMBERS = 'Need {n} more members to play'
+export const DISCOVER_USE_LOCATION = 'Use my current location'
 
 export const TOAST_HANGOUT_CREATED = 'Plan is up. See who is in.'
 export const TOAST_RSVP_GOING = 'Bet.'

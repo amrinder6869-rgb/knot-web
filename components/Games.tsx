@@ -13,6 +13,7 @@ import {
   GAMES_ERROR_LOAD,
   GAMES_JOIN,
   GAMES_LOADING,
+  GAMES_NEED_MEMBERS,
   GAMES_RECENT,
   GAMES_REJOIN,
   GAMES_STATUS_ACTIVE,
@@ -35,6 +36,7 @@ const GAMES_REGISTRY = [
     name: 'Imposter',
     description: 'Secret roles, shared tasks, and emergency meetings. Vote out the impostor before they win.',
     players: '4\u201310 players',
+    minPlayers: 4,
     mode: 'Async rounds',
     status: 'available' as const,
     kind: 'lobby' as const,
@@ -44,6 +46,7 @@ const GAMES_REGISTRY = [
     name: 'Most Likely To',
     description: 'Vote on who in the group is most likely to do something ridiculous.',
     players: '2+ players',
+    minPlayers: 2,
     mode: 'Async rounds',
     status: 'available' as const,
     kind: 'lobby' as const,
@@ -53,6 +56,7 @@ const GAMES_REGISTRY = [
     name: 'Ludo',
     description: 'Classic board game. Roll the dice, race your pieces home, and block your friends.',
     players: '2\u20134 players',
+    minPlayers: 2,
     mode: 'Turn-based',
     status: 'available' as const,
     kind: 'lobby' as const,
@@ -62,6 +66,7 @@ const GAMES_REGISTRY = [
     name: 'Snake',
     description: 'Classic snake. Chase the highest score and climb your Knot\'s leaderboard.',
     players: 'Solo',
+    minPlayers: 1,
     mode: 'Instant play',
     status: 'available' as const,
     kind: 'instant' as const,
@@ -71,6 +76,7 @@ const GAMES_REGISTRY = [
     name: 'Tetris',
     description: 'Clear lines, chase combos, and top your Knot\'s leaderboard.',
     players: 'Solo',
+    minPlayers: 1,
     mode: 'Instant play',
     status: 'available' as const,
     kind: 'instant' as const,
@@ -223,16 +229,19 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 28 }}>
         {GAMES_REGISTRY.map(g => {
           const isAvailable = g.status === 'available'
+          const minPlayers = g.minPlayers ?? 1
+          const shortBy = g.kind === 'lobby' ? minPlayers - members.length : 0
+          const blocked = isAvailable && shortBy > 0
           return (
             <div key={g.id}
-              onClick={() => isAvailable && createGame(g.id)}
+              onClick={() => isAvailable && !blocked && createGame(g.id)}
               style={{
                 background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 20,
-                cursor: isAvailable ? 'pointer' : 'not-allowed',
+                cursor: isAvailable && !blocked ? 'pointer' : 'not-allowed',
                 opacity: isAvailable ? 1 : 0.5,
                 transition: 'border-color 0.15s',
               }}
-              onMouseEnter={e => { if (isAvailable) e.currentTarget.style.borderColor = 'var(--yellow)' }}
+              onMouseEnter={e => { if (isAvailable && !blocked) e.currentTarget.style.borderColor = 'var(--yellow)' }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                 <div style={{ fontSize: 15, fontWeight: 700 }}>{g.name}</div>
@@ -241,6 +250,11 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
                 )}
               </div>
               <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5, marginBottom: 14 }}>{g.description}</div>
+              {blocked && (
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', marginBottom: 10 }}>
+                  {GAMES_NEED_MEMBERS.replace('{n}', String(shortBy))}
+                </div>
+              )}
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--yellow-soft)', color: 'var(--yellow)' }}>{g.players}</span>
                 <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--olive-soft)', color: 'var(--olive)' }}>{g.mode}</span>

@@ -5,7 +5,6 @@ import { ICON_SIZE } from '@/lib/constants'
 import { isUpcomingHangout } from '@/lib/hangoutPhase'
 import {
   ATTENTION_STRIP_HEADER,
-  EMPTY_TODO,
   TODO_RSVP_ACTION,
   TODO_VOTE_ACTION,
   TODO_SETTLE_ACTION,
@@ -143,11 +142,7 @@ export default function AttentionStrip({
 
   if (!loaded) return null
 
-  if (items.length === 0) {
-    return (
-      <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 16 }}>{EMPTY_TODO}</div>
-    )
-  }
+  if (items.length === 0) return null
 
   return (
     <div style={{ marginBottom: 16 }}>

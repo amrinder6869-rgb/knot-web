@@ -41,6 +41,8 @@ import {
   PLANNER_TOAST_ABANDONED,
   PLANNER_TOAST_RESUMED,
   PLANNER_TODO_HEADER,
+  EMPTY_HANGOUTS,
+  EMPTY_HANGOUTS_SUB,
   BILL_DESC_PLACEHOLDER,
   BILL_AMOUNT_PLACEHOLDER,
 } from '@/lib/copy'
@@ -664,9 +666,8 @@ const loadHangouts = useCallback(async () => {
             ) : (
               <>
                 <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>Planner</div>
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>
-                  {totalPlans > 0 ? `${lockedHangouts.length} locked in` : 'Nothing planned yet'}
-                </div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 6 }}>{EMPTY_HANGOUTS}</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>{EMPTY_HANGOUTS_SUB}</div>
               </>
             )}
           </div>

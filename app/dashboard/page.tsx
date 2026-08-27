@@ -9,7 +9,6 @@ import Feed from '@/components/Feed'
 import VibesCounter from '@/components/VibesCounter'
 import HangoutChatView from '@/components/HangoutChatView'
 import AttentionStrip, { type OpenChatOpts } from '@/components/AttentionStrip'
-import PlansList from '@/components/PlansList'
 import PlanningView from '@/components/PlanningView'
 import BillSplit from '@/components/BillSplit'
 import Members from '@/components/Members'
@@ -684,10 +683,6 @@ export default function Dashboard() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => setActive('members')}
-                  style={{ padding: '8px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Invite
-                </button>
                 {isFounder && (
                   <div style={{ position: 'relative' }}>
                     <button onClick={() => setShowKnotMenu(!showKnotMenu)}
@@ -749,23 +744,13 @@ export default function Dashboard() {
                 </>
               )}
               {active === 'hangout'   && (
-                <>
-                  <PlanningView
-                    knotId={activeKnot?.id}
-                    currentUser={profile}
-                    members={knotMembers}
-                    onNavigateToFeed={() => setActive('feed')}
-                    onOpenChat={openHangoutChat}
-                  />
-                  <div style={{ marginTop: 24 }}>
-                    <PlansList
-                      currentUser={profile ?? (user ? { id: user.id, name: (user.user_metadata?.name as string) || 'You' } : null)}
-                      knots={knots}
-                      activeKnotId={activeKnot?.id}
-                      onOpenChat={openHangoutChat}
-                    />
-                  </div>
-                </>
+                <PlanningView
+                  knotId={activeKnot?.id}
+                  currentUser={profile}
+                  members={knotMembers}
+                  onNavigateToFeed={() => setActive('feed')}
+                  onOpenChat={openHangoutChat}
+                />
               )}
               {active === 'split'     && <BillSplit members={knotMembers} knotId={activeKnot?.id} currentUser={profile} />}
               {active === 'members'   && <Members   members={knotMembers} knotId={activeKnot?.id} />}

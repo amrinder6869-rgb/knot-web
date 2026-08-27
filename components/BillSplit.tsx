@@ -6,7 +6,7 @@ import LedgerView from '@/components/LedgerView'
 import { computeNetBalances, simplifyDebts, Bill, BillSplit as BillSplitRow, Settlement, Member, SimplifiedDebt } from '@/lib/ledger'
 import { createNotification } from '@/lib/notify'
 import { useToast } from '@/components/ToastProvider'
-import { getRandom, LOADING, EMPTY, TOAST_ERROR, TOAST_NUDGED } from '@/lib/copy'
+import { getRandom, LOADING, EMPTY, EMPTY_BILLS_SUB, TOAST_ERROR, TOAST_NUDGED } from '@/lib/copy'
 import { track } from '@/lib/track'
 import { ICON_SIZE } from '@/lib/constants'
 
@@ -520,7 +520,7 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
             <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text2)' }}>
               <div style={{ fontWeight: 600, marginBottom: 6 }}>{bills.length === 0 ? EMPTY.BILLS : 'No results'}</div>
               <div style={{ fontSize: 13, color: 'var(--text3)' }}>
-                {bills.length === 0 ? 'Bills from hangouts and standalone expenses show up here.' : 'Try a different search or category.'}
+                {bills.length === 0 ? EMPTY_BILLS_SUB : 'Try a different search or category.'}
               </div>
             </div>
           ) : (

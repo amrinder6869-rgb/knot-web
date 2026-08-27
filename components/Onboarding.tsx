@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { supabase, getSignedUrl } from '@/lib/supabase'
 import { track } from '@/lib/track'
 import { DIETARY_OPTIONS } from '@/lib/constants'
+import { ONBOARDING_SUBTITLE } from '@/lib/copy'
 
 const USERNAME_RE = /^[A-Za-z0-9_]{3,20}$/
 
@@ -210,7 +211,7 @@ export default function Onboarding({ profile, onComplete }: { profile: any, onCo
         {screen === 1 ? (
           <>
             <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)', marginBottom: 6 }}>Set up your profile</div>
-            <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 28 }}>Just the basics — you can change any of this later.</div>
+            <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 28 }}>{ONBOARDING_SUBTITLE}</div>
 
             {error && (
               <div className="error-banner" style={{ marginBottom: 16 }}>{error}</div>

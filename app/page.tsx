@@ -3,11 +3,13 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { ICON_SIZE } from '@/lib/constants'
 
 export default function Home() {
   const [mode, setMode] = useState<'landing' | 'signin' | 'signup' | 'forgot'>('landing')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
@@ -152,8 +154,15 @@ export default function Home() {
           )}
           <input style={inputStyle} type="email" placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)} />
           {mode !== 'forgot' && (
-            <input style={inputStyle} type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && (mode === 'signup' ? handleSignUp() : handleSignIn())} />
+            <div style={{ position: 'relative' }}>
+              <input style={{ ...inputStyle, paddingRight: 44 }} type={showPassword ? 'text' : 'password'} placeholder="Password" value={password} onChange={e => setPassword(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && (mode === 'signup' ? handleSignUp() : handleSignIn())} />
+              <button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'}
+                onClick={() => setShowPassword(v => !v)}
+                style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>
+                <i className={`ti ${showPassword ? 'ti-eye-off' : 'ti-eye'}`} style={{ fontSize: ICON_SIZE.inline, color: 'var(--text3)' }} />
+              </button>
+            </div>
           )}
 
           {error && <p style={{ fontSize: 13, color: 'var(--danger)', padding: '8px 12px', background: 'var(--danger-soft)', borderRadius: 6 }}>{error}</p>}

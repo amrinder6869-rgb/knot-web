@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase, getSignedUrl } from '@/lib/supabase'
 import { compressImage } from '@/lib/compressImage'
-import { getRandom, LOADING, EMPTY } from '@/lib/copy'
+import { getRandom, LOADING, EMPTY, EMPTY_MEMORIES_SUB } from '@/lib/copy'
 
 const MAX_FILE_SIZE = 15 * 1024 * 1024 // safety net after client-side compression
 const MAX_FILES     = 20
@@ -629,7 +629,7 @@ export default function Memories({ members: _members, knotId }: { members: any[]
       {photos.length === 0 && (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text2)' }}>
           <div style={{ fontWeight: 600, marginBottom: 6 }}>{EMPTY.MEMORIES}</div>
-          <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 16 }}>Add your first photo from a night out.</div>
+          <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 16 }}>{EMPTY_MEMORIES_SUB}</div>
           <button onClick={() => fileInputRef.current?.click()}
             style={{ padding: '10px 20px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
             Add photos

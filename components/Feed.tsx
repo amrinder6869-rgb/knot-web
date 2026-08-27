@@ -17,7 +17,7 @@ import {
   toggleReactionLocal,
   type ReactionCount,
 } from '@/lib/reactions'
-import { getRandom, LOADING, EMPTY } from '@/lib/copy'
+import { getRandom, LOADING, EMPTY_FEED, EMPTY_FEED_SUB } from '@/lib/copy'
 import MemberAvatar from '@/components/MemberAvatar'
 import OrientCard from '@/components/OrientCard'
 
@@ -568,8 +568,8 @@ export default function Feed({ members, knotName, knotEmoji, knotId, currentUser
 
       {!loading && posts.length === 0 && (
         <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>{EMPTY.FEED}</div>
-          <div style={{ fontSize: 13, color: 'var(--text3)' }}>Post a moment, plan a hangout, or add a bill above.</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>{EMPTY_FEED}</div>
+          <div style={{ fontSize: 13, color: 'var(--text3)' }}>{EMPTY_FEED_SUB}</div>
         </div>
       )}
 

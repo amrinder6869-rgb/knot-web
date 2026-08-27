@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/ToastProvider'
-import { getRandom, LOADING, EMPTY } from '@/lib/copy'
+import { getRandom, LOADING, EMPTY, DISCOVER_USE_LOCATION } from '@/lib/copy'
 import { ICON_SIZE } from '@/lib/constants'
 
 // icon holds a Tabler ti-* class suffix, not raw glyph content — see AGENTS.md icon audit notes.
@@ -74,48 +74,66 @@ export default function Discover({ onVenueSelect, currentUser }: { members: any[
   // Keep locationRef in sync with location state
   useEffect(() => { locationRef.current = location }, [location])
 
-  // Silently attempt GPS on mount for autocomplete bias
+  // Default location from profile city — no browser geolocation on mount.
   useEffect(() => {
-    if (!location && typeof navigator !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async pos => {
-          const lat = pos.coords.latitude
-          const lng = pos.coords.longitude
-          let name = 'Your location'
-          try {
-            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
-            const geo = await res.json()
-            const addr = geo.address
-            name = addr.city || addr.town || addr.village || addr.county || 'Your location'
-          } catch {}
-          setLocation({ lat, lng, name })
-        },
-        () => {} // silently ignore if denied
-      )
-    }
-  }, [location])
+    if (location || !currentUser?.resident_city?.trim()) return
+    const city = currentUser.resident_city.trim()
+    ;(async () => {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`)
+        const data = await res.json()
+        if (data?.[0]) {
+          setLocation({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), name: city })
+        } else {
+          setLocation({ lat: 43.5890, lng: -79.6441, name: city })
+        }
+      } catch {
+        setLocation({ lat: 43.5890, lng: -79.6441, name: city })
+      }
+    })()
+  }, [currentUser?.resident_city, location])
+
+  async function geocodeCity(city: string): Promise<{ lat: number; lng: number; name: string } | null> {
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`)
+      const data = await res.json()
+      if (data?.[0]) {
+        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), name: city }
+      }
+    } catch { /* ignore */ }
+    return null
+  }
 
   async function getLocation(): Promise<{lat:number,lng:number,name:string}|null> {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setError('Location is not available in this browser.')
+      return null
+    }
     setLocating(true)
     return new Promise(resolve => {
       navigator.geolocation.getCurrentPosition(
         async pos => {
           const lat = pos.coords.latitude
           const lng = pos.coords.longitude
-          // Reverse geocode for city name
           let name = 'Your location'
           try {
             const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
             const geo = await res.json()
             const addr = geo.address
             name = addr.city || addr.town || addr.village || addr.county || 'Your location'
-          } catch {}
+          } catch { /* ignore */ }
           const loc = { lat, lng, name }
           setLocation(loc); setLocating(false); resolve(loc)
         },
-        () => {
-          const loc = { lat: 43.5890, lng: -79.6441, name: 'Mississauga' }
-          setLocation(loc); setLocating(false); resolve(loc)
+        async () => {
+          setLocating(false)
+          const city = currentUser?.resident_city?.trim()
+          if (city) {
+            const loc = await geocodeCity(city)
+            if (loc) { setLocation(loc); resolve(loc); return }
+          }
+          setError('Could not get your location. Search for a city above.')
+          resolve(null)
         }
       )
     })
@@ -163,8 +181,11 @@ export default function Discover({ onVenueSelect, currentUser }: { members: any[
   async function searchVenues() {
     if (!category) { setError('Pick a category first'); return }
     let loc = location
-    if (!loc) { loc = await getLocation() }
-    if (!loc) { setError('Could not get location'); return }
+    if (!loc) {
+      const city = currentUser?.resident_city?.trim()
+      if (city) loc = await geocodeCity(city)
+    }
+    if (!loc) { setError('Pick a location or use your current location.'); return }
     setLoading(true); setError(''); setVenues([]); setSearched(true)
 
     const { data: { session } } = await supabase.auth.getSession()
@@ -332,7 +353,7 @@ export default function Discover({ onVenueSelect, currentUser }: { members: any[
           />
           <button onClick={() => getLocation()} disabled={locating}
             style={{ padding: '5px 12px', background: locating ? 'var(--bg3)' : 'var(--yellow)', border: 'none', borderRadius: 8, color: locating ? 'var(--text3)' : '#111', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0 }}>
-            {locating ? 'Detecting...' : 'Use GPS'}
+            {locating ? 'Detecting...' : DISCOVER_USE_LOCATION}
           </button>
         </div>
         {location && (
