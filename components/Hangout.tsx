@@ -3,9 +3,10 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import HangoutCard from '@/components/HangoutCard'
 import Composer from '@/components/Composer'
+import type { OpenChatOpts } from '@/components/AttentionStrip'
 import { loadHangoutBundle } from '@/lib/hangoutBundle'
 
-export default function Hangout({ members, knotId, currentUser, onOpenChat }: { members: any[], knotId?: string, currentUser?: any, onOpenChat: (hangoutId: string) => void }) {
+export default function Hangout({ members, knotId, currentUser, onOpenChat }: { members: any[], knotId?: string, currentUser?: any, onOpenChat: (opts: OpenChatOpts | string) => void }) {
   const [posts, setPosts]     = useState<any[]>([])
   const [bundle, setBundle]   = useState<any>(null)
   const [loading, setLoading] = useState(true)

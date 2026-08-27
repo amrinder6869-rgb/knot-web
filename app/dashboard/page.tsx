@@ -10,6 +10,7 @@ import VibesCounter from '@/components/VibesCounter'
 import HangoutChatView from '@/components/HangoutChatView'
 import AttentionStrip, { type OpenChatOpts } from '@/components/AttentionStrip'
 import PlansList from '@/components/PlansList'
+import PlanningView from '@/components/PlanningView'
 import BillSplit from '@/components/BillSplit'
 import Members from '@/components/Members'
 import Memories from '@/components/Memories'
@@ -748,12 +749,22 @@ export default function Dashboard() {
                 </>
               )}
               {active === 'hangout'   && (
-                <PlansList
-                  currentUser={profile ?? (user ? { id: user.id, name: (user.user_metadata?.name as string) || 'You' } : null)}
-                  knots={knots}
-                  activeKnotId={activeKnot?.id}
-                  onOpenChat={openHangoutChat}
-                />
+                <>
+                  <PlanningView
+                    knotId={activeKnot?.id}
+                    currentUser={profile}
+                    members={knotMembers}
+                    onNavigateToFeed={() => setActive('feed')}
+                  />
+                  <div style={{ marginTop: 24 }}>
+                    <PlansList
+                      currentUser={profile ?? (user ? { id: user.id, name: (user.user_metadata?.name as string) || 'You' } : null)}
+                      knots={knots}
+                      activeKnotId={activeKnot?.id}
+                      onOpenChat={openHangoutChat}
+                    />
+                  </div>
+                </>
               )}
               {active === 'split'     && <BillSplit members={knotMembers} knotId={activeKnot?.id} currentUser={profile} />}
               {active === 'members'   && <Members   members={knotMembers} knotId={activeKnot?.id} />}
@@ -1309,6 +1320,7 @@ export default function Dashboard() {
               currentUser={profile ?? { id: user!.id, name: (user!.user_metadata?.name as string) || 'You' }}
               scrollTarget={activeChat.scrollTarget ?? null}
               scrollToBottom={activeChat.scrollToBottom ?? true}
+              autoJoinCall={activeChat.autoJoinCall ?? false}
               onClose={() => setActiveChat(null)}
             />
           </div>

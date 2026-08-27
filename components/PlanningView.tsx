@@ -167,12 +167,12 @@ export default function PlanningView({ knotId, currentUser, members, onNavigateT
   // already have a post_id by the time anyone can see them — the post_id
   // guard is what actually keeps them out of the Planner, not planning_status.
   const planningHangouts = useMemo(() => hangouts
-    .filter(h => h.planning_status === 'planning' && !h.post_id)
-    .sort((a, b) => new Date(b.last_planning_activity_at).getTime() - new Date(a.last_planning_activity_at).getTime()),
+    .filter(h => h.planning_status === 'planning')
+    .sort((a, b) => new Date(b.last_planning_activity_at || b.created_at).getTime() - new Date(a.last_planning_activity_at || a.created_at).getTime()),
     [hangouts])
   const draftHangouts = useMemo(() => hangouts
-    .filter(h => h.planning_status === 'draft' && !h.post_id)
-    .sort((a, b) => new Date(b.last_planning_activity_at).getTime() - new Date(a.last_planning_activity_at).getTime()),
+    .filter(h => h.planning_status === 'draft')
+    .sort((a, b) => new Date(b.last_planning_activity_at || b.created_at).getTime() - new Date(a.last_planning_activity_at || a.created_at).getTime()),
     [hangouts])
   const lockedHangouts = useMemo(() => hangouts
     .filter(h => h.planning_status === 'locked')

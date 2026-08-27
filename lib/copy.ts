@@ -178,6 +178,15 @@ export const CONFIRM_LEAVE_KNOT = 'Leave this circle? You will need a new invite
 export const CONFIRM_DELETE_MOMENT = 'Delete this? It is gone for everyone.'
 export const CONFIRM_CANCEL_HANGOUT = 'Cancel this plan? Everyone will be notified. This cannot be undone.'
 
+export const MENU_EDIT_HANGOUT = 'Edit hangout'
+export const MENU_CANCEL_HANGOUT = 'Cancel hangout'
+export const MENU_SHARE_INVITE = 'Share invite link'
+export const MENU_JOIN_CALL = 'Join call'
+export const MENU_JOIN_CALL_STARTING = 'Starting call...'
+export const TOAST_INVITE_COPIED = 'Invite link copied.'
+export const TOAST_INVITE_COPY_FAILED = 'Could not copy the link.'
+export const ERROR_SIGN_IN_FOR_CALL = 'Sign in to join the call.'
+
 export const VIBES_FIRST_HANGOUT = 'We outside.'
 export const VIBES_ATTENDING = 'Showing up counts.'
 export const VIBES_SETTLED_BILL = 'Math survived.'

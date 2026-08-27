@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import AmongUsLite from '@/components/AmongUsLite'
+import MostLikelyTo from '@/components/MostLikelyTo'
+import Ludo from '@/components/Ludo'
 import Snake from '@/components/Snake'
 import Tetris from '@/components/Tetris'
 
@@ -14,6 +16,24 @@ const GAMES_REGISTRY = [
     description: 'Secret roles, shared tasks, and emergency meetings. Vote out the impostor before they win.',
     players: '4\u201310 players',
     mode: 'Async rounds',
+    status: 'available' as const,
+    kind: 'lobby' as const,
+  },
+  {
+    id: 'most_likely_to',
+    name: 'Most Likely To',
+    description: 'Vote on who in the group is most likely to do something ridiculous.',
+    players: '2+ players',
+    mode: 'Async rounds',
+    status: 'available' as const,
+    kind: 'lobby' as const,
+  },
+  {
+    id: 'ludo',
+    name: 'Ludo',
+    description: 'Classic board game. Roll the dice, race your pieces home, and block your friends.',
+    players: '2\u20134 players',
+    mode: 'Turn-based',
     status: 'available' as const,
     kind: 'lobby' as const,
   },
@@ -135,18 +155,39 @@ export default function Games({ members, knotId, currentUser }: { members: any[]
     <Tetris knotId={knotId} currentUser={currentUser} onBack={() => setInstantGame(null)} />
   )
 
-  if (activeGame?.id) return (
-    <div>
-      <AmongUsLite
-        game={activeGame}
-        members={members}
-        currentUser={currentUser}
-        knotId={knotId}
-        onEnd={() => { setActiveGame(null); loadGames() }}
-        onRefreshGame={refreshActiveGame}
-      />
-    </div>
-  )
+  if (activeGame?.id) {
+    if (activeGame.game_type === 'most_likely_to') {
+      return (
+        <MostLikelyTo
+          game={activeGame}
+          members={members}
+          currentUser={currentUser}
+          onEnd={() => { setActiveGame(null); loadGames() }}
+        />
+      )
+    }
+    if (activeGame.game_type === 'ludo') {
+      return (
+        <Ludo
+          game={activeGame}
+          currentUser={currentUser}
+          onEnd={() => { setActiveGame(null); loadGames() }}
+        />
+      )
+    }
+    return (
+      <div>
+        <AmongUsLite
+          game={activeGame}
+          members={members}
+          currentUser={currentUser}
+          knotId={knotId}
+          onEnd={() => { setActiveGame(null); loadGames() }}
+          onRefreshGame={refreshActiveGame}
+        />
+      </div>
+    )
+  }
 
   return (
     <div style={{ maxWidth: 700 }}>

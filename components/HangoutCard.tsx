@@ -5,8 +5,9 @@ import { Skeleton } from '@/components/Skeleton'
 import { useToast } from '@/components/ToastProvider'
 import MemberAvatar from '@/components/MemberAvatar'
 import { ACTIVITY_ICONS, ICON_SIZE } from '@/lib/constants'
-import { CARD_STATE_COPY, CHIP_WHEN, CHIP_WHEN_DATE, CHIP_WHERE, CONFIRM_CANCEL_HANGOUT, PLAN_UNTITLED } from '@/lib/copy'
+import { CARD_STATE_COPY, CHIP_WHEN, CHIP_WHEN_DATE, CHIP_WHERE, CONFIRM_CANCEL_HANGOUT, MENU_CANCEL_HANGOUT, MENU_EDIT_HANGOUT, MENU_JOIN_CALL, MENU_SHARE_INVITE, PLAN_UNTITLED, TOAST_INVITE_COPIED, TOAST_INVITE_COPY_FAILED } from '@/lib/copy'
 import { cardStateKey } from '@/lib/hangoutPhase'
+import type { OpenChatOpts } from '@/components/AttentionStrip'
 
 function timeAgo(date: string) {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
@@ -46,7 +47,7 @@ type HangoutCardProps = {
   knotId: string
   members: any[]
   onRefresh: () => void
-  onOpenChat: (hangoutId: string) => void
+  onOpenChat: (opts: OpenChatOpts) => void
 }
 
 export default function HangoutCard({ post, data, currentUser, onRefresh, onOpenChat }: HangoutCardProps) {
@@ -97,8 +98,8 @@ export default function HangoutCard({ post, data, currentUser, onRefresh, onOpen
   const title = hangout.title || hangout.venue_name || PLAN_UNTITLED
   const timestamp = post?.created_at || hangout.created_at
 
-  function openChat() {
-    onOpenChat(hangout.id)
+  function openChat(opts?: Partial<OpenChatOpts>) {
+    onOpenChat({ hangoutId: hangout.id, scrollToBottom: true, ...opts })
   }
 
   async function shareInvite(e: React.MouseEvent) {
@@ -110,9 +111,9 @@ export default function HangoutCard({ post, data, currentUser, onRefresh, onOpen
       : `${origin}/dashboard`
     try {
       await navigator.clipboard.writeText(link)
-      toast.success('Invite link copied.')
+      toast.success(TOAST_INVITE_COPIED)
     } catch {
-      toast.error('Could not copy the link.')
+      toast.error(TOAST_INVITE_COPY_FAILED)
     }
   }
 
@@ -137,8 +138,8 @@ export default function HangoutCard({ post, data, currentUser, onRefresh, onOpen
     <div
       role="button"
       tabIndex={0}
-      onClick={() => onOpenChat(hangout.id)}
-      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenChat(hangout.id) } }}
+      onClick={() => openChat()}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openChat() } }}
       style={{ background: '#fff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', padding: 12, marginBottom: 10, cursor: 'pointer' }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
@@ -167,18 +168,24 @@ export default function HangoutCard({ post, data, currentUser, onRefresh, onOpen
               {isCreator && (
                 <button type="button" onClick={e => { e.stopPropagation(); setMenuOpen(false); openChat() }}
                   style={{ width: '100%', textAlign: 'left', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 8, color: 'var(--text)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Edit hangout
+                  {MENU_EDIT_HANGOUT}
                 </button>
               )}
               {isCreator && hangout.status !== 'ended' && hangout.status !== 'cancelled' && (
                 <button type="button" onClick={cancelHangout} disabled={cancelling}
                   style={{ width: '100%', textAlign: 'left', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 8, color: 'var(--danger)', fontSize: 13, cursor: cancelling ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
-                  {cancelling ? 'Cancelling…' : 'Cancel hangout'}
+                  {cancelling ? 'Cancelling…' : MENU_CANCEL_HANGOUT}
+                </button>
+              )}
+              {(stateKey === 'confirmed' || stateKey === 'live') && (
+                <button type="button" onClick={e => { e.stopPropagation(); setMenuOpen(false); openChat({ autoJoinCall: true }) }}
+                  style={{ width: '100%', textAlign: 'left', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 8, color: 'var(--text)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  {MENU_JOIN_CALL}
                 </button>
               )}
               <button type="button" onClick={shareInvite}
                 style={{ width: '100%', textAlign: 'left', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 8, color: 'var(--text)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-                Share invite link
+                {MENU_SHARE_INVITE}
               </button>
             </div>
           )}

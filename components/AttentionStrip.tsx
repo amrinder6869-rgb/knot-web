@@ -15,6 +15,7 @@ export type OpenChatOpts = {
   hangoutId: string
   scrollToBottom?: boolean
   scrollTarget?: 'poll' | 'bill' | null
+  autoJoinCall?: boolean
 }
 
 type AttentionItem = {

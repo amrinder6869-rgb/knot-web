@@ -28,6 +28,14 @@ import {
   AGENT_TITLE_PROMPT,
   CONFIRM_CANCEL_HANGOUT,
   STATE_LIVE,
+  MENU_EDIT_HANGOUT,
+  MENU_CANCEL_HANGOUT,
+  MENU_SHARE_INVITE,
+  MENU_JOIN_CALL,
+  MENU_JOIN_CALL_STARTING,
+  TOAST_INVITE_COPIED,
+  TOAST_INVITE_COPY_FAILED,
+  ERROR_SIGN_IN_FOR_CALL,
 } from '@/lib/copy'
 
 function KnotMark({ size = 20 }: { size?: number }) {
@@ -121,6 +129,7 @@ export default function HangoutChatView({
   onClose,
   scrollToBottom = true,
   scrollTarget = null,
+  autoJoinCall = false,
   onChanged,
 }: {
   hangoutId: string
@@ -129,6 +138,7 @@ export default function HangoutChatView({
   onClose: () => void
   scrollToBottom?: boolean
   scrollTarget?: 'poll' | 'bill' | null
+  autoJoinCall?: boolean
   onChanged?: () => void
 }) {
   const agentId = process.env.NEXT_PUBLIC_KNOT_AGENT_USER_ID || ''
@@ -340,6 +350,18 @@ export default function HangoutChatView({
     }
   }, [loading, loadingMessages, scrollTarget, poll?.id, bills.length])
 
+  const autoJoinStartedRef = useRef(false)
+  useEffect(() => {
+    autoJoinStartedRef.current = false
+  }, [hangoutId])
+
+  useEffect(() => {
+    if (!autoJoinCall || loading || !hangout || autoJoinStartedRef.current) return
+    if (phase !== 'confirmed' && phase !== 'live') return
+    autoJoinStartedRef.current = true
+    ensureAndJoinCall()
+  }, [autoJoinCall, loading, hangout, phase])
+
   useEffect(() => {
     if (phase !== 'live' || !agentId || loadingMessages || livePromptedRef.current) return
     const hasPhoto = messages.some(m => m.author_id === agentId && m.content === LIVE_PHOTO_PROMPT)
@@ -539,9 +561,9 @@ export default function HangoutChatView({
     const link = hangout.standalone_token ? `${origin}/event/${hangout.standalone_token}` : `${origin}/dashboard`
     try {
       await navigator.clipboard.writeText(link)
-      toast.success('Invite link copied.')
+      toast.success(TOAST_INVITE_COPIED)
     } catch {
-      toast.error('Could not copy the link.')
+      toast.error(TOAST_INVITE_COPY_FAILED)
     }
   }
 
@@ -551,7 +573,7 @@ export default function HangoutChatView({
     setActionError('')
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) { setActionError('Sign in to join the call.'); setJoiningCall(false); return }
+      if (!session) { setActionError(ERROR_SIGN_IN_FOR_CALL); setJoiningCall(false); return }
       const res = await fetch('/api/daily/create-room', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
@@ -642,20 +664,33 @@ export default function HangoutChatView({
     setMomentPosting(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setMomentPosting(false); return }
+
+    let chatPhotoPath: string | null = null
+    if (momentPhoto) {
+      const compressed = await compressImage(momentPhoto)
+      const ext = compressed.name.split('.').pop()
+      chatPhotoPath = `threads/${hangoutId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
+      const { error: uploadError } = await supabase.storage.from('knot-photos').upload(chatPhotoPath, compressed)
+      if (uploadError) { setMomentPosting(false); return }
+    }
+
     const { data: newPost, error: postError } = await supabase.from('posts').insert({
       knot_id: knotId, author_id: user.id, content: momentText.trim() || null, post_type: 'moment', hangout_id: hangoutId,
     }).select().single()
-    if (!postError && newPost && momentPhoto) {
-      const compressed = await compressImage(momentPhoto)
-      const ext = compressed.name.split('.').pop()
-      const storagePath = `${knotId}/${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
-      const { error: uploadError } = await supabase.storage.from('knot-photos').upload(storagePath, compressed)
-      if (!uploadError) {
-        await supabase.from('photos').insert({
-          knot_id: knotId, post_id: newPost.id, hangout_id: hangoutId, uploaded_by: user.id,
-          storage_path: storagePath, file_name: compressed.name, file_size: compressed.size, media_type: 'image',
-        })
-      }
+    if (!postError && newPost && chatPhotoPath) {
+      await supabase.from('photos').insert({
+        knot_id: knotId, post_id: newPost.id, hangout_id: hangoutId, uploaded_by: user.id,
+        storage_path: chatPhotoPath, file_name: momentPhoto!.name, file_size: momentPhoto!.size, media_type: 'image',
+      })
+    }
+    if (chatPhotoPath) {
+      await supabase.from('hangout_messages').insert({
+        hangout_id: hangoutId,
+        author_id: user.id,
+        content: momentText.trim() || null,
+        photo_path: chatPhotoPath,
+      })
+      await loadMessages()
     }
     setMomentPosting(false)
     setMomentText('')
@@ -809,18 +844,24 @@ export default function HangoutChatView({
               {isCreator && (
                 <button type="button" onClick={() => { setMenuOpen(false); setEditTitle(hangout.title || ''); setEditScheduledFor(hangout.scheduled_for ? new Date(hangout.scheduled_for) : null); setEditVenueName(hangout.venue_name || ''); setEditVenueAddress(hangout.venue_address || ''); setSheet('edit') }}
                   style={{ width: '100%', textAlign: 'left', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 8, color: 'var(--text)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Edit hangout
+                  {MENU_EDIT_HANGOUT}
                 </button>
               )}
               {isCreator && phase !== 'ended' && phase !== 'cancelled' && (
                 <button type="button" onClick={cancelHangout}
                   style={{ width: '100%', textAlign: 'left', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 8, color: 'var(--danger)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Cancel hangout
+                  {MENU_CANCEL_HANGOUT}
+                </button>
+              )}
+              {(phase === 'confirmed' || phase === 'live') && (
+                <button type="button" onClick={() => { setMenuOpen(false); ensureAndJoinCall() }} disabled={joiningCall}
+                  style={{ width: '100%', textAlign: 'left', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 8, color: 'var(--text)', fontSize: 13, cursor: joiningCall ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                  {joiningCall ? MENU_JOIN_CALL_STARTING : MENU_JOIN_CALL}
                 </button>
               )}
               <button type="button" onClick={shareInvite}
                 style={{ width: '100%', textAlign: 'left', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 8, color: 'var(--text)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-                Share invite link
+                {MENU_SHARE_INVITE}
               </button>
             </div>
           )}
@@ -879,7 +920,7 @@ export default function HangoutChatView({
             {(phase === 'confirmed' || phase === 'live') && (
               <button type="button" onClick={ensureAndJoinCall} disabled={joiningCall}
                 style={{ padding: '8px 14px', marginLeft: 8, background: 'var(--sage-soft)', border: 'none', borderRadius: 8, color: 'var(--sage)', fontSize: 13, fontWeight: 700, cursor: joiningCall ? 'wait' : 'pointer', fontFamily: 'inherit', marginBottom: 10 }}>
-                {joiningCall ? 'Starting call...' : 'Join call'}
+                {joiningCall ? MENU_JOIN_CALL_STARTING : MENU_JOIN_CALL}
               </button>
             )}
             {pendingRevenue && (

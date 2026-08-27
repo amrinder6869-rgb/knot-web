@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase, getSignedUrl } from '@/lib/supabase'
 import HangoutCard, { HangoutCardSkeleton } from '@/components/HangoutCard'
+import type { OpenChatOpts } from '@/components/AttentionStrip'
 import Composer from '@/components/Composer'
 import { Skeleton } from '@/components/Skeleton'
 import { loadHangoutBundle } from '@/lib/hangoutBundle'
@@ -94,7 +95,7 @@ function timeAgo(date: string) {
 }
 
 export default function Feed({ members, knotName, knotEmoji, knotId, currentUser, onOpenBills, onOpenChat }: {
-  members: any[], knotName: string, knotEmoji?: string, knotId?: string, currentUser?: any, onOpenBills?: () => void, onOpenChat: (hangoutId: string) => void
+  members: any[], knotName: string, knotEmoji?: string, knotId?: string, currentUser?: any, onOpenBills?: () => void, onOpenChat: (opts: OpenChatOpts | string) => void
 }) {
   const [posts, setPosts]     = useState<Post[]>([])
   const [showOrientCard, setShowOrientCard] = useState(false)
