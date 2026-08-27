@@ -36,9 +36,12 @@ type Post = {
   author_avatar_url: string | null
   author_username: string | null
   hangout_id: string | null
+  bill_id: string | null
   profiles: any
   created_at: string
 }
+
+type BillCardInfo = { description: string; total_amount: number; splitCount: number }
 
 const CARD_STYLE: React.CSSProperties = {
   background: '#ffffff',
@@ -99,6 +102,7 @@ export default function Feed({ members, knotName, knotEmoji, knotId, currentUser
   const [billBalance, setBillBalance] = useState<number | null>(null)
   const [momentComments, setMomentComments] = useState<Map<string, any[]>>(new Map())
   const [momentPhotos, setMomentPhotos] = useState<Map<string, MomentPhoto>>(new Map())
+  const [billsByPostId, setBillsByPostId] = useState<Map<string, BillCardInfo>>(new Map())
   const [loading, setLoading] = useState(true)
   const [editingPostId, setEditingPostId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
@@ -205,11 +209,37 @@ export default function Feed({ members, knotName, knotEmoji, knotId, currentUser
         created_at: p.created_at,
         type:       p.post_type || 'moment',
         hangout_id: p.hangout_id || null,
+        bill_id:    p.bill_id || null,
         profiles:   p.profiles,
         reactions:  (reactionsMap?.[p.id] || []),
       }
     })
     setPosts(mapped)
+
+    // Batch-load bill details for posts that carry a structured bill_id —
+    // older bill posts predate that column and fall back to their plain text.
+    const billIds = mapped.filter(p => p.bill_id).map(p => p.bill_id!) as string[]
+    if (billIds.length > 0) {
+      const { data: billsData } = await supabase
+        .from('bills')
+        .select('id, description, total_amount, bill_splits(id)')
+        .in('id', billIds)
+      const billMap = new Map<string, BillCardInfo>()
+      for (const post of mapped) {
+        if (!post.bill_id) continue
+        const b = (billsData || []).find((x: any) => x.id === post.bill_id)
+        if (b) {
+          billMap.set(post.id, {
+            description: b.description,
+            total_amount: parseFloat(b.total_amount),
+            splitCount: (b.bill_splits || []).length,
+          })
+        }
+      }
+      setBillsByPostId(billMap)
+    } else {
+      setBillsByPostId(new Map())
+    }
 
     // Batch-load all hangout data in one round trip instead of per-card.
     // 'poll' posts route to HangoutCard the same as 'hangout' posts — a
@@ -562,6 +592,38 @@ export default function Feed({ members, knotName, knotEmoji, knotId, currentUser
         }
 
         if (p.type === 'bill') {
+          const billInfo = p.bill_id ? billsByPostId.get(p.id) : undefined
+
+          if (billInfo) {
+            return (
+              <div key={p.id} style={{ background: '#ffffff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: 12, marginBottom: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  {p.author_username ? (
+                    <a href={`/${p.author_username}`} style={{ flexShrink: 0 }}>
+                      <MemberAvatar name={p.author} avatarUrl={p.author_avatar_url} size={26} color={p.color} textColor={p.text} />
+                    </a>
+                  ) : (
+                    <MemberAvatar name={p.author} avatarUrl={p.author_avatar_url} size={26} color={p.color} textColor={p.text} />
+                  )}
+                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>{p.author} · {p.time}</div>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>{billInfo.description}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>${billInfo.total_amount.toFixed(2)}</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>split {billInfo.splitCount} ways</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <ReactionBar reactions={p.reactions || []} onToggle={(emoji) => toggleReaction(p.id, emoji)} />
+                  <button onClick={onOpenBills}
+                    style={{ background: 'none', border: 'none', padding: 0, color: 'var(--yellow)', fontSize: 12, fontWeight: 700, cursor: onOpenBills ? 'pointer' : 'default', fontFamily: 'inherit' }}>
+                    View bill
+                  </button>
+                </div>
+                <PostComments postId={p.id} currentUser={currentUser} initialComments={momentComments.get(p.id) || []} />
+              </div>
+            )
+          }
+
+          // Bill posts predating the bill_id column (or a deleted bill) fall
+          // back to the plain text row — there's no structured data to build a card from.
           return (
             <div key={p.id} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', ...CARD_STYLE }}>
               {p.author_username ? (

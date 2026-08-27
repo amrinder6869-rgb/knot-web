@@ -5,7 +5,7 @@ import { Skeleton } from '@/components/Skeleton'
 import { useToast } from '@/components/ToastProvider'
 import MemberAvatar from '@/components/MemberAvatar'
 import { ACTIVITY_ICONS, ICON_SIZE } from '@/lib/constants'
-import { CARD_STATE_COPY, CHIP_WHEN, CHIP_WHERE, CONFIRM_CANCEL_HANGOUT, PLAN_UNTITLED } from '@/lib/copy'
+import { CARD_STATE_COPY, CHIP_WHEN, CHIP_WHEN_DATE, CHIP_WHERE, CONFIRM_CANCEL_HANGOUT, PLAN_UNTITLED } from '@/lib/copy'
 import { cardStateKey } from '@/lib/hangoutPhase'
 
 function timeAgo(date: string) {
@@ -90,7 +90,7 @@ export default function HangoutCard({ post, data, currentUser, onRefresh, onOpen
   const dateOpen = !scheduled
   const timeOpen = !scheduled
   const venueOpen = !hangout.venue_name
-  const dateLabel = scheduled ? scheduled.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : CHIP_WHEN
+  const dateLabel = scheduled ? scheduled.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : CHIP_WHEN_DATE
   const timeLabel = scheduled ? scheduled.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : CHIP_WHEN
   const venueLabel = hangout.venue_name || CHIP_WHERE
   const iconClass = activityIcon(hangout)
@@ -187,7 +187,11 @@ export default function HangoutCard({ post, data, currentUser, onRefresh, onOpen
 
       <div style={{ marginBottom: 8 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{stateCopy.title}</div>
-        <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 1 }}>{stateCopy.subtitle}</div>
+        {/* Only once the plan has a real title — an untitled plan has nothing
+            yet for a subtitle like "RSVP so the plan can lock" to refer to. */}
+        {hangout.title && hangout.title !== PLAN_UNTITLED && (
+          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 1 }}>{stateCopy.subtitle}</div>
+        )}
       </div>
 
       <div

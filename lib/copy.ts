@@ -202,6 +202,11 @@ export const CHIP_WHERE = 'Where?'
 export const CHIP_WHEN = 'What time?'
 export const CHIP_INFERRED_HINT = 'Tap to confirm'
 
+// Metadata strip date field — distinct from CHIP_WHEN, which is the time
+// field's own open label. The two were sharing CHIP_WHEN, so an empty date
+// showed "What time?" instead of a date-specific prompt.
+export const CHIP_WHEN_DATE = 'When?'
+
 export const NOTIF_MEMBER_JOINED = 'pulled up.' // prepend member name
 export const NOTIF_FRESH_DROP = 'Fresh drop.'
 export const NOTIF_HANGOUT_STARTING = 'It is go time.'
