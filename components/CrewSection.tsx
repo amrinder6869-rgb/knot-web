@@ -130,7 +130,7 @@ export function CrewSection({ hangoutId, knotId, currentUserId, isPlanner, isLiv
     }
   }
 
-  async function onRoleAssigned(memberId: string, role: HangoutRoleType, memberName: string) {
+  async function onRoleAssigned(memberId: string, role: HangoutRoleType) {
     // Send notification to the assigned member
     if (memberId === currentUserId) return
     try {
@@ -152,27 +152,27 @@ export function CrewSection({ hangoutId, knotId, currentUserId, isPlanner, isLiv
 
   return (
     <>
-      <div style={{ marginTop: 16, marginBottom: 16 }}>
+      <div style={{ marginTop: 10, marginBottom: 10 }}>
         <div style={{
-          fontSize: 11, fontWeight: 700, color: subColor,
-          letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10
+          fontSize: 10, fontWeight: 700, color: subColor,
+          letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6
         }}>
           Crew
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {crew.map((member: any) => (
             <div key={member.user_id}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <MemberAvatar name={member.name} avatarUrl={member.avatar_url} size={32} />
-                  <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                  <MemberAvatar name={member.name} avatarUrl={member.avatar_url} size={24} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', minWidth: 0 }}>
                     {member.username ? (
-                      <a href={`/${member.username}`} style={{ fontSize: 14, fontWeight: 600, color: textColor, textDecoration: 'none' }}>{member.name}</a>
+                      <a href={`/${member.username}`} style={{ fontSize: 11, fontWeight: 600, color: textColor, textDecoration: 'none' }}>{member.name}</a>
                     ) : (
-                      <div style={{ fontSize: 14, fontWeight: 600, color: textColor }}>{member.name}</div>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: textColor }}>{member.name}</span>
                     )}
                     {member.roles.length > 0 && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 3 }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
                         {member.roles.map((role: HangoutRoleType) => (
                           <RoleBadge key={role} role={role} size="sm" />
                         ))}
@@ -185,12 +185,12 @@ export function CrewSection({ hangoutId, knotId, currentUserId, isPlanner, isLiv
                     onClick={() => setSelectedMember(member)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 4,
-                      padding: '5px 10px', borderRadius: 8,
-                      border: `1px solid ${borderColor}`, background: 'none',
-                      cursor: 'pointer', fontSize: 12, fontWeight: 600, color: subColor,
+                      padding: '3px 8px', borderRadius: 20,
+                      border: 'none', background: 'none',
+                      cursor: 'pointer', fontSize: 11, fontWeight: 600, color: subColor,
                     }}
                   >
-                    <UserPlus size={12} strokeWidth={2} />
+                    <UserPlus size={11} strokeWidth={2} />
                     {member.roles.length === 0 ? 'Assign' : 'Edit'}
                   </button>
                 )}
@@ -198,7 +198,7 @@ export function CrewSection({ hangoutId, knotId, currentUserId, isPlanner, isLiv
 
               {/* Role completion buttons — only for current user's own roles */}
               {member.user_id === currentUserId && member.roles.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8, marginLeft: 40 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 5, marginLeft: 30 }}>
                   {member.roles.map((role: HangoutRoleType) => {
                     const done = member.completedRoles?.includes(role)
                     const isCompleting = completingRole === role
@@ -237,7 +237,7 @@ export function CrewSection({ hangoutId, knotId, currentUserId, isPlanner, isLiv
           onClose={() => setSelectedMember(null)}
           onRolesUpdated={(assignedRole?: HangoutRoleType) => {
             if (assignedRole) {
-              onRoleAssigned(selectedMember.user_id, assignedRole, selectedMember.name)
+              onRoleAssigned(selectedMember.user_id, assignedRole)
             }
             fetchCrew()
             setSelectedMember(null)

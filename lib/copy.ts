@@ -234,3 +234,7 @@ export const PLANNER_NUDGE = [
   "Still figuring this out? It's been quiet a couple days.",
   'This one has gone quiet. Still on?',
 ]
+
+export const PLAN_UNTITLED = 'New plan'
+export const AGENT_VENUE_PROMPT = 'Here are some options nearby.'
+export const AGENT_TITLE_PROMPT = 'What should we call this?'

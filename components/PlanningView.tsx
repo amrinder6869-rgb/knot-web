@@ -21,6 +21,8 @@ import {
   TODO_VOTE_ACTION,
   TODO_SETTLE_ACTION,
   TOAST_ERROR,
+  PLAN_UNTITLED,
+  AGENT_TITLE_PROMPT,
   PLANNER_SECTION_PLANNING,
   PLANNER_SECTION_DRAFTS,
   PLANNER_SECTION_LOCKED,
@@ -72,6 +74,15 @@ function formatWhen(scheduledFor: string | null) {
   return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ` · ${time}`
 }
 
+type VenueSuggestion = {
+  place_id: string
+  name: string
+  formatted_address: string
+  rating: number | null
+  open_now: boolean | null
+  photo_url: string | null
+}
+
 type ThreadMessage = {
   id: string
   hangout_id: string
@@ -107,6 +118,8 @@ export default function PlanningView({ knotId, currentUser, members, onNavigateT
   const [chatError, setChatError] = useState('')
   const [pendingChips, setPendingChips] = useState<{ label: string; action: string; value: any }[] | null>(null)
   const [pendingRevenue, setPendingRevenue] = useState<{ type: string; label: string; url: string } | null>(null)
+  const [pendingVenues, setPendingVenues] = useState<VenueSuggestion[] | null>(null)
+  const [confirmingVenueId, setConfirmingVenueId] = useState<string | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
   const [sheet, setSheet] = useState<null | 'plus' | 'moment' | 'bill'>(null)
@@ -162,7 +175,16 @@ const loadHangouts = useCallback(async () => {
       .select('*')
       .eq('knot_id', knotId)
       .order('created_at', { ascending: false })
-    setHangouts(data || [])
+    // De-duped by id at the source — every consumer (Planner sections, the
+    // TODO strip's RSVP prompts, activeHangout) reads from this one array, so
+    // a duplicate row here would otherwise surface as a duplicate action.
+    const seen = new Set<string>()
+    const deduped = (data || []).filter(h => {
+      if (seen.has(h.id)) return false
+      seen.add(h.id)
+      return true
+    })
+    setHangouts(deduped)
     setLoadingHangouts(false)
   }, [knotId])
 
@@ -276,6 +298,7 @@ const loadHangouts = useCallback(async () => {
     setChatError('')
     setPendingChips(null)
     setPendingRevenue(null)
+    setPendingVenues(null)
     setResolving(true)
     setResolvingLine(getRandomTagged(AGENT_RESOLVING_STATES))
 
@@ -303,6 +326,7 @@ const loadHangouts = useCallback(async () => {
       if (data.hangout_id) await loadMessages(data.hangout_id)
       setPendingChips(data.chips ?? null)
       setPendingRevenue(data.revenue_suggestion ?? null)
+      setPendingVenues(data.venue_suggestions ?? null)
     } catch {
       setChatError('Could not reach the planner. Try again.')
     }
@@ -393,6 +417,15 @@ const loadHangouts = useCallback(async () => {
   // plan leave the Planner and start living in the Feed like any other hangout.
   async function lockPlan(hangout: any) {
     if (!hangout || hangout.post_id || pendingAction || !currentUser?.id) return
+    if (!hangout.title?.trim()) {
+      await supabase.from('hangout_messages').insert({
+        hangout_id: hangout.id,
+        author_id: agentId,
+        content: AGENT_TITLE_PROMPT,
+      })
+      setSelectedPlanId(hangout.id)
+      return
+    }
     setPendingAction({ id: hangout.id, type: 'lock' })
     const { data: newPost, error: postError } = await supabase
       .from('posts')
@@ -450,6 +483,31 @@ const loadHangouts = useCallback(async () => {
     await sendChat(chip.label)
   }
 
+  // Tapping a venue card is itself the confirmation — no separate chip. Mirrors
+  // the route's own venue_name/venue_address confirmation path (AGENT_MESSAGES.VENUE_CONFIRMED),
+  // just triggered from the client instead of a tapped chip round-tripping the model.
+  async function confirmVenue(venue: VenueSuggestion) {
+    if (!activeHangout?.id || confirmingVenueId) return
+    setConfirmingVenueId(venue.place_id)
+    const { error } = await supabase
+      .from('hangouts')
+      .update({
+        venue_name: venue.name,
+        venue_address: venue.formatted_address,
+        venue_place_id: venue.place_id,
+      })
+      .eq('id', activeHangout.id)
+    setConfirmingVenueId(null)
+    if (error) { toast.error(TOAST_ERROR); return }
+    setPendingVenues(null)
+    await supabase.from('hangout_messages').insert({
+      hangout_id: activeHangout.id,
+      author_id: agentId,
+      content: getRandom(AGENT_MESSAGES.VENUE_CONFIRMED),
+    })
+    await loadHangouts()
+  }
+
   function revenueChipLabel(type: string): string {
     if (type === 'opentable') return getRandom(AGENT_MESSAGES.REVENUE_RESTAURANT)
     if (type === 'uber' || type === 'lyft') return getRandom(AGENT_MESSAGES.REVENUE_TRANSPORT)
@@ -469,35 +527,33 @@ const loadHangouts = useCallback(async () => {
       <div key={h.id}
         onClick={kind === 'planning' ? () => setSelectedPlanId(h.id) : undefined}
         style={{
-          display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 12px', borderRadius: 10, marginBottom: 8,
+          display: 'flex', alignItems: 'center', flexWrap: 'wrap' as const, gap: 6, padding: '6px 8px', borderRadius: 8, marginBottom: 6,
           background: isActive ? 'var(--yellow-soft)' : 'var(--bg3)',
           border: `1px solid ${isActive ? 'var(--yellow)' : 'var(--border2)'}`,
           cursor: kind === 'planning' ? 'pointer' : 'default',
         }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{h.title || 'Untitled plan'}</div>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const }}>
-          <span style={{ padding: '3px 9px', borderRadius: 20, background: '#fff', border: '1px solid var(--border2)', fontSize: 11, color: 'var(--text2)' }}>
-            {formatWhen(h.scheduled_for) || PLAN_FIELD_TBD}
-          </span>
-          <span style={{ padding: '3px 9px', borderRadius: 20, background: '#fff', border: '1px solid var(--border2)', fontSize: 11, color: 'var(--text2)' }}>
-            {h.venue_name || PLAN_FIELD_NOT_BOOKED}
-          </span>
-        </div>
-        {h.brief && <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.4 }}>{h.brief}</div>}
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', flexShrink: 0, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.title || PLAN_UNTITLED}</div>
+        <span style={{ padding: '2px 7px', borderRadius: 20, background: '#fff', border: '1px solid var(--border2)', fontSize: 10, color: 'var(--text2)' }}>
+          {formatWhen(h.scheduled_for) || PLAN_FIELD_TBD}
+        </span>
+        <span style={{ padding: '2px 7px', borderRadius: 20, background: '#fff', border: '1px solid var(--border2)', fontSize: 10, color: 'var(--text2)' }}>
+          {h.venue_name || PLAN_FIELD_NOT_BOOKED}
+        </span>
+        {h.brief && <div style={{ fontSize: 11, color: 'var(--text2)', flexBasis: '100%' }}>{h.brief}</div>}
         {isRowCreator && (
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const }} onClick={e => e.stopPropagation()}>
+          <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }} onClick={e => e.stopPropagation()}>
             {kind === 'planning' && (
               <>
                 <button onClick={() => lockPlan(h)} disabled={busy}
-                  style={{ padding: '6px 12px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 12, fontWeight: 700, cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: busy ? 0.6 : 1 }}>
+                  style={{ padding: '4px 10px', background: 'var(--yellow)', border: 'none', borderRadius: 6, color: '#111', fontSize: 11, fontWeight: 700, cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: busy ? 0.6 : 1 }}>
                   {CTA_CONFIRM}
                 </button>
                 <button onClick={() => savePlan(h)} disabled={busy}
-                  style={{ padding: '6px 12px', background: '#fff', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: busy ? 0.6 : 1 }}>
+                  style={{ padding: '4px 10px', background: '#fff', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--text2)', fontSize: 11, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: busy ? 0.6 : 1 }}>
                   {PLANNER_CTA_SAVE}
                 </button>
                 <button onClick={() => abandonPlan(h)} disabled={busy}
-                  style={{ padding: '6px 12px', background: 'transparent', border: 'none', borderRadius: 8, color: 'var(--danger)', fontSize: 12, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: busy ? 0.6 : 1 }}>
+                  style={{ padding: '4px 10px', background: 'transparent', border: 'none', borderRadius: 6, color: 'var(--danger)', fontSize: 11, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: busy ? 0.6 : 1 }}>
                   {PLANNER_CTA_ABANDON}
                 </button>
               </>
@@ -505,11 +561,11 @@ const loadHangouts = useCallback(async () => {
             {kind === 'draft' && (
               <>
                 <button onClick={() => resumePlan(h)} disabled={busy}
-                  style={{ padding: '6px 12px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 12, fontWeight: 700, cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: busy ? 0.6 : 1 }}>
+                  style={{ padding: '4px 10px', background: 'var(--yellow)', border: 'none', borderRadius: 6, color: '#111', fontSize: 11, fontWeight: 700, cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: busy ? 0.6 : 1 }}>
                   {PLANNER_CTA_RESUME}
                 </button>
                 <button onClick={() => abandonPlan(h)} disabled={busy}
-                  style={{ padding: '6px 12px', background: 'transparent', border: 'none', borderRadius: 8, color: 'var(--danger)', fontSize: 12, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: busy ? 0.6 : 1 }}>
+                  style={{ padding: '4px 10px', background: 'transparent', border: 'none', borderRadius: 6, color: 'var(--danger)', fontSize: 11, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: busy ? 0.6 : 1 }}>
                   {PLANNER_CTA_ABANDON}
                 </button>
               </>
@@ -517,9 +573,9 @@ const loadHangouts = useCallback(async () => {
           </div>
         )}
         {kind === 'locked' && (
-          <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+          <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }} onClick={e => e.stopPropagation()}>
             <button onClick={() => onNavigateToFeed?.()}
-              style={{ padding: '6px 12px', background: '#fff', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--yellow)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ padding: '4px 10px', background: '#fff', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--yellow)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
               {PLANNER_VIEW_IN_FEED}
             </button>
           </div>
@@ -530,8 +586,8 @@ const loadHangouts = useCallback(async () => {
 
   function renderPlanSection(title: string, emptyLine: string, list: any[], kind: 'planning' | 'draft' | 'locked') {
     return (
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: 8 }}>
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: 6 }}>
           {title}{list.length > 0 && ` · ${list.length}`}
         </div>
         {list.length === 0 ? (
@@ -557,7 +613,7 @@ const loadHangouts = useCallback(async () => {
             {activeHangout ? (
               <>
                 <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {activeHangout.title || 'Untitled plan'}
+                  {activeHangout.title || PLAN_UNTITLED}
                 </div>
                 <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' as const }}>
                   <span style={{ padding: '3px 9px', borderRadius: 20, background: 'var(--bg3)', border: '1px solid var(--border2)', fontSize: 11, color: 'var(--text2)' }}>
@@ -645,6 +701,32 @@ const loadHangouts = useCallback(async () => {
             </div>
           )}
         </div>
+
+        {pendingVenues && pendingVenues.length > 0 && !resolving && (
+          <div style={{ display: 'flex', gap: 8, overflowX: 'auto' as const, padding: '0 16px 10px' }}>
+            {pendingVenues.map(v => {
+              const busy = confirmingVenueId === v.place_id
+              return (
+                <button key={v.place_id} onClick={() => confirmVenue(v)} disabled={busy}
+                  style={{ flexShrink: 0, width: 168, textAlign: 'left' as const, background: '#fff', border: '1px solid var(--border2)', borderRadius: 10, overflow: 'hidden', cursor: busy ? 'wait' : 'pointer', fontFamily: 'inherit', padding: 0, opacity: busy ? 0.6 : 1 }}>
+                  <div style={{ width: '100%', height: 90, background: 'var(--bg3)' }}>
+                    {v.photo_url && <img src={v.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
+                  </div>
+                  <div style={{ padding: '8px 10px' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.name}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{v.formatted_address}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                      {v.rating != null && <span style={{ fontSize: 11, color: 'var(--text2)' }}>★ {v.rating}</span>}
+                      {v.open_now != null && (
+                        <span style={{ fontSize: 10, fontWeight: 600, color: v.open_now ? 'var(--sage)' : 'var(--danger)' }}>{v.open_now ? 'Open now' : 'Closed'}</span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        )}
 
         {(pendingChips || pendingRevenue) && !resolving && (
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const, padding: '0 16px 10px' }}>

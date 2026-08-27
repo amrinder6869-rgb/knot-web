@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
 import { ImageIcon, MapPin, ChevronDown, Navigation } from 'lucide-react'
 import { supabase, getSignedUrl } from '@/lib/supabase'
 import { compressImage } from '@/lib/compressImage'
@@ -52,7 +53,6 @@ function formatDate(d: string) {
 
 
 function buildUberLink(venueName: string, venueAddress: string) {
-  const dest = encodeURIComponent((venueName + ' ' + venueAddress).trim())
   return `https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[nickname]=${encodeURIComponent(venueName)}&dropoff[formatted_address]=${encodeURIComponent(venueAddress)}`
 }
 
@@ -84,13 +84,6 @@ function buildViatorLink(venueName: string) {
 function buildGetYourGuideLink(venueName: string) {
   const q = encodeURIComponent(venueName)
   return `https://www.getyourguide.com/s/?q=${q}`
-}
-
-const BRIEF_BUDGET_LABELS: Record<string, string> = {
-  free: 'Free',
-  cheap: 'Cheap',
-  mid: 'Mid',
-  splurge: 'Splurge',
 }
 
 function getInitials(name: string) {
@@ -163,10 +156,6 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
   const [editBillSubmitting, setEditBillSubmitting] = useState(false)
   const [editBillError, setEditBillError] = useState('')
   const [deletingBillId, setDeletingBillId] = useState<string | null>(null)
-  const [memberBriefs, setMemberBriefs] = useState<any[]>([])
-  const [myBriefNote, setMyBriefNote] = useState('')
-  const [briefSubmitting, setBriefSubmitting] = useState(false)
-  const [myBriefId, setMyBriefId] = useState<string | null>(null)
   const [livePhotoPosted, setLivePhotoPosted] = useState(false)
   const [showDailyCall, setShowDailyCall] = useState(false)
   const [showTravelMenu, setShowTravelMenu] = useState(false)
@@ -219,21 +208,6 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
     }
     setCommentReactions(prev => ({ ...prev, [commentId]: result.next }))
   }
-
-  useEffect(() => {
-    async function fetchBriefs() {
-      const { data } = await supabase
-        .from('hangout_briefs')
-        .select('id, user_id, note, profiles:user_id(name)')
-        .eq('hangout_id', hangout.id)
-        .order('created_at', { ascending: true })
-      if (!data) return
-      setMemberBriefs(data)
-      const mine = data.find((b: any) => b.user_id === currentUser?.id)
-      if (mine) { setMyBriefId(mine.id); setMyBriefNote(mine.note || '') }
-    }
-    fetchBriefs()
-  }, [hangout.id, currentUser?.id])
 
   useEffect(() => {
     const eligible = hangout.status === 'confirmed' || hangout.is_live
@@ -375,7 +349,6 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
   async function endHangout() {
     if (!currentUser) return
     setActionError('')
-    const actorName = currentUser.name || 'Someone'
     const yesCount = rsvps.filter(r => r.status === 'yes').length
     const { error } = await supabase.from('hangouts').update({ status: 'ended', is_live: false, ended_at: new Date().toISOString() }).eq('id', hangout.id)
     if (error) { setActionError('Could not end the hangout.'); return }
@@ -679,24 +652,6 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
   }
 
 
-  async function submitBrief() {
-    if (!myBriefNote.trim() || !currentUser || briefSubmitting) return
-    setBriefSubmitting(true)
-    try {
-      if (myBriefId) {
-        await supabase.from('hangout_briefs').update({ note: myBriefNote.trim() }).eq('id', myBriefId)
-        setMemberBriefs(prev => prev.map(b => b.id === myBriefId ? { ...b, note: myBriefNote.trim() } : b))
-      } else {
-        const { data } = await supabase.from('hangout_briefs')
-          .insert({ hangout_id: hangout.id, user_id: currentUser.id, knot_id: knotId, note: myBriefNote.trim() })
-          .select('id, user_id, note, profiles:user_id(name)')
-          .single()
-        if (data) { setMyBriefId(data.id); setMemberBriefs(prev => [...prev, data]) }
-      }
-    } catch (err) { console.error('Brief submit error:', err) }
-    setBriefSubmitting(false)
-  }
-
   async function convertToKnot() {
     if (convertingToKnot) return
     setConvertingToKnot(true)
@@ -777,18 +732,18 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
   const cardOpacity = isCancelled ? 0.5 : isDone ? 0.75 : 1
 
   return (
-    <div style={{ background: cardBg, border: `${borderWidth}px solid ${borderColor}`, borderRadius: 12, padding: 20, marginBottom: 16, opacity: cardOpacity, boxShadow }}>
+    <div style={{ background: cardBg, border: `${borderWidth}px solid ${borderColor}`, borderRadius: 12, padding: 12, marginBottom: 12, opacity: cardOpacity, boxShadow }}>
 
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: isCreator && hangout.is_surprise ? 6 : 14 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: isCreator && hangout.is_surprise ? 4 : 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {dotColor && <div style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, boxShadow: `0 0 8px ${dotColor}`, flexShrink: 0, animation: isLive ? 'pulse-dot 1.2s ease-in-out infinite' : 'none' }} />}
           <span style={{ fontSize: 11, fontWeight: 700, color: statusColor, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{statusLabel}</span>
         </div>
-        <span style={{ fontSize: 11, color: subColor }}>{timeAgo(post.created_at)}</span>
+        <span style={{ fontSize: 10, color: subColor }}>{timeAgo(post.created_at)} · {authorName}</span>
       </div>
 
       {isCreator && hangout.is_surprise && (
-        <div style={{ marginBottom: 14 }}>
+        <div style={{ marginBottom: 10 }}>
           <span style={{ padding: '2px 8px', borderRadius: 20, background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', fontSize: 10, fontWeight: 700, color: 'var(--yellow)' }}>
             Surprise mode{hangout.reveal_at ? ` · reveals ${formatDate(hangout.reveal_at)}` : ''}
           </span>
@@ -796,34 +751,39 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
       )}
 
       {editingHangout ? (
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: textColor, marginBottom: 10 }}>Edit hangout</div>
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: textColor, marginBottom: 8 }}>Edit hangout</div>
           <input value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="Title"
-            style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 8 }} />
+            style={{ width: '100%', padding: '8px 10px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 6 }} />
           <input value={editVenueName} onChange={e => setEditVenueName(e.target.value)} placeholder="Venue name"
-            style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 8 }} />
+            style={{ width: '100%', padding: '8px 10px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 6 }} />
           <input value={editVenueAddress} onChange={e => setEditVenueAddress(e.target.value)} placeholder="Venue address"
-            style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 10 }} />
-          <div style={{ marginBottom: 10 }}>
+            style={{ width: '100%', padding: '8px 10px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 8 }} />
+          <div style={{ marginBottom: 8 }}>
             <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>Date and time</div>
             <DateTimePicker value={editScheduledFor} onChange={setEditScheduledFor} />
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={cancelEditHangout}
-              style={{ padding: '8px 14px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ padding: '6px 12px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text3)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
               Cancel
             </button>
             <button onClick={saveEditHangout} disabled={editHangoutSaving}
-              style={{ padding: '8px 14px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: 'var(--text)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: editHangoutSaving ? 0.5 : 1 }}>
+              style={{ padding: '6px 12px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: 'var(--text)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: editHangoutSaving ? 0.5 : 1 }}>
               {editHangoutSaving ? 'Saving...' : 'Save'}
             </button>
           </div>
         </div>
       ) : (
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 17, fontWeight: 700, color: textColor, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{hangout.venue_name || hangout.title}</div>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 15, fontWeight: 700, color: textColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{hangout.venue_name || hangout.title}</span>
+            {hangout.scheduled_for && !isLive && (
+              <span style={{ fontSize: 12, color: isConfirmed ? 'var(--sage)' : 'var(--text2)', fontWeight: 600 }}>{formatDate(hangout.scheduled_for)}</span>
+            )}
+          </div>
           {hangout.event_restrictions?.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
               {hangout.event_restrictions.map((r: string) => (
                 <span key={r} style={{ padding: '2px 9px', borderRadius: 999, background: 'var(--bg2)', color: 'var(--text2)', fontSize: 10, fontWeight: 600 }}>
                   {EVENT_RESTRICTION_OPTIONS.find(o => o.id === r)?.label || r}
@@ -832,22 +792,19 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
             </div>
           )}
           {hangout.movie_title && (
-            <div style={{ fontSize: 13, color: textColor, fontWeight: 600, marginBottom: 6 }}>
+            <div style={{ fontSize: 13, color: textColor, fontWeight: 600, marginTop: 4 }}>
               {String.fromCodePoint(0x1F3AC)} {hangout.movie_title}
               {hangout.movie_showtime && <span style={{ color: subColor, fontWeight: 500 }}> · {formatShowtime(hangout.movie_showtime)}</span>}
             </div>
           )}
-          {hangout.venue_address && <div style={{ fontSize: 12, color: subColor, marginBottom: 4 }}>{hangout.venue_address}</div>}
-          {hangout.scheduled_for && !isLive && (
-            <div style={{ fontSize: 13, color: isConfirmed ? 'var(--sage)' : 'var(--text2)', fontWeight: 600, marginTop: 4 }}>{formatDate(hangout.scheduled_for)}</div>
-          )}
-          <div style={{ fontSize: 11, color: subColor, marginTop: 4 }}>Started by {authorName}</div>
+          {hangout.venue_address && <div style={{ fontSize: 11, color: subColor, marginTop: 2 }}>{hangout.venue_address}</div>}
         </div>
       )}
 
       {onToggleReaction && (
-        <div style={{ marginBottom: 12 }}>
+        <div style={{ marginBottom: 8 }}>
           <ReactionBar
+            compact
             dark={isLive}
             reactions={post.reactions || []}
             onToggle={onToggleReaction}
@@ -856,52 +813,8 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
       )}
 
       {actionError && (
-        <div className="error-banner" style={{ marginBottom: 12 }}>
+        <div className="error-banner" style={{ marginBottom: 10 }}>
           {actionError}
-        </div>
-      )}
-
-      {!isCancelled && (isVoting || isConfirmed) && (hangout.brief || hangout.brief_vibe || hangout.brief_budget) && (
-        <div style={{ padding: '10px 12px', background: isLive ? 'rgba(255,255,255,0.04)' : 'var(--bg3)', border: `1px solid ${borderSep}`, borderRadius: 12, marginBottom: 14 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: subColor, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Brief</div>
-          {hangout.brief && <div style={{ fontSize: 13, color: textColor, marginBottom: 6, lineHeight: 1.5 }}>{hangout.brief}</div>}
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {hangout.brief_vibe && <span style={{ padding: '3px 8px', borderRadius: 20, background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', fontSize: 11, fontWeight: 600, color: 'var(--yellow)' }}>{hangout.brief_vibe}</span>}
-            {hangout.brief_budget && <span style={{ padding: '3px 8px', borderRadius: 20, background: 'var(--bg3)', border: '1px solid var(--border)', fontSize: 11, fontWeight: 600, color: 'var(--text3)' }}>{BRIEF_BUDGET_LABELS[hangout.brief_budget] || hangout.brief_budget}</span>}
-          </div>
-        </div>
-      )}
-
-      {!isCancelled && (isVoting || isConfirmed) && (
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: subColor, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Group input</div>
-          {memberBriefs.filter(b => b.user_id !== currentUser?.id).map(b => (
-            <div key={b.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
-              <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--yellow)', color: 'var(--text)', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                {(b.profiles?.name || 'U').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()}
-              </div>
-              <div style={{ flex: 1, background: 'var(--bg3)', border: `1px solid ${borderSep}`, borderRadius: 8, padding: '7px 10px', fontSize: 12, color: textColor, lineHeight: 1.5 }}>
-                <span style={{ fontWeight: 600, color: subColor, marginRight: 6 }}>{b.profiles?.name?.split(' ')[0] || 'Member'}</span>
-                {b.note}
-              </div>
-            </div>
-          ))}
-          <div style={{ display: 'flex', gap: 6 }}>
-            <input
-              value={myBriefNote}
-              onChange={e => setMyBriefNote(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && submitBrief()}
-              placeholder={myBriefId ? 'Update your note...' : 'Add a note for the group...'}
-              style={{ flex: 1, padding: '7px 10px', background: 'var(--bg3)', border: `1px solid ${borderSep}`, borderRadius: 8, color: textColor, fontSize: 12, outline: 'none', fontFamily: 'inherit' }}
-            />
-            <button
-              onClick={submitBrief}
-              disabled={!myBriefNote.trim() || briefSubmitting}
-              style={{ padding: '7px 14px', background: myBriefNote.trim() ? 'var(--yellow)' : 'var(--bg3)', border: 'none', borderRadius: 8, color: myBriefNote.trim() ? 'var(--text)' : subColor, fontSize: 12, fontWeight: 700, cursor: myBriefNote.trim() ? 'pointer' : 'default', fontFamily: 'inherit', opacity: briefSubmitting ? 0.5 : 1 }}
-            >
-              {myBriefId ? 'Update' : 'Add'}
-            </button>
-          </div>
         </div>
       )}
 
@@ -927,7 +840,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
       )}
 
       {!isCancelled && isVoting && !isVenuePoll && options.length > 0 && (
-        <div style={{ marginBottom: 14 }}>
+        <div style={{ marginBottom: 10 }}>
           {options.map((o: any) => {
             const maxVotes = Math.max(...options.map((x: any) => x.vote_count), 1)
             const isLeading = o.id === options[0]?.id && o.vote_count > 0
@@ -953,9 +866,9 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
       )}
 
       {!isCancelled && (isVoting || isConfirmed || isLive) && (
-        <div style={{ marginBottom: 14 }}>
+        <div style={{ marginBottom: 10 }}>
           {rsvps.length > 0 && (
-            <div style={{ display: 'flex', gap: 4, marginBottom: 10, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
               {rsvps.map((r: any) => {
                 const firstName = r.profiles?.name?.split(' ')[0] || 'Someone'
                 const username = r.profiles?.username
@@ -969,9 +882,9 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
               })}
             </div>
           )}
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ display: 'flex', gap: 4 }}>
             {[{ s: 'yes', l: isLive ? 'On my way' : 'Going' }, { s: 'maybe', l: 'Maybe' }, { s: 'no', l: "Can't go" }].map(({ s, l }) => (
-              <button key={s} onClick={() => handleRsvpClick(s)} style={{ padding: '6px 12px', borderRadius: 6, border: `1px solid ${myRsvpStatus === s ? s === 'yes' ? 'var(--sage)' : 'var(--border2)' : isLive ? 'rgba(255,255,255,0.2)' : 'var(--border2)'}`, background: myRsvpStatus === s ? s === 'yes' ? isLive ? 'rgba(74,222,128,0.15)' : 'var(--sage-soft)' : 'var(--bg3)' : 'transparent', color: myRsvpStatus === s ? s === 'yes' ? 'var(--sage)' : isLive ? 'rgba(255,255,255,0.7)' : 'var(--text2)' : isLive ? 'rgba(255,255,255,0.6)' : 'var(--text2)', fontSize: 12, fontWeight: myRsvpStatus === s ? 700 : 400, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button key={s} onClick={() => handleRsvpClick(s)} style={{ height: 32, padding: '0 12px', borderRadius: 6, border: `1px solid ${myRsvpStatus === s ? s === 'yes' ? 'var(--sage)' : 'var(--border2)' : isLive ? 'rgba(255,255,255,0.2)' : 'var(--border2)'}`, background: myRsvpStatus === s ? s === 'yes' ? isLive ? 'rgba(74,222,128,0.15)' : 'var(--sage-soft)' : 'var(--bg3)' : 'transparent', color: myRsvpStatus === s ? s === 'yes' ? 'var(--sage)' : isLive ? 'rgba(255,255,255,0.7)' : 'var(--text2)' : isLive ? 'rgba(255,255,255,0.6)' : 'var(--text2)', fontSize: 12, fontWeight: myRsvpStatus === s ? 700 : 400, cursor: 'pointer', fontFamily: 'inherit', boxSizing: 'border-box' }}>
                 {l}
               </button>
             ))}
@@ -1056,18 +969,18 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
       )}
 
       {!isCancelled && (
-      <div style={{ display: 'flex', gap: 8, marginBottom: isDone || bills.length > 0 || canEditHangout || canCancelHangout ? 14 : 0, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: isDone || bills.length > 0 || canEditHangout || canCancelHangout ? 10 : 0, flexWrap: 'wrap', alignItems: 'center' }}>
         {(isConfirmed || isLive) && hangout.movie_title && (
           // Static Cineplex search URL for now — Rakuten affiliate params to
           // be added post-registration.
           <a href={`https://www.cineplex.com/Search?q=${encodeURIComponent(hangout.movie_title)}`} target="_blank" rel="noreferrer"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: '#111', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none' }}>
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: '#111', border: 'none', borderRadius: 20, color: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none' }}>
             {String.fromCodePoint(0x1F3AC)} Get tickets
           </a>
         )}
         {(isConfirmed || isLive) && (
           <button onClick={() => { setShowThread(true); setHasUnreadThread(false) }}
-            style={{ position: 'relative', padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.85)' : 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+            style={{ position: 'relative', padding: '6px 12px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: 'none', borderRadius: 20, color: isLive ? 'rgba(255,255,255,0.85)' : 'var(--text2)', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
             Thread
             {hasUnreadThread && (
               <span style={{ position: 'absolute', top: -3, right: -3, width: 8, height: 8, borderRadius: '50%', background: 'var(--yellow)', border: `2px solid ${isLive ? '#111' : '#ffffff'}` }} />
@@ -1075,17 +988,17 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
           </button>
         )}
         {isConfirmed && isCreator && (
-          <button onClick={goLive} style={{ padding: '8px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: 'var(--text)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>We are here</button>
+          <button onClick={goLive} style={{ padding: '6px 12px', background: 'var(--yellow)', border: 'none', borderRadius: 20, color: 'var(--text)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>We are here</button>
         )}
         {isLive && isCreator && (
-          <button onClick={endHangout} style={{ padding: '8px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: 'rgba(255,255,255,0.65)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>End the night</button>
+          <button onClick={endHangout} style={{ padding: '6px 12px', background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 20, color: 'rgba(255,255,255,0.65)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>End the night</button>
         )}
 
         {(isConfirmed || isLive) && hangout.meeting_url && (
           <button
             onClick={ensureAndJoinCall}
             disabled={joiningCall}
-            style={{ padding: '8px 14px', background: isLive ? 'rgba(74,222,128,0.15)' : 'var(--sage-soft)', border: `1px solid ${isLive ? 'rgba(74,222,128,0.3)' : 'var(--sage-dim)'}`, borderRadius: 8, color: 'var(--sage)', fontSize: 12, fontWeight: 700, cursor: joiningCall ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: joiningCall ? 0.7 : 1 }}>
+            style={{ padding: '6px 12px', background: isLive ? 'rgba(74,222,128,0.15)' : 'var(--sage-soft)', border: 'none', borderRadius: 20, color: 'var(--sage)', fontSize: 11, fontWeight: 700, cursor: joiningCall ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: joiningCall ? 0.7 : 1 }}>
             {joiningCall ? 'Starting call...' : 'Join call'}
           </button>
         )}
@@ -1094,10 +1007,10 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => setShowTravelMenu(v => !v)}
-              style={{ padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.85)' : 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <Navigation size={13} strokeWidth={2} />
+              style={{ padding: '6px 12px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: 'none', borderRadius: 20, color: isLive ? 'rgba(255,255,255,0.85)' : 'var(--text2)', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <Navigation size={12} strokeWidth={2} />
               Get there
-              <ChevronDown size={13} strokeWidth={2} />
+              <ChevronDown size={12} strokeWidth={2} />
             </button>
             {showTravelMenu && (
               <div style={{ position: 'absolute', top: '110%', left: 0, zIndex: 40, minWidth: 180, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 6, boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}>
@@ -1135,23 +1048,23 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         )}
 
         {(isConfirmed || isLive) && hangout.meeting_url && (
-          <a href="https://www.viator.com/searchResults/all?text=virtual+experiences" target="_blank" rel="noreferrer" style={{ padding: '8px 14px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${isLive ? 'rgba(255,255,255,0.15)' : 'var(--border2)'}`, borderRadius: 8, color: isLive ? 'rgba(255,255,255,0.65)' : 'var(--text2)', fontSize: 12, textDecoration: 'none', fontFamily: 'inherit' }}>Virtual experiences</a>
+          <a href="https://www.viator.com/searchResults/all?text=virtual+experiences" target="_blank" rel="noreferrer" style={{ padding: '6px 12px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: 'none', borderRadius: 20, color: isLive ? 'rgba(255,255,255,0.65)' : 'var(--text2)', fontSize: 11, textDecoration: 'none', fontFamily: 'inherit' }}>Virtual experiences</a>
         )}
         {isDone && !showBill && bills.length === 0 && (
-          <button onClick={() => setShowBill(true)} style={{ padding: '8px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: 'var(--text)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Split the bill</button>
+          <button onClick={() => setShowBill(true)} style={{ padding: '6px 12px', background: 'var(--yellow)', border: 'none', borderRadius: 20, color: 'var(--text)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Split the bill</button>
         )}
         {isDone && bills.length > 0 && !showBill && (
-          <button onClick={() => setShowBill(true)} style={{ padding: '8px 14px', background: 'transparent', border: `1px solid ${borderSep}`, borderRadius: 8, color: subColor, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Add another bill</button>
+          <button onClick={() => setShowBill(true)} style={{ padding: '6px 12px', background: 'transparent', border: 'none', borderRadius: 20, color: subColor, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>Add another bill</button>
         )}
         {canEditHangout && !editingHangout && (
           <button onClick={startEditHangout}
-            style={{ padding: '8px 14px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+            style={{ padding: '6px 12px', background: 'transparent', border: 'none', borderRadius: 20, color: 'var(--text2)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
             Edit
           </button>
         )}
         {canCancelHangout && (
           <button onClick={cancelHangout} disabled={cancellingHangout}
-            style={{ padding: '8px 14px', background: 'transparent', border: '1px solid var(--danger-dim)', borderRadius: 8, color: 'var(--danger)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', opacity: cancellingHangout ? 0.5 : 1 }}>
+            style={{ padding: '6px 12px', background: 'transparent', border: 'none', borderRadius: 20, color: 'var(--danger)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: cancellingHangout ? 0.5 : 1 }}>
             {cancellingHangout ? 'Cancelling...' : 'Cancel hangout'}
           </button>
         )}
@@ -1176,9 +1089,9 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
       )}
 
       {isLive && !isCancelled && !livePhotoPosted && (
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 14, marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)' }}>Capture the night</span>
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.65)' }}>
+        <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)' }}>Capture the night</span>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 20, background: 'rgba(255,255,255,0.06)', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.65)' }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             Add photo / video
             <input type="file" accept="image/*,video/*" style={{ display: 'none' }} onChange={handleLivePhotoUpload} />
@@ -1186,8 +1099,8 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         </div>
       )}
       {isLive && !isCancelled && livePhotoPosted && (
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 14, marginBottom: 14 }}>
-          <span style={{ fontSize: 13, color: 'var(--sage)' }}>Added to Memories</span>
+        <div style={{ marginBottom: 10 }}>
+          <span style={{ fontSize: 12, color: 'var(--sage)' }}>Added to Memories</span>
         </div>
       )}
 
@@ -1196,9 +1109,9 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>Turn this into a Knot?</div>
           <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 12, lineHeight: 1.5 }}>Keep the crew together.</div>
           {convertedKnotId ? (
-            <a href="/dashboard" style={{ display: 'inline-block', padding: '9px 16px', background: 'var(--yellow)', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+            <Link href="/dashboard" style={{ display: 'inline-block', padding: '9px 16px', background: 'var(--yellow)', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
               Open your new Knot →
-            </a>
+            </Link>
           ) : (
             <button onClick={convertToKnot} disabled={convertingToKnot}
               style={{ padding: '9px 16px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: convertingToKnot ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: convertingToKnot ? 0.6 : 1 }}>
@@ -1219,15 +1132,15 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
       )}
 
       {(bills.length > 0 || (showBill && !isCancelled)) && (
-        <div style={{ borderTop: `1px solid ${borderSep}`, paddingTop: 14, marginBottom: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: subColor, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>Bill</div>
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: subColor, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>Bill</div>
           {bills.map((b: any) => {
             const totalSplits = b.bill_splits?.length || 0
             const settledCount = b.bill_splits?.filter((s: any) => s.settled).length || 0
             const isMine = b.added_by === currentUser?.id
             const isEditing = editingBillId === b.id
             return (
-              <div key={b.id} style={{ background: isLive ? 'rgba(255,255,255,0.04)' : 'var(--bg3)', border: `1px solid ${borderSep}`, borderRadius: 10, padding: 14, marginBottom: 10 }}>
+              <div key={b.id} style={{ background: isLive ? 'rgba(255,255,255,0.04)' : 'var(--bg3)', border: `1px solid ${borderSep}`, borderRadius: 10, padding: 10, marginBottom: 8 }}>
                 {isEditing && !isCancelled ? (
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: textColor, marginBottom: 10 }}>Edit bill</div>
@@ -1333,7 +1246,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         isLive={isLive}
       />
 
-      <div style={{ borderTop: `1px solid ${borderSep}`, paddingTop: 12 }}>
+      <div style={{ marginTop: 4 }}>
         <button onClick={() => setShowComments(s => !s)} style={{ background: 'none', border: 'none', padding: 0, fontSize: 12, color: subColor, cursor: 'pointer', fontFamily: 'inherit' }}>
           {comments.length > 0 ? `${comments.length} comment${comments.length > 1 ? 's' : ''}` : 'Add a comment'}
         </button>
@@ -1487,15 +1400,15 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
 
 export function HangoutCardSkeleton() {
   return (
-    <div style={{ background: '#ffffff', border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', borderRadius: 12, padding: 20, marginBottom: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+    <div style={{ background: '#ffffff', border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', borderRadius: 12, padding: 12, marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <Skeleton width={8} height={8} borderRadius={999} />
         <Skeleton width={70} height={10} />
       </div>
-      <Skeleton width="65%" height={18} style={{ marginBottom: 8 }} />
-      <Skeleton width="40%" height={12} style={{ marginBottom: 18 }} />
-      <div style={{ padding: 12, borderRadius: 10, background: 'var(--yellow-soft)' }}>
-        <div style={{ display: 'flex', gap: 6 }}>
+      <Skeleton width="65%" height={16} style={{ marginBottom: 6 }} />
+      <Skeleton width="40%" height={11} style={{ marginBottom: 12 }} />
+      <div style={{ padding: 8, borderRadius: 10, background: 'var(--yellow-soft)' }}>
+        <div style={{ display: 'flex', gap: 4 }}>
           <Skeleton width={64} height={26} borderRadius={6} />
           <Skeleton width={64} height={26} borderRadius={6} />
           <Skeleton width={64} height={26} borderRadius={6} />

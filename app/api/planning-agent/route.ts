@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
+import https from 'https'
 import { createClient } from '@supabase/supabase-js'
-import { getRandom, AGENT_MESSAGES, PLANNER_NUDGE } from '@/lib/copy'
+import { getRandom, AGENT_MESSAGES, PLANNER_NUDGE, AGENT_VENUE_PROMPT } from '@/lib/copy'
 
 const NUDGE_THRESHOLD_MS = 48 * 60 * 60 * 1000
 
@@ -20,15 +21,24 @@ Respond only with valid JSON:
   "chips": [{ "label": string, "action": string, "value": any }] | null,
   "plan_updates": { field: value } | null,
   "todo_updates": [{ "member_id": string, "type": "rsvp" | "poll" | "bill", "ref_id": string }] | null,
-  "revenue_suggestion": { "type": "opentable" | "uber" | "mixtiles" | "lyft", "label": string, "url": string } | null
+  "revenue_suggestion": { "type": "opentable" | "uber" | "mixtiles" | "lyft", "label": string, "url": string } | null,
+  "venueSearchQuery": string | null
 }
 
 Rules:
 - agent_message null when the message has no planning relevance. Let it be a normal chat message.
 - chips maximum three. Labels maximum three words each.
-- plan_updates only when a chip has been tapped confirming a value. Never from inference alone.
+- plan_updates only when a chip has been tapped confirming a value. Never from inference alone. The one exception is plan_updates.title — see the title rules below.
 - revenue_suggestion only when directly relevant to what was just discussed. One per message maximum. Never unsolicited.
-- If two members propose conflicting values, return agent_message using the conflict copy and plan_updates as null.`
+- If two members propose conflicting values, return agent_message using the conflict copy and plan_updates as null.
+- venueSearchQuery: set only when the group names or asks about a specific place worth looking up (e.g. "Boston Pizza near Toronto"). Combine the venue name with a location hint from the message or plan state if one exists. Null otherwise. Never set alongside plan_updates.venue_name in the same reply — a search proposes options, it does not confirm one.
+
+Title rules (plan_updates.title) — this is the only field you may set from inference alone, and only on the message that starts a new plan:
+- A named venue is mentioned → title is the venue name. "Boston Pizza Friday 7pm" → title: "Boston Pizza".
+- An activity is mentioned with no venue → title is the activity. "Park hangout Saturday" → title: "Park hangout".
+- An occasion is mentioned → use it. "Birthday drinks for Simar" → title: "Simar's birthday drinks".
+- Set title to null when the message carries zero planning intent — do not invent one.
+- Never overwrite an already-confirmed title from inference; changing an existing title still requires a tapped chip.`
 
 // hangouts columns the agent is allowed to write. Anything else in
 // plan_updates is dropped rather than passed straight into a Supabase
@@ -45,6 +55,42 @@ function filterPlanUpdates(updates: Record<string, any> | null): Record<string, 
     if (ALLOWED_PLAN_FIELDS.has(key)) out[key] = updates[key]
   }
   return Object.keys(out).length > 0 ? out : null
+}
+
+function httpsGet(url: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    https.get(url, res => {
+      let body = ''
+      res.on('data', chunk => body += chunk)
+      res.on('end', () => resolve(body))
+    }).on('error', reject)
+  })
+}
+
+// Google Places Text Search — same legacy endpoint family and API key as
+// app/api/venues/route.ts, but text search rather than nearby search since
+// the agent has a free-text query ("Boston Pizza near Toronto"), not coordinates.
+async function searchVenues(query: string, token: string) {
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY
+  if (!apiKey) return []
+  try {
+    const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${apiKey}`
+    const body = await httpsGet(url)
+    const data = JSON.parse(body)
+    if (data.status !== 'OK') return []
+    return (data.results || []).slice(0, 3).map((p: any) => ({
+      place_id: p.place_id,
+      name: p.name,
+      formatted_address: p.formatted_address || '',
+      rating: p.rating ?? null,
+      open_now: p.opening_hours?.open_now ?? null,
+      photo_url: p.photos?.[0]?.photo_reference
+        ? `/api/place-photo?ref=${encodeURIComponent(p.photos[0].photo_reference)}&t=${encodeURIComponent(token)}`
+        : null,
+    }))
+  } catch {
+    return []
+  }
 }
 
 export async function POST(request: Request) {
@@ -126,6 +172,13 @@ export async function POST(request: Request) {
     // relevance (questions, clarifications) where no pool fits.
     let agentMessage: string | null = parsed.agent_message ?? null
 
+    // Google Places lookup happens before any hangout write below, and its
+    // result (not the model's raw text) becomes the message — canned copy for
+    // a fixed outcome, same as the confirmation pools further down.
+    const venueSearchQuery: string | null = typeof parsed.venueSearchQuery === 'string' ? parsed.venueSearchQuery.trim() : null
+    const venueSuggestions = venueSearchQuery ? await searchVenues(venueSearchQuery, token) : []
+    if (venueSuggestions.length > 0) agentMessage = AGENT_VENUE_PROMPT
+
     // A hangout gets created the first time the conversation produces
     // anything worth keeping — either a confirmed field (planUpdates) or
     // just a relevant reply (agentMessage non-null). The model correctly
@@ -183,12 +236,17 @@ export async function POST(request: Request) {
 
       if (writeFailed) {
         agentMessage = getRandom(AGENT_MESSAGES.CONFLICT)
-      } else if (planUpdates && resolvedHangoutId) {
-        // Pick the confirmation copy matching what actually changed.
+      } else if (venueSuggestions.length === 0 && planUpdates && resolvedHangoutId) {
+        // Pick the confirmation copy matching what actually changed. Skipped
+        // when a venue search just ran — that prompt already won above.
         if (wasNewPlan) agentMessage = getRandom(AGENT_MESSAGES.PLAN_CREATED)
         else if ('venue_name' in planUpdates || 'venue_address' in planUpdates) agentMessage = getRandom(AGENT_MESSAGES.VENUE_CONFIRMED)
         else if ('scheduled_for' in planUpdates) agentMessage = getRandom(AGENT_MESSAGES.TIME_CONFIRMED)
       }
+
+      // Folded into the same string rather than a second row — one request
+      // must never produce two separate hangout_messages inserts.
+      if (nudgeMessage) agentMessage = agentMessage ? `${agentMessage} ${nudgeMessage}` : nudgeMessage
 
       if (resolvedHangoutId) {
         await serviceClient
@@ -204,13 +262,6 @@ export async function POST(request: Request) {
           content: agentMessage,
         })
       }
-      if (nudgeMessage && resolvedHangoutId) {
-        await serviceClient.from('hangout_messages').insert({
-          hangout_id: resolvedHangoutId,
-          author_id: agentUserId,
-          content: nudgeMessage,
-        })
-      }
     }
 
     return NextResponse.json({
@@ -219,6 +270,7 @@ export async function POST(request: Request) {
       plan_updates: planUpdates,
       todo_updates: parsed.todo_updates ?? null,
       revenue_suggestion: parsed.revenue_suggestion ?? null,
+      venue_suggestions: venueSuggestions.length > 0 ? venueSuggestions : null,
       hangout_id: resolvedHangoutId,
     })
   } catch {
