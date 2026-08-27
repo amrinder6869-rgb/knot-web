@@ -3,19 +3,21 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/ToastProvider'
 import { getRandom, LOADING, EMPTY } from '@/lib/copy'
+import { ICON_SIZE } from '@/lib/constants'
 
+// icon holds a Tabler ti-* class suffix, not raw glyph content — see AGENTS.md icon audit notes.
 const CATEGORIES = [
-  { id: '13000', label: 'Restaurants', emoji: String.fromCodePoint(0x1F374) },
-  { id: '13003', label: 'Bars', emoji: String.fromCodePoint(0x1F37B) },
-  { id: '10000', label: 'Arts & Culture', emoji: String.fromCodePoint(0x1F3AD) },
-  { id: '18000', label: 'Outdoors', emoji: String.fromCodePoint(0x1F33F) },
-  { id: '13059', label: 'Cafes', emoji: String.fromCodePoint(0x2615) },
-  { id: '10032', label: 'Entertainment', emoji: String.fromCodePoint(0x1F3AC) },
-  { id: '13049', label: 'Fast & Casual', emoji: String.fromCodePoint(0x1F32E) },
-  { id: '13029', label: 'Asian', emoji: String.fromCodePoint(0x1F35C) },
-  { id: '10024', label: 'Movies', emoji: String.fromCodePoint(0x1F3A5) },
-  { id: '18008', label: 'Sports', emoji: String.fromCodePoint(0x1F3C6) },
-  { id: '10041', label: 'Nightlife', emoji: String.fromCodePoint(0x1F578) },
+  { id: '13000', label: 'Restaurants', icon: 'ti-tools-kitchen-2' },
+  { id: '13003', label: 'Bars', icon: 'ti-beer' },
+  { id: '10000', label: 'Arts & Culture', icon: 'ti-theater' },
+  { id: '18000', label: 'Outdoors', icon: 'ti-mountain' },
+  { id: '13059', label: 'Cafes', icon: 'ti-coffee' },
+  { id: '10032', label: 'Entertainment', icon: 'ti-ticket' },
+  { id: '13049', label: 'Fast & Casual', icon: 'ti-burger' },
+  { id: '13029', label: 'Asian', icon: 'ti-bowl-chopsticks' },
+  { id: '10024', label: 'Movies', icon: 'ti-movie' },
+  { id: '18008', label: 'Sports', icon: 'ti-trophy' },
+  { id: '10041', label: 'Nightlife', icon: 'ti-moon' },
 ]
 
 const BUDGETS = [
@@ -32,15 +34,20 @@ function StarRating({ rating }: { rating: number }) {
   const half  = rating % 1 >= 0.5 ? 1 : 0
   const empty = 5 - full - half
   return (
-    <span style={{ fontSize: 13, letterSpacing: 1 }}>
-      <span style={{ color: 'var(--amber)' }}>{String.fromCodePoint(0x2605).repeat(full)}{half ? String.fromCodePoint(0xBD) : ''}</span>
-      <span style={{ color: 'var(--border2)' }}>{String.fromCodePoint(0x2606).repeat(empty)}</span>
-      <span style={{ color: 'var(--text3)', fontSize: 12, marginLeft: 5 }}>{rating.toFixed(1)}</span>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+      {Array.from({ length: full }).map((_, i) => (
+        <i key={`f${i}`} className="ti ti-star" style={{ fontSize: ICON_SIZE.inline, color: 'var(--yellow)' }} />
+      ))}
+      {half === 1 && <i className="ti ti-star-half" style={{ fontSize: ICON_SIZE.inline, color: 'var(--yellow)' }} />}
+      {Array.from({ length: empty }).map((_, i) => (
+        <i key={`e${i}`} className="ti ti-star" style={{ fontSize: ICON_SIZE.inline, color: 'var(--text3)' }} />
+      ))}
+      <span style={{ color: 'var(--text3)', fontSize: 12, marginLeft: 4 }}>{rating.toFixed(1)}</span>
     </span>
   )
 }
 
-export default function Discover({ members: _members, onVenueSelect, currentUser }: { members: any[], onVenueSelect?: (venue: any) => void, currentUser?: any }) {
+export default function Discover({ onVenueSelect, currentUser }: { members: any[], onVenueSelect?: (venue: any) => void, currentUser?: any }) {
   const toast = useToast()
   const [category, setCategory] = useState<string|null>(null)
   const [budget, setBudget]     = useState<number|null>(2)
@@ -62,7 +69,7 @@ export default function Discover({ members: _members, onVenueSelect, currentUser
   const [locationText, setLocationText]       = useState('')
   const [suggestions, setSuggestions]           = useState<any[]>([])
   const [showSuggestions, setShowSuggestions]   = useState(false)
-  const [fetchingSuggestions, setFetchingSuggestions] = useState(false)
+  const [, setFetchingSuggestions] = useState(false)
 
   // Keep locationRef in sync with location state
   useEffect(() => { locationRef.current = location }, [location])
@@ -86,7 +93,7 @@ export default function Discover({ members: _members, onVenueSelect, currentUser
         () => {} // silently ignore if denied
       )
     }
-  }, [])
+  }, [location])
 
   async function getLocation(): Promise<{lat:number,lng:number,name:string}|null> {
     setLocating(true)
@@ -311,9 +318,7 @@ export default function Discover({ members: _members, onVenueSelect, currentUser
       {/* Location bar with autocomplete */}
       <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, marginBottom: 16, overflow: 'visible', position: 'relative' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: location ? '1px solid var(--border)' : 'none' }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--sage)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
-          </svg>
+          <i className="ti ti-map-pin" style={{ fontSize: ICON_SIZE.inline, color: 'var(--text3)' }} />
           <input
             value={locationText}
             onChange={e => {
@@ -358,7 +363,7 @@ export default function Discover({ members: _members, onVenueSelect, currentUser
           {CATEGORIES.map(c => (
             <div key={c.id} onClick={() => setCategory(c.id)}
               style={{ padding: '12px 8px', border: `1.5px solid ${category === c.id ? 'var(--yellow)' : 'var(--border)'}`, borderRadius: 12, textAlign: 'center', cursor: 'pointer', background: category === c.id ? 'var(--yellow-soft)' : 'var(--bg2)', transition: 'all 0.15s' }}>
-              <div style={{ fontSize: 22, marginBottom: 4, lineHeight: 1 }}>{c.emoji}</div>
+              <i className={`ti ${c.icon}`} style={{ display: 'block', fontSize: ICON_SIZE.header, marginBottom: 4, color: category === c.id ? 'var(--yellow)' : 'var(--text3)' }} />
               <div style={{ fontSize: 11, fontWeight: 600, color: category === c.id ? 'var(--yellow)' : 'var(--text2)' }}>{c.label}</div>
             </div>
           ))}
@@ -472,8 +477,8 @@ export default function Discover({ members: _members, onVenueSelect, currentUser
                       {v.photo_url ? (
                         <img src={v.photo_url} alt={v.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                       ) : (
-                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>
-                          {catObj?.emoji || String.fromCodePoint(0x1F4CD)}
+                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <i className={`ti ${catObj?.icon || 'ti-map-pin'}`} style={{ fontSize: ICON_SIZE.header, color: 'var(--text3)' }} />
                         </div>
                       )}
                     </div>
@@ -519,8 +524,8 @@ export default function Discover({ members: _members, onVenueSelect, currentUser
                     {v.photo_url ? (
                       <img src={v.photo_url} alt={v.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', minHeight: 110 }} />
                     ) : (
-                      <div style={{ width: '100%', minHeight: 110, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>
-                        {catObj?.emoji || String.fromCodePoint(0x1F4CD)}
+                      <div style={{ width: '100%', minHeight: 110, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <i className={`ti ${catObj?.icon || 'ti-map-pin'}`} style={{ fontSize: ICON_SIZE.header, color: 'var(--text3)' }} />
                       </div>
                     )}
                     {(v.rating || 0) >= 4.5 && (v.rating_count || 0) >= 100 && (

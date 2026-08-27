@@ -1,7 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { ImageIcon, MapPin, ChevronDown, Navigation } from 'lucide-react'
 import { supabase, getSignedUrl } from '@/lib/supabase'
 import { compressImage } from '@/lib/compressImage'
 import DateTimePicker from '@/components/DateTimePicker'
@@ -22,7 +21,7 @@ import {
   loadCommentReactions,
   toggleCommentReactionRemote,
 } from '@/lib/commentReactions'
-import { DIETARY_OPTIONS, ACCESSIBILITY_OPTIONS, EVENT_RESTRICTION_OPTIONS } from '@/lib/constants'
+import { DIETARY_OPTIONS, ACCESSIBILITY_OPTIONS, EVENT_RESTRICTION_OPTIONS, ICON_SIZE } from '@/lib/constants'
 import { track } from '@/lib/track'
 
 function timeAgo(date: string) {
@@ -792,8 +791,8 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
             </div>
           )}
           {hangout.movie_title && (
-            <div style={{ fontSize: 13, color: textColor, fontWeight: 600, marginTop: 4 }}>
-              {String.fromCodePoint(0x1F3AC)} {hangout.movie_title}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: textColor, fontWeight: 600, marginTop: 4 }}>
+              <i className="ti ti-movie" style={{ fontSize: ICON_SIZE.inline, color: 'var(--text3)' }} /> {hangout.movie_title}
               {hangout.movie_showtime && <span style={{ color: subColor, fontWeight: 500 }}> · {formatShowtime(hangout.movie_showtime)}</span>}
             </div>
           )}
@@ -975,7 +974,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
           // be added post-registration.
           <a href={`https://www.cineplex.com/Search?q=${encodeURIComponent(hangout.movie_title)}`} target="_blank" rel="noreferrer"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: '#111', border: 'none', borderRadius: 20, color: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none' }}>
-            {String.fromCodePoint(0x1F3AC)} Get tickets
+            <i className="ti ti-movie" style={{ fontSize: ICON_SIZE.inline, color: 'var(--yellow)' }} /> Get tickets
           </a>
         )}
         {(isConfirmed || isLive) && (
@@ -1008,9 +1007,9 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
             <button
               onClick={() => setShowTravelMenu(v => !v)}
               style={{ padding: '6px 12px', background: isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: 'none', borderRadius: 20, color: isLive ? 'rgba(255,255,255,0.85)' : 'var(--text2)', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              <Navigation size={12} strokeWidth={2} />
+              <i className="ti ti-navigation" style={{ fontSize: ICON_SIZE.inline, color: 'var(--text3)' }} />
               Get there
-              <ChevronDown size={12} strokeWidth={2} />
+              <i className="ti ti-chevron-down" style={{ fontSize: ICON_SIZE.inline, color: 'var(--text3)' }} />
             </button>
             {showTravelMenu && (
               <div style={{ position: 'absolute', top: '110%', left: 0, zIndex: 40, minWidth: 180, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 6, boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}>
@@ -1092,7 +1091,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
         <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)' }}>Capture the night</span>
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 20, background: 'rgba(255,255,255,0.06)', cursor: 'pointer', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.65)' }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            <i className="ti ti-camera" style={{ fontSize: ICON_SIZE.inline, color: 'var(--text3)' }} />
             Add photo / video
             <input type="file" accept="image/*,video/*" style={{ display: 'none' }} onChange={handleLivePhotoUpload} />
           </label>
@@ -1109,8 +1108,8 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>Turn this into a Knot?</div>
           <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 12, lineHeight: 1.5 }}>Keep the crew together.</div>
           {convertedKnotId ? (
-            <Link href="/dashboard" style={{ display: 'inline-block', padding: '9px 16px', background: 'var(--yellow)', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
-              Open your new Knot →
+            <Link href="/dashboard" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '9px 16px', background: 'var(--yellow)', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+              Open your new Knot <i className="ti ti-chevron-right" style={{ fontSize: ICON_SIZE.inline, color: '#111' }} />
             </Link>
           ) : (
             <button onClick={convertToKnot} disabled={convertingToKnot}
@@ -1345,13 +1344,13 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
                   style={{ width: 34, height: 34, borderRadius: 8, background: commentPhoto ? 'var(--yellow-soft)' : isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${commentPhoto ? 'var(--yellow)' : borderSep}`, color: commentPhoto ? 'var(--yellow)' : subColor, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'inherit' }}
                   title="Add photo"
                   aria-label="Add photo">
-                  <ImageIcon size={15} strokeWidth={2} />
+                  <i className="ti ti-photo" style={{ fontSize: ICON_SIZE.card, color: commentPhoto ? 'var(--yellow)' : 'var(--text3)' }} />
                 </button>
                 <button onClick={() => setShowLocationInput(s => !s)}
                   style={{ width: 34, height: 34, borderRadius: 8, background: commentLocation ? 'var(--yellow-soft)' : isLive ? 'rgba(255,255,255,0.06)' : 'var(--bg3)', border: `1px solid ${commentLocation ? 'var(--yellow)' : borderSep}`, color: commentLocation ? 'var(--yellow)' : subColor, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'inherit' }}
                   title="Add location"
                   aria-label="Add location">
-                  <MapPin size={15} strokeWidth={2} />
+                  <i className="ti ti-map-pin" style={{ fontSize: ICON_SIZE.card, color: commentLocation ? 'var(--yellow)' : 'var(--text3)' }} />
                 </button>
                 <button onClick={addComment} disabled={(!newComment.trim() && !commentPhoto && !commentLocation) || submitting}
                   style={{ padding: '8px 14px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: 'var(--text)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (!newComment.trim() && !commentPhoto && !commentLocation) || submitting ? 0.5 : 1, flexShrink: 0 }}>
@@ -1371,7 +1370,9 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
             <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '80vh', background: '#ffffff', borderRadius: '16px 16px 0 0', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
                 <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Thread</span>
-                <button onClick={() => setShowThread(false)} style={{ background: 'none', border: 'none', fontSize: 20, color: 'var(--text3)', cursor: 'pointer', lineHeight: 1, padding: 4 }}>×</button>
+                <button onClick={() => setShowThread(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1, padding: 4, display: 'flex' }}>
+                  <i className="ti ti-x" style={{ fontSize: ICON_SIZE.card, color: 'var(--text3)' }} />
+                </button>
               </div>
               <div style={{ flex: 1, minHeight: 0 }}>
                 <HangoutThread hangoutId={hangout.id} currentUser={currentUser} members={members} />
@@ -1385,7 +1386,9 @@ export default function HangoutCard({ post, data, currentUser, knotId, members, 
             <div style={{ position: 'relative', width: '100%', maxWidth: 440, height: 560, background: '#ffffff', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
                 <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Thread</span>
-                <button onClick={() => setShowThread(false)} style={{ background: 'none', border: 'none', fontSize: 20, color: 'var(--text3)', cursor: 'pointer', lineHeight: 1, padding: 4 }}>×</button>
+                <button onClick={() => setShowThread(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1, padding: 4, display: 'flex' }}>
+                  <i className="ti ti-x" style={{ fontSize: ICON_SIZE.card, color: 'var(--text3)' }} />
+                </button>
               </div>
               <div style={{ flex: 1, minHeight: 0 }}>
                 <HangoutThread hangoutId={hangout.id} currentUser={currentUser} members={members} />

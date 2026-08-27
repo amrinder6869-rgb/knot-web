@@ -1,7 +1,8 @@
 ﻿'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getRandom, LOADING } from '@/lib/copy'
+import { ICON_SIZE } from '@/lib/constants'
 
 const QUESTIONS = [
   "Most likely to show up late tonight?",
@@ -21,7 +22,7 @@ const QUESTIONS = [
   "Most likely to forget the plan?",
 ]
 
-export default function MostLikelyTo({ game, members, currentUser, knotId: _knotId, onEnd }: any) {
+export default function MostLikelyTo({ game, members, currentUser, onEnd }: any) {
   const [questions, setQuestions]   = useState<string[]>([])
   const [currentQ, setCurrentQ]     = useState(0)
   const [votes, setVotes]           = useState<any[]>([])
@@ -32,17 +33,7 @@ export default function MostLikelyTo({ game, members, currentUser, knotId: _knot
   const [submitting, setSubmitting] = useState(false)
   const [phase, setPhase]           = useState<'lobby'|'playing'|'results'>('lobby')
 
-  useEffect(() => {
-    loadGame()
-    const channel = supabase.channel(`game:${game.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_moves', filter: `game_id=eq.${game.id}` }, () => loadGame())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_players', filter: `game_id=eq.${game.id}` }, () => loadGame())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'games', filter: `id=eq.${game.id}` }, () => loadGame())
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [game.id])
-
-  async function loadGame() {
+  const loadGame = useCallback(async () => {
     const [{ data: gData }, { data: pData }, { data: mData }] = await Promise.all([
       supabase.from('games').select('*').eq('id', game.id).single(),
       supabase.from('game_players').select('*, profiles:user_id(name)').eq('game_id', game.id),
@@ -66,7 +57,17 @@ export default function MostLikelyTo({ game, members, currentUser, knotId: _knot
       setMyVotes(mine)
     }
     setLoading(false)
-  }
+  }, [game.id, currentUser])
+
+  useEffect(() => {
+    loadGame()
+    const channel = supabase.channel(`game:${game.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_moves', filter: `game_id=eq.${game.id}` }, () => loadGame())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_players', filter: `game_id=eq.${game.id}` }, () => loadGame())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'games', filter: `id=eq.${game.id}` }, () => loadGame())
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [game.id, loadGame])
 
   async function startGame() {
     const shuffled = [...QUESTIONS].sort(() => Math.random() - 0.5).slice(0, 8)
@@ -122,14 +123,14 @@ export default function MostLikelyTo({ game, members, currentUser, knotId: _knot
   if (phase === 'lobby') return (
     <div style={{ maxWidth: 500 }}>
       <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 24, textAlign: 'center' }}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>{String.fromCodePoint(0x1F914)}</div>
+        <i className="ti ti-help-circle" style={{ display: 'block', fontSize: 40, marginBottom: 12, color: 'var(--text3)' }} />
         <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>Most Likely To</div>
         <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20 }}>Waiting for players to join...</div>
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 20 }}>
           {players.map((p: any) => (
             <div key={p.user_id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'var(--sage-soft)', borderRadius: 20, fontSize: 13, color: 'var(--sage)' }}>
-              {String.fromCodePoint(0x2713)} {p.profiles?.name || 'Player'}
+              <i className="ti ti-check" style={{ fontSize: ICON_SIZE.inline, color: '#111' }} /> {p.profiles?.name || 'Player'}
             </div>
           ))}
         </div>
@@ -141,7 +142,9 @@ export default function MostLikelyTo({ game, members, currentUser, knotId: _knot
         {currentUser?.id === game.created_by && (
           <button onClick={startGame} disabled={players.length < 2}
             style={{ padding: '11px 28px', background: players.length >= 2 ? 'var(--indigo)' : 'var(--bg3)', border: 'none', borderRadius: 10, color: players.length >= 2 ? '#fff' : 'var(--text3)', fontSize: 14, fontWeight: 600, cursor: players.length >= 2 ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
-            {players.length < 2 ? 'Need at least 2 players' : `Start game ${String.fromCodePoint(0x2192)}`}
+            {players.length < 2 ? 'Need at least 2 players' : (
+              <>Start game <i className="ti ti-arrow-right" style={{ fontSize: ICON_SIZE.inline, color: 'var(--yellow)' }} /></>
+            )}
           </button>
         )}
         {currentUser?.id !== game.created_by && (
@@ -154,7 +157,7 @@ export default function MostLikelyTo({ game, members, currentUser, knotId: _knot
   // RESULTS
   if (phase === 'results') return (
     <div style={{ maxWidth: 600 }}>
-      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 20, textAlign: 'center' }}>{String.fromCodePoint(0x1F3C6)} Game Results</div>
+      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 20, textAlign: 'center' }}><i className="ti ti-trophy" style={{ fontSize: ICON_SIZE.nav, color: 'var(--yellow)' }} /> Game Results</div>
       {questions.map((q, i) => {
         const tally = getTallies(i)
         const sorted = Object.entries(tally).sort((a, b) => b[1] - a[1])
@@ -165,7 +168,7 @@ export default function MostLikelyTo({ game, members, currentUser, knotId: _knot
             {winner ? (
               <>
                 <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--indigo)', marginBottom: 8 }}>
-                  {String.fromCodePoint(0x1F3C6)} {getMemberName(winner[0])} ({winner[1]} vote{winner[1] !== 1 ? 's' : ''})
+                  <i className="ti ti-trophy" style={{ fontSize: ICON_SIZE.inline, color: 'var(--yellow)' }} /> {getMemberName(winner[0])} ({winner[1]} vote{winner[1] !== 1 ? 's' : ''})
                 </div>
                 {sorted.map(([id, count]) => (
                   <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
@@ -207,7 +210,9 @@ export default function MostLikelyTo({ game, members, currentUser, knotId: _knot
       <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>Question {currentQ + 1} of {questions.length}</div>
 
       <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 20, marginBottom: 16 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 20, lineHeight: 1.4 }}>{String.fromCodePoint(0x1F914)} {q}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, fontWeight: 700, marginBottom: 20, lineHeight: 1.4 }}>
+          <i className="ti ti-help-circle" style={{ fontSize: ICON_SIZE.nav, color: 'var(--text3)' }} /> {q}
+        </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {members.map((m: any) => {
@@ -220,7 +225,11 @@ export default function MostLikelyTo({ game, members, currentUser, knotId: _knot
                   {m.initials}
                 </div>
                 <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{m.name}</span>
-                {isVoted && <span style={{ fontSize: 12, color: 'var(--indigo)' }}>{String.fromCodePoint(0x2713)} Your pick</span>}
+                {isVoted && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--indigo)' }}>
+                    <i className="ti ti-check" style={{ fontSize: ICON_SIZE.inline, color: '#111' }} /> Your pick
+                  </span>
+                )}
                 {revealed && voteCount > 0 && (
                   <span style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 700 }}>{voteCount} vote{voteCount !== 1 ? 's' : ''}</span>
                 )}
@@ -233,8 +242,8 @@ export default function MostLikelyTo({ game, members, currentUser, knotId: _knot
           <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 12, textAlign: 'center' }}>Tap someone to vote</div>
         )}
         {myVoteThisQ && !revealed && (
-          <div style={{ fontSize: 12, color: 'var(--sage)', marginTop: 12, textAlign: 'center' }}>
-            {String.fromCodePoint(0x2713)} Voted! Waiting for others... ({votes.filter((v: any) => v.move_data.question_index === currentQ).length}/{players.length})
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontSize: 12, color: 'var(--sage)', marginTop: 12, textAlign: 'center' }}>
+            <i className="ti ti-check" style={{ fontSize: ICON_SIZE.inline, color: '#111' }} /> Voted! Waiting for others... ({votes.filter((v: any) => v.move_data.question_index === currentQ).length}/{players.length})
           </div>
         )}
       </div>
@@ -244,19 +253,19 @@ export default function MostLikelyTo({ game, members, currentUser, knotId: _knot
         {myVoteThisQ && !revealed && allVotedCurrent && (
           <button onClick={() => setRevealed(true)}
             style={{ flex: 1, padding: '10px', background: 'var(--sage)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-            Reveal results {String.fromCodePoint(0x1F440)}
+            Reveal results <i className="ti ti-eye" style={{ fontSize: ICON_SIZE.inline, color: 'var(--yellow)' }} />
           </button>
         )}
         {revealed && currentQ < questions.length - 1 && (
           <button onClick={() => { setCurrentQ(q => q + 1); setRevealed(false) }}
             style={{ flex: 1, padding: '10px', background: 'var(--indigo)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-            Next question {String.fromCodePoint(0x2192)}
+            Next question <i className="ti ti-arrow-right" style={{ fontSize: ICON_SIZE.inline, color: 'var(--yellow)' }} />
           </button>
         )}
         {revealed && currentQ === questions.length - 1 && (
           <button onClick={endGame}
             style={{ flex: 1, padding: '10px', background: 'var(--sage)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-            See final results {String.fromCodePoint(0x1F3C6)}
+            See final results <i className="ti ti-trophy" style={{ fontSize: ICON_SIZE.inline, color: 'var(--yellow)' }} />
           </button>
         )}
         {myVoteThisQ && !revealed && !allVotedCurrent && (

@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { ICON_SIZE } from '@/lib/constants'
 
 interface Props {
   user: any
@@ -82,7 +83,7 @@ export default function MerchantOnboarding({ user, onComplete }: Props) {
 
       if (insertError) { setError(insertError.message); setSaving(false); return }
       onComplete(data)
-    } catch (err) {
+    } catch {
       setError('Could not save profile. Please try again.')
     }
     setSaving(false)
@@ -161,18 +162,18 @@ export default function MerchantOnboarding({ user, onComplete }: Props) {
             <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 8 }}>Business type</label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
               {[
-                { id: 'restaurant', label: 'Restaurant', emoji: '🍽️' },
-                { id: 'bar', label: 'Bar', emoji: '🍻' },
-                { id: 'cafe', label: 'Cafe', emoji: '☕' },
-                { id: 'activity', label: 'Activity', emoji: '🎳' },
-                { id: 'experience', label: 'Experience', emoji: '🎨' },
-                { id: 'tour', label: 'Tour', emoji: '🗺️' },
-                { id: 'event_venue', label: 'Event Venue', emoji: '🎉' },
-                { id: 'other', label: 'Other', emoji: '📍' },
+                { id: 'restaurant', label: 'Restaurant', icon: 'ti-tools-kitchen-2' },
+                { id: 'bar', label: 'Bar', icon: 'ti-beer' },
+                { id: 'cafe', label: 'Cafe', icon: 'ti-coffee' },
+                { id: 'activity', label: 'Activity', icon: 'ti-activity' },
+                { id: 'experience', label: 'Experience', icon: 'ti-palette' },
+                { id: 'tour', label: 'Tour', icon: 'ti-map' },
+                { id: 'event_venue', label: 'Event Venue', icon: 'ti-confetti' },
+                { id: 'other', label: 'Other', icon: 'ti-map-pin' },
               ].map(c => (
                 <button key={c.id} onClick={() => setCategory(c.id)}
                   style={{ padding: '10px 6px', borderRadius: 8, border: category === c.id ? '1.5px solid var(--yellow)' : '1px solid var(--border)', background: category === c.id ? '#FFFBEB' : 'var(--bg2)', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center' }}>
-                  <div style={{ fontSize: 20, marginBottom: 4 }}>{c.emoji}</div>
+                  <i className={`ti ${c.icon}`} style={{ display: 'block', fontSize: ICON_SIZE.nav, marginBottom: 4, color: category === c.id ? 'var(--yellow)' : 'var(--text3)' }} />
                   <div style={{ fontSize: 11, fontWeight: 600, color: category === c.id ? '#D97706' : 'var(--text2)' }}>{c.label}</div>
                 </button>
               ))}

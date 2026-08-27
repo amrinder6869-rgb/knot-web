@@ -3,12 +3,14 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { supabase, getSignedUrl } from '@/lib/supabase'
 import { compressImage } from '@/lib/compressImage'
 import { useToast } from '@/components/ToastProvider'
+import { ICON_SIZE } from '@/lib/constants'
 import {
   getRandom,
   getRandomTagged,
   AGENT_RESOLVING_STATES,
   AGENT_MESSAGES,
   COMPOSER_PLACEHOLDER,
+  PLANNING_CHAT_PLACEHOLDER,
   EMPTY_TODO,
   CTA_CONFIRM,
   PLAN_BOARD_HINT,
@@ -43,6 +45,7 @@ import {
 // TODO: replace with /public/knot-logo.png once the asset is exported.
 function KnotMark({ size = 20 }: { size?: number }) {
   return (
+    // Knot logomark — only permitted inline SVG in the codebase
     <svg width={size} height={size} viewBox="0 0 44 44" fill="none">
       <circle cx="17" cy="17" r="10" stroke="var(--yellow)" strokeWidth="3" fill="none" />
       <circle cx="27" cy="27" r="10" stroke="var(--yellow)" strokeWidth="3" fill="none" opacity="0.5" />
@@ -60,6 +63,18 @@ function timeAgo(date: string) {
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
   return `${Math.floor(seconds / 86400)}d ago`
+}
+
+const HOUR_MS = 60 * 60 * 1000
+
+function dateDividerLabel(dateStr: string): string {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (date.toDateString() === now.toDateString()) return 'Today'
+  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday'
+  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
 function formatWhen(scheduledFor: string | null) {
@@ -120,6 +135,14 @@ export default function PlanningView({ knotId, currentUser, members, onNavigateT
   const [pendingRevenue, setPendingRevenue] = useState<{ type: string; label: string; url: string } | null>(null)
   const [pendingVenues, setPendingVenues] = useState<VenueSuggestion[] | null>(null)
   const [confirmingVenueId, setConfirmingVenueId] = useState<string | null>(null)
+  // Synchronous guard for sendChat — `resolving` state updates are batched/async,
+  // so a fast double-tap (send button + Enter, or two quick taps) could slip a
+  // second call through before `resolving` actually flips. The planning-agent
+  // route must only ever be called from an explicit, single user send action:
+  // never on mount, re-render, or Realtime message receipt.
+  const sendingRef = useRef(false)
+  // Computed once on mount — never rotate on re-render.
+  const [chatPlaceholder] = useState(() => getRandom(PLANNING_CHAT_PLACEHOLDER))
   const listRef = useRef<HTMLDivElement>(null)
 
   const [sheet, setSheet] = useState<null | 'plus' | 'moment' | 'bill'>(null)
@@ -293,7 +316,8 @@ const loadHangouts = useCallback(async () => {
 
   async function sendChat(overrideText?: string) {
     const text = (overrideText ?? chatInput).trim()
-    if (!text || resolving || !knotId) return
+    if (!text || sendingRef.current || resolving || !knotId) return
+    sendingRef.current = true
     setChatInput('')
     setChatError('')
     setPendingChips(null)
@@ -304,7 +328,7 @@ const loadHangouts = useCallback(async () => {
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) { setChatError('You need to be signed in.'); setResolving(false); return }
+      if (!session) { setChatError('You need to be signed in.'); sendingRef.current = false; setResolving(false); return }
 
       const res = await fetch('/api/planning-agent', {
         method: 'POST',
@@ -330,6 +354,7 @@ const loadHangouts = useCallback(async () => {
     } catch {
       setChatError('Could not reach the planner. Try again.')
     }
+    sendingRef.current = false
     setResolving(false)
   }
 
@@ -489,12 +514,15 @@ const loadHangouts = useCallback(async () => {
   async function confirmVenue(venue: VenueSuggestion) {
     if (!activeHangout?.id || confirmingVenueId) return
     setConfirmingVenueId(venue.place_id)
+    const currentTitle = activeHangout.title?.trim()
+    const shouldSetTitle = !currentTitle || currentTitle === PLAN_UNTITLED
     const { error } = await supabase
       .from('hangouts')
       .update({
         venue_name: venue.name,
         venue_address: venue.formatted_address,
         venue_place_id: venue.place_id,
+        ...(shouldSetTitle ? { title: venue.name } : {}),
       })
       .eq('id', activeHangout.id)
     setConfirmingVenueId(null)
@@ -505,6 +533,8 @@ const loadHangouts = useCallback(async () => {
       author_id: agentId,
       content: getRandom(AGENT_MESSAGES.VENUE_CONFIRMED),
     })
+    // Re-fetch immediately so the collapsed plan board pill and title reflect
+    // the new venue within the same tick — never wait for the next realtime event.
     await loadHangouts()
   }
 
@@ -608,6 +638,7 @@ const loadHangouts = useCallback(async () => {
       <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 14, marginBottom: 12, overflow: 'hidden', flexShrink: 0 }}>
         <div onClick={() => setBoardExpanded(v => !v)}
           style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', cursor: 'pointer', minHeight: 80, boxSizing: 'border-box' }}>
+          {/* Knot logomark — only permitted inline SVG in the codebase */}
           <KnotMark size={28} />
           <div style={{ flex: 1, minWidth: 0 }}>
             {activeHangout ? (
@@ -664,14 +695,22 @@ const loadHangouts = useCallback(async () => {
             <div style={{ fontSize: 13, color: 'var(--text3)', textAlign: 'center' as const, padding: '40px 20px' }}>No messages yet. Start the conversation.</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {messages.map(m => {
+              {messages.map((m, i) => {
                 const isAgent = agentId && m.author_id === agentId
                 const isMine = m.author_id === currentUser?.id
                 const name = isAgent ? 'Knot' : (m.author_id === currentUser?.id ? (currentUser?.name || 'You') : (members.find(mm => mm.id === m.author_id)?.name || 'Someone'))
+                const showDateDivider = i > 0 && (new Date(m.created_at).getTime() - new Date(messages[i - 1].created_at).getTime()) > HOUR_MS
                 return (
-                  <div key={m.id} style={{ display: 'flex', gap: 8, flexDirection: isMine ? 'row-reverse' : 'row', alignItems: 'flex-end' }}>
+                  <div key={m.id} style={{ display: 'contents' }}>
+                  {showDateDivider && (
+                    <div style={{ textAlign: 'center' as const, fontSize: 10, color: 'var(--text3)', margin: '4px 0' }}>
+                      {dateDividerLabel(m.created_at)}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 8, flexDirection: isMine ? 'row-reverse' : 'row', alignItems: 'flex-end' }}>
                     {isAgent ? (
                       <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#FFFBEE', border: '1px solid rgba(248,189,3,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {/* Knot logomark — only permitted inline SVG in the codebase */}
                         <KnotMark size={14} />
                       </div>
                     ) : (
@@ -696,15 +735,15 @@ const loadHangouts = useCallback(async () => {
                       <span style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{timeAgo(m.created_at)}</span>
                     </div>
                   </div>
+                  </div>
                 )
               })}
-            </div>
-          )}
-        </div>
-
-        {pendingVenues && pendingVenues.length > 0 && !resolving && (
-          <div style={{ display: 'flex', gap: 8, overflowX: 'auto' as const, padding: '0 16px 10px' }}>
-            {pendingVenues.map(v => {
+              {/* Venue cards render as part of the thread, immediately after
+                  the agent message that triggered them — not as a separate
+                  strip below the whole message list. */}
+              {pendingVenues && pendingVenues.length > 0 && !resolving && (
+                <div style={{ display: 'flex', gap: 8, overflowX: 'auto' as const, paddingLeft: 34 }}>
+                  {pendingVenues.map(v => {
               const busy = confirmingVenueId === v.place_id
               return (
                 <button key={v.place_id} onClick={() => confirmVenue(v)} disabled={busy}
@@ -716,17 +755,24 @@ const loadHangouts = useCallback(async () => {
                     <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.name}</div>
                     <div style={{ fontSize: 10, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{v.formatted_address}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                      {v.rating != null && <span style={{ fontSize: 11, color: 'var(--text2)' }}>★ {v.rating}</span>}
+                      {v.rating != null && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--text2)' }}>
+                          <i className="ti ti-star" style={{ fontSize: ICON_SIZE.inline, color: 'var(--yellow)' }} /> {v.rating}
+                        </span>
+                      )}
                       {v.open_now != null && (
                         <span style={{ fontSize: 10, fontWeight: 600, color: v.open_now ? 'var(--sage)' : 'var(--danger)' }}>{v.open_now ? 'Open now' : 'Closed'}</span>
                       )}
                     </div>
                   </div>
                 </button>
-              )
-            })}
-          </div>
-        )}
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {(pendingChips || pendingRevenue) && !resolving && (
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const, padding: '0 16px 10px' }}>
@@ -804,22 +850,22 @@ const loadHangouts = useCallback(async () => {
       {/* COMPOSER BAR */}
       <div style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(12px)', border: '1px solid var(--border)', borderTop: 'none', borderRadius: '0 0 14px 14px', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <button onClick={() => setSheet('plus')} aria-label="More options"
-          style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--bg3)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, fontSize: 20, color: 'var(--text3)', fontFamily: 'inherit' }}>
-          +
+          style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--bg3)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, fontFamily: 'inherit' }}>
+          <i className="ti ti-plus" style={{ fontSize: ICON_SIZE.nav, color: 'var(--text3)' }} />
         </button>
         <input
           value={chatInput}
           onChange={e => setChatInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && chatInput.trim()) sendChat() }}
-          placeholder={getRandom(COMPOSER_PLACEHOLDER)}
+          placeholder={chatPlaceholder}
           style={{ flex: 1, background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 20, padding: '8px 14px', fontSize: 13, color: 'var(--text)', outline: 'none', fontFamily: 'inherit', caretColor: 'var(--yellow)' }}
         />
         <button
           onClick={() => { if (chatInput.trim()) sendChat(); else setSheet('moment') }}
           disabled={resolving}
-          style={{ width: 34, height: 34, borderRadius: '50%', background: chatInput.trim() ? 'var(--yellow)' : 'var(--bg3)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: resolving ? 'not-allowed' : 'pointer', flexShrink: 0, fontSize: 15, color: '#111', opacity: resolving ? 0.6 : 1 }}
+          style={{ width: 34, height: 34, borderRadius: '50%', background: chatInput.trim() ? 'var(--yellow)' : 'var(--bg3)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: resolving ? 'not-allowed' : 'pointer', flexShrink: 0, opacity: resolving ? 0.6 : 1 }}
           aria-label="Send">
-          ↑
+          <i className="ti ti-send" style={{ fontSize: ICON_SIZE.nav, color: '#111' }} />
         </button>
       </div>
 
@@ -830,11 +876,11 @@ const loadHangouts = useCallback(async () => {
           <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', zIndex: 201, padding: '10px 16px calc(16px + env(safe-area-inset-bottom, 0px))', maxWidth: 480, margin: '0 auto' }}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border2)', margin: '4px auto 12px' }} />
             <div onClick={() => setSheet('moment')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 4px', cursor: 'pointer' }}>
-              <span style={{ fontSize: 20 }}>📷</span>
+              <i className="ti ti-camera" style={{ fontSize: ICON_SIZE.nav, color: 'var(--text3)' }} />
               <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Photo or video</span>
             </div>
             <div onClick={() => setSheet('bill')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 4px', cursor: 'pointer' }}>
-              <span style={{ fontSize: 20 }}>🧾</span>
+              <i className="ti ti-receipt" style={{ fontSize: ICON_SIZE.nav, color: 'var(--text3)' }} />
               <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Add a bill</span>
             </div>
           </div>
@@ -851,15 +897,21 @@ const loadHangouts = useCallback(async () => {
               <div style={{ position: 'relative', marginBottom: 10, borderRadius: 10, overflow: 'hidden', aspectRatio: '4/5', background: '#000', maxWidth: 320 }}>
                 <img src={momentPhotoPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                 <button onClick={() => { setMomentPhoto(null); setMomentPhotoPreview(null); if (photoInputRef.current) photoInputRef.current.value = '' }}
-                  style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>×</button>
+                  style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: 'inherit' }}>
+                  {/* Deliberate exception to the 3-color icon rule: a dismiss
+                      control over an arbitrary user photo needs to stay legible
+                      against unpredictable image content, not just the app's
+                      own dark surfaces. */}
+                  <i className="ti ti-x" style={{ fontSize: ICON_SIZE.inline, color: '#fff' }} />
+                </button>
               </div>
             )}
             <textarea value={momentText} onChange={e => setMomentText(e.target.value)} placeholder={getRandom(COMPOSER_PLACEHOLDER)} rows={3}
               style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 10, padding: '10px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', resize: 'vertical' as const, marginBottom: 10, boxSizing: 'border-box' as const }} />
             <input type="file" accept="image/*" ref={photoInputRef} onChange={handlePhotoSelect} style={{ display: 'none' }} />
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => photoInputRef.current?.click()} style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 10, color: 'var(--text2)', fontFamily: 'inherit', fontSize: 12, fontWeight: 500, padding: '9px 14px', cursor: 'pointer' }}>
-                📷 {momentPhoto ? 'Change' : 'Add photo'}
+              <button onClick={() => photoInputRef.current?.click()} style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 10, color: 'var(--text2)', fontFamily: 'inherit', fontSize: 12, fontWeight: 500, padding: '9px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <i className="ti ti-camera" style={{ fontSize: ICON_SIZE.inline, color: 'var(--text3)' }} /> {momentPhoto ? 'Change' : 'Add photo'}
               </button>
               <button onClick={postMoment} disabled={(!momentText.trim() && !momentPhoto) || momentPosting}
                 style={{ flex: 1, padding: '10px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (!momentText.trim() && !momentPhoto) || momentPosting ? 0.5 : 1 }}>

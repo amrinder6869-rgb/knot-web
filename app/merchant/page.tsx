@@ -1,6 +1,8 @@
 'use client'
 import { useState } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { ICON_SIZE } from '@/lib/constants'
 
 export default function MerchantSignup() {
   const [step, setStep] = useState<'intro' | 'auth' | 'profile'>('intro')
@@ -49,12 +51,12 @@ export default function MerchantSignup() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 40 }}>
         {[
-          { icon: '👥', title: 'Groups of 2 to 20', desc: 'Confirmed groups who have pre-committed before they arrive' },
-          { icon: '💳', title: 'Prepaid orders', desc: 'Payment collected before the hangout. You get guaranteed revenue' },
-          { icon: '🎯', title: 'Knot Specials', desc: 'Offer exclusive deals to Knot groups on your slow nights' },
+          { icon: 'ti-users', title: 'Groups of 2 to 20', desc: 'Confirmed groups who have pre-committed before they arrive' },
+          { icon: 'ti-credit-card', title: 'Prepaid orders', desc: 'Payment collected before the hangout. You get guaranteed revenue' },
+          { icon: 'ti-target', title: 'Knot Specials', desc: 'Offer exclusive deals to Knot groups on your slow nights' },
         ].map(item => (
           <div key={item.title} style={{ display: 'flex', gap: 14, padding: '14px 16px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, textAlign: 'left', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-            <span style={{ fontSize: 24, flexShrink: 0 }}>{item.icon}</span>
+            <i className={`ti ${item.icon}`} style={{ fontSize: ICON_SIZE.nav, flexShrink: 0, color: 'var(--yellow)' }} />
             <div>
               <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>{item.title}</div>
               <div style={{ fontSize: 13, color: 'var(--text2)' }}>{item.desc}</div>
@@ -122,13 +124,13 @@ export default function MerchantSignup() {
 
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', padding: '60px 24px', textAlign: 'center' }}>
-      <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
+      <i className="ti ti-confetti" style={{ display: 'block', fontSize: 40, marginBottom: 16, color: 'var(--yellow)' }} />
       <h2 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)', marginBottom: 8 }}>Account created</h2>
       <p style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 24 }}>Check your email to confirm your account, then set up your restaurant profile.</p>
-      <a href="/merchant/dashboard"
+      <Link href="/merchant/dashboard"
         style={{ display: 'inline-block', padding: '12px 28px', background: 'var(--yellow)', borderRadius: 8, color: 'var(--text)', fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>
         Go to dashboard
-      </a>
+      </Link>
     </div>
   )
 }

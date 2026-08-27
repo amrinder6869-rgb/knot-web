@@ -4,10 +4,6 @@ import HomeFeed from '@/components/HomeFeed'
 import HomeEvents from '@/components/HomeEvents'
 import HomeBills from '@/components/HomeBills'
 import { useState, useEffect } from 'react'
-import {
-  MessageCircle, Calendar, Image as ImageIcon, Users, MoreHorizontal,
-  Receipt, Gamepad2, Compass, Lock, Home,
-} from 'lucide-react'
 import { supabase, getSignedUrl } from '@/lib/supabase'
 import Feed from '@/components/Feed'
 import VibesCounter from '@/components/VibesCounter'
@@ -21,7 +17,7 @@ import Notifications from '@/components/Notifications'
 import { useToast } from '@/components/ToastProvider'
 import DateTimePicker from '@/components/DateTimePicker'
 import { CONFIRM, TOAST } from '@/lib/copy'
-import { DIETARY_OPTIONS, ACCESSIBILITY_OPTIONS } from '@/lib/constants'
+import { DIETARY_OPTIONS, ACCESSIBILITY_OPTIONS, ICON_SIZE } from '@/lib/constants'
 import MemberAvatar from '@/components/MemberAvatar'
 import Onboarding from '@/components/Onboarding'
 import { track } from '@/lib/track'
@@ -34,12 +30,13 @@ const TABS = [
   { id: 'discover', label: 'Discover' },
 ]
 
+// icon holds a Tabler ti-* class suffix, not raw glyph content — see AGENTS.md icon audit notes.
 const BOTTOM_NAV = [
-  { id: 'feed',     label: 'Feed',    Icon: MessageCircle },
-  { id: 'hangout',  label: 'Plans',   Icon: Calendar },
-  { id: 'memories', label: 'Photos',  Icon: ImageIcon },
-  { id: 'members',  label: 'People',  Icon: Users },
-  { id: 'more',     label: 'More',    Icon: MoreHorizontal },
+  { id: 'feed',     label: 'Feed',    icon: 'ti-message-circle' },
+  { id: 'hangout',  label: 'Plans',   icon: 'ti-calendar' },
+  { id: 'memories', label: 'Photos',  icon: 'ti-photo' },
+  { id: 'members',  label: 'People',  icon: 'ti-users' },
+  { id: 'more',     label: 'More',    icon: 'ti-dots' },
 ]
 
 const USERNAME_RE = /^[A-Za-z0-9_]{3,20}$/
@@ -87,7 +84,6 @@ export default function Dashboard() {
   const [newKnotName, setNewKnotName]       = useState('')
   const [newKnotEmoji, setNewKnotEmoji]     = useState('🔗')
   const [knots, setKnots]                   = useState<any[]>([])
-  const [knotsLoading, setKnotsLoading]     = useState(true)
   const [knotMembers, setKnotMembers]       = useState<any[]>([])
   const [recentMedia, setRecentMedia]       = useState<{ id: string; url: string; media_type: string }[]>([])
   const [coverSignedUrl, setCoverSignedUrl] = useState<string | null>(null)
@@ -140,8 +136,11 @@ export default function Dashboard() {
       }
 
       await loadKnots(data.user.id)
-      setKnotsLoading(false)
     })
+    // Mount-only: establishes `user` for the first time, so `loadKnots`
+    // (which closes over `user?.id` as a fallback) can't safely be a dep
+    // here without re-firing this fetch right after setUser above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function loadKnots(userId?: string) {
@@ -553,6 +552,7 @@ export default function Dashboard() {
       {/* TOP GLOBAL NAV */}
       <div style={{ position: 'sticky', top: 0, zIndex: 100, background: 'var(--glass-bg)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid var(--border)', height: 52, display: 'flex', alignItems: 'center', padding: '0 20px', gap: 12 }}>
         <div onClick={() => { setShowHome(true); setActiveKnot(null); localStorage.setItem('show_home', 'true') }} style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, cursor: 'pointer' }}>
+          {/* Knot logomark — only permitted inline SVG in the codebase */}
           <svg width="22" height="22" viewBox="0 0 44 44" fill="none">
             <circle cx="17" cy="17" r="10" stroke="var(--yellow)" strokeWidth="3" fill="none"/>
             <circle cx="27" cy="27" r="10" stroke="var(--yellow)" strokeWidth="3" fill="none" opacity="0.5"/>
@@ -566,7 +566,7 @@ export default function Dashboard() {
           <button onClick={() => setShowKnotList(!showKnotList)}
             style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--text)', fontSize: 13, fontWeight: 500 }}>
             <span style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeKnot ? `${activeKnot.emoji} ${activeKnot.name}` : 'Select a Knot'}</span>
-            <span style={{ color: 'var(--text3)', fontSize: 10 }}>▾</span>
+            <i className="ti ti-chevron-down" style={{ fontSize: ICON_SIZE.inline, color: 'var(--text3)' }} />
           </button>
           {showKnotList && (
             <div style={{ position: 'absolute', top: '110%', left: 0, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 8, minWidth: 220, zIndex: 200, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
@@ -584,8 +584,8 @@ export default function Dashboard() {
               })}
               <div style={{ borderTop: '1px solid var(--border)', marginTop: 6, paddingTop: 6 }}>
                 <div onClick={() => { setShowKnotList(false); setShowNewKnot(true) }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--yellow)', fontWeight: 600 }}>
-                  + New Knot
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--yellow)', fontWeight: 600 }}>
+                  <i className="ti ti-plus" style={{ fontSize: ICON_SIZE.inline, color: 'var(--yellow)' }} /> New Knot
                 </div>
               </div>
             </div>
@@ -613,8 +613,8 @@ export default function Dashboard() {
               Turn on notifications
             </button>
             <button onClick={dismissPushBanner} aria-label="Dismiss"
-              style={{ background: 'none', border: 'none', color: 'var(--text2)', fontSize: 16, cursor: 'pointer', padding: 4, lineHeight: 1, fontFamily: 'inherit' }}>
-              ×
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, lineHeight: 1, fontFamily: 'inherit', display: 'flex' }}>
+              <i className="ti ti-x" style={{ fontSize: ICON_SIZE.card, color: 'var(--text3)' }} />
             </button>
           </div>
         </div>
@@ -637,8 +637,12 @@ export default function Dashboard() {
                 </>
               )}
               {activeKnot.created_by === user.id && (
-                <label style={{ position: 'absolute', bottom: 10, right: 10, zIndex: 2, padding: '6px 12px', background: 'rgba(0,0,0,0.5)', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                  {activeKnot.cover_url ? 'Change cover' : '+ Add cover'}
+                <label style={{ position: 'absolute', bottom: 10, right: 10, zIndex: 2, padding: '6px 12px', background: 'rgba(0,0,0,0.5)', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  {/* Deliberate exception to the 3-color icon rule: this label
+                      sits over an arbitrary user cover photo, so it keeps the
+                      same white as the text beside it rather than a fixed token. */}
+                  {!activeKnot.cover_url && <i className="ti ti-plus" style={{ fontSize: ICON_SIZE.inline, color: '#fff' }} />}
+                  {activeKnot.cover_url ? 'Change cover' : 'Add cover'}
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
@@ -679,8 +683,8 @@ export default function Dashboard() {
                 {isFounder && (
                   <div style={{ position: 'relative' }}>
                     <button onClick={() => setShowKnotMenu(!showKnotMenu)}
-                      style={{ padding: '8px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-                      ⋯
+                      style={{ padding: '8px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', display: 'flex' }}>
+                      <i className="ti ti-dots" style={{ fontSize: ICON_SIZE.card, color: 'var(--text3)' }} />
                     </button>
                     {showKnotMenu && (
                       <div style={{ position: 'absolute', right: 0, top: '110%', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 6, minWidth: 180, zIndex: 50, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
@@ -736,11 +740,11 @@ export default function Dashboard() {
                     <span style={{ fontWeight: 600, color: 'var(--text)' }}>{activeKnot.name}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Lock size={14} color="var(--yellow)" strokeWidth={2} />
+                    <i className="ti ti-lock" style={{ fontSize: ICON_SIZE.inline, color: 'var(--yellow)' }} />
                     <span>Private · Invite only</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Users size={14} color="var(--yellow)" strokeWidth={2} />
+                    <i className="ti ti-users" style={{ fontSize: ICON_SIZE.inline, color: 'var(--yellow)' }} />
                     <span>{activeKnot.count} member{activeKnot.count !== 1 ? 's' : ''}</span>
                   </div>
                 </div>
@@ -786,7 +790,7 @@ export default function Dashboard() {
                   )) : (
                     <button onClick={() => setActive('memories')}
                       style={{ gridColumn: '1 / -1', aspectRatio: 'auto', minHeight: 88, borderRadius: 8, background: 'var(--bg3)', border: '1px dashed var(--border2)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, fontFamily: 'inherit', color: 'var(--text3)' }}>
-                      <ImageIcon size={20} strokeWidth={1.75} />
+                      <i className="ti ti-photo" style={{ fontSize: ICON_SIZE.nav, color: 'var(--text3)' }} />
                       <span style={{ fontSize: 12 }}>No photos yet — add some</span>
                     </button>
                   )}
@@ -846,8 +850,8 @@ export default function Dashboard() {
               ))}
             </div>
             <button onClick={() => setShowNewKnot(true)}
-              style={{ width: '100%', padding: '10px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 8 }}>
-              + New Knot
+              style={{ width: '100%', padding: '10px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+              <i className="ti ti-plus" style={{ fontSize: ICON_SIZE.inline, color: '#111' }} /> New Knot
             </button>
             <button onClick={() => setShowCreateEvent(true)}
               style={{ width: '100%', padding: '10px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -859,7 +863,9 @@ export default function Dashboard() {
       ) : (
         /* NO KNOTS */
         <div style={{ maxWidth: 480, margin: '80px auto', padding: 24, textAlign: 'center' }}>
-          <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: 28 }}>+</div>
+          <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+            <i className="ti ti-plus" style={{ fontSize: ICON_SIZE.header, color: '#111' }} />
+          </div>
           <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8, color: 'var(--text)' }}>No Knots yet</div>
           <div style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 24, lineHeight: 1.6 }}>
             Create your first Knot — a private group for the people you actually hang out with.
@@ -877,7 +883,6 @@ export default function Dashboard() {
           <nav className="bottom-nav" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: 64, background: 'var(--glass-bg)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderTop: '1px solid var(--border)', zIndex: 100, alignItems: 'center', justifyContent: 'space-around', padding: '6px 8px', paddingBottom: 'env(safe-area-inset-bottom, 6px)' }}>
             {BOTTOM_NAV.map(n => {
               const isActive = n.id === 'more' ? showMore : active === n.id
-              const Icon = n.Icon
               return (
                 <button key={n.id}
                   onClick={() => {
@@ -885,7 +890,7 @@ export default function Dashboard() {
                     else { setActive(n.id); setShowMore(false); setShowHome(false) }
                   }}
                   style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '6px 12px', borderRadius: 999, background: isActive ? 'var(--pill-bg)' : 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
-                  <Icon size={18} strokeWidth={isActive ? 2.4 : 1.8} color={isActive ? 'var(--pill-text)' : 'var(--text3)'} />
+                  <i className={`ti ${n.icon}`} style={{ fontSize: ICON_SIZE.nav, color: isActive ? 'var(--pill-text)' : 'var(--text3)' }} />
                   <span style={{ fontSize: 10, fontWeight: isActive ? 700 : 400, color: isActive ? 'var(--pill-text)' : 'var(--text3)' }}>{n.label}</span>
                 </button>
               )
@@ -898,10 +903,10 @@ export default function Dashboard() {
                 style={{ position: 'absolute', bottom: 60, left: 0, right: 0, background: 'var(--bg2)', borderTop: '1px solid var(--border)', borderRadius: '16px 16px 0 0', padding: 20 }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>Navigate</div>
                 {[
-                  { id: 'home', label: 'Home', Icon: Home },
-                  { id: 'split', label: 'Bills', Icon: Receipt },
-                  { id: 'games', label: 'Games', Icon: Gamepad2 },
-                  { id: 'discover', label: 'Discover', Icon: Compass },
+                  { id: 'home', label: 'Home', icon: 'ti-home' },
+                  { id: 'split', label: 'Bills', icon: 'ti-receipt' },
+                  { id: 'games', label: 'Games', icon: 'ti-device-gamepad-2' },
+                  { id: 'discover', label: 'Discover', icon: 'ti-compass' },
                 ].map(n => (
                   <button key={n.id} onClick={() => {
                     if (n.id === 'home') {
@@ -912,7 +917,7 @@ export default function Dashboard() {
                     }
                   }}
                     style={{ width: '100%', padding: '11px 12px', background: active === n.id && n.id !== 'home' ? 'var(--yellow-soft)' : 'transparent', border: 'none', borderRadius: 8, color: active === n.id && n.id !== 'home' ? 'var(--yellow)' : 'var(--text)', fontSize: 14, fontWeight: active === n.id && n.id !== 'home' ? 700 : 400, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <n.Icon size={16} strokeWidth={2} />
+                    <i className={`ti ${n.icon}`} style={{ fontSize: ICON_SIZE.nav, color: active === n.id && n.id !== 'home' ? 'var(--yellow)' : 'var(--text3)' }} />
                     {n.label}
                   </button>
                 ))}
@@ -1082,7 +1087,9 @@ export default function Dashboard() {
                     {editName ? editName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase() : initials}
                   </div>
                 )}
-                <div style={{ position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, borderRadius: '50%', background: 'var(--yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#111', fontWeight: 700, border: '2px solid var(--bg2)' }}>+</div>
+                <div style={{ position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, borderRadius: '50%', background: 'var(--yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg2)' }}>
+                  <i className="ti ti-plus" style={{ fontSize: ICON_SIZE.inline, color: '#111' }} />
+                </div>
                 <input id="avatar-upload" type="file" accept="image/jpeg,image/png,image/webp,image/gif" style={{ display: 'none' }}
                   onChange={async (e) => {
                     const file = e.target.files?.[0]
@@ -1188,8 +1195,8 @@ export default function Dashboard() {
 
               {editUsername && editTier !== 'private' && (
                 <a href={`/${editUsername}`} target="_blank" rel="noreferrer"
-                  style={{ display: 'inline-block', fontSize: 12, color: 'var(--text2)', fontWeight: 600, marginBottom: 16 }}>
-                  View your profile →
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text2)', fontWeight: 600, marginBottom: 16 }}>
+                  View your profile <i className="ti ti-chevron-right" style={{ fontSize: ICON_SIZE.inline, color: 'var(--text3)' }} />
                 </a>
               )}
               {(!editUsername || editTier === 'private') && <div style={{ marginBottom: 16 }} />}

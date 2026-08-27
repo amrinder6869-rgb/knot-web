@@ -238,3 +238,10 @@ export const PLANNER_NUDGE = [
 export const PLAN_UNTITLED = 'New plan'
 export const AGENT_VENUE_PROMPT = 'Here are some options nearby.'
 export const AGENT_TITLE_PROMPT = 'What should we call this?'
+
+export const PLANNING_CHAT_PLACEHOLDER = [
+  'Message the crew...',
+  'What is the plan?',
+  'What are we doing?',
+  'Drop something in the chat.',
+]

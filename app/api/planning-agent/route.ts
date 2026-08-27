@@ -126,6 +126,13 @@ export async function POST(request: Request) {
       .maybeSingle()
     if (!membership) return NextResponse.json({ error: 'Not a member of this knot' }, { status: 403 })
 
+    // Created once and reused below — for the sender's resident_city lookup
+    // ahead of a venue search, and later for any hangout/message writes.
+    const serviceClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) return NextResponse.json({ agent_message: null, chips: null, plan_updates: null, todo_updates: null, revenue_suggestion: null })
 
@@ -176,7 +183,16 @@ export async function POST(request: Request) {
     // result (not the model's raw text) becomes the message — canned copy for
     // a fixed outcome, same as the confirmation pools further down.
     const venueSearchQuery: string | null = typeof parsed.venueSearchQuery === 'string' ? parsed.venueSearchQuery.trim() : null
-    const venueSuggestions = venueSearchQuery ? await searchVenues(venueSearchQuery, token) : []
+    let venueSuggestions: Awaited<ReturnType<typeof searchVenues>> = []
+    if (venueSearchQuery) {
+      const { data: senderProfile } = await serviceClient
+        .from('profiles')
+        .select('resident_city')
+        .eq('id', senderId)
+        .maybeSingle()
+      const locationHint = senderProfile?.resident_city?.trim() || 'Toronto'
+      venueSuggestions = await searchVenues(`${venueSearchQuery} near ${locationHint}`, token)
+    }
     if (venueSuggestions.length > 0) agentMessage = AGENT_VENUE_PROMPT
 
     // A hangout gets created the first time the conversation produces
@@ -193,10 +209,6 @@ export async function POST(request: Request) {
     // the model judged irrelevant to planning — a "sounds good" still counts
     // as the group being present.
     if (needsHangout || wasExisting) {
-      const serviceClient = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      )
       const wasNewPlan = !resolvedHangoutId
       let writeFailed = false
 

@@ -7,7 +7,7 @@ import { compressImage } from '@/lib/compressImage'
 import DateTimePicker from '@/components/DateTimePicker'
 import { useToast } from '@/components/ToastProvider'
 import { getRandom, COMPOSER_PLACEHOLDER, COMPOSER_RESOLVING } from '@/lib/copy'
-import { EVENT_RESTRICTION_OPTIONS } from '@/lib/constants'
+import { EVENT_RESTRICTION_OPTIONS, ICON_SIZE } from '@/lib/constants'
 import { track } from '@/lib/track'
 
 type PostType = 'moment' | 'hangout'
@@ -240,13 +240,13 @@ export default function Composer({
     if (draft.inviteMode === 'selected' && draft.selectedMemberIds.size === 0 && members.length > 0) {
       dispatchDraft({ type: 'init_selected_members', ids: members.map(m => m.id) })
     }
-  }, [draft.inviteMode, members])
+  }, [draft.inviteMode, draft.selectedMemberIds.size, members])
 
   useEffect(() => {
     if (showQuickBill && quickBillSelectedIds.size === 0 && members.length > 0) {
       setQuickBillSelectedIds(new Set(members.map(m => m.id)))
     }
-  }, [showQuickBill, members])
+  }, [showQuickBill, quickBillSelectedIds.size, members])
 
   function reset() {
     setActiveType(null)
@@ -880,6 +880,12 @@ export default function Composer({
     return { ...base, border: '1px dashed var(--border2)', background: 'var(--bg3)', color: 'var(--text3)' }
   }
 
+  function chipIconColor(state: 'open' | 'inferred' | 'filled'): string {
+    if (state === 'inferred') return 'var(--yellow)'
+    if (state === 'filled') return '#111'
+    return 'var(--text3)'
+  }
+
   function handleChipTap(chip: 'when' | 'where') {
     const provenance = chip === 'when' ? whenProvenance : whereProvenance
     if (provenance === 'inferred') {
@@ -929,15 +935,15 @@ export default function Composer({
 
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   <button onClick={() => handleChipTap('when')} style={chipStyle(whenChipValue ? whenProvenance : 'open')}>
-                    <span style={{ fontSize: 12 }}>📅</span>
+                    <i className="ti ti-calendar" style={{ fontSize: ICON_SIZE.inline, color: chipIconColor(whenChipValue ? whenProvenance : 'open') }} />
                     {whenChipValue || 'What time?'}
                   </button>
                   <button onClick={() => handleChipTap('where')} style={chipStyle(whereChipValue ? whereProvenance : 'open')}>
-                    <span style={{ fontSize: 12 }}>📍</span>
+                    <i className="ti ti-map-pin" style={{ fontSize: ICON_SIZE.inline, color: chipIconColor(whereChipValue ? whereProvenance : 'open') }} />
                     {whereChipValue || 'Where?'}
                   </button>
                   <button onClick={() => setShowMore(v => !v)} style={chipStyle('open')}>
-                    <span style={{ fontSize: 12 }}>⋯</span>
+                    <i className="ti ti-dots" style={{ fontSize: ICON_SIZE.inline, color: 'var(--text3)' }} />
                     More
                   </button>
                 </div>
@@ -1053,11 +1059,12 @@ export default function Composer({
                       {([
                         { id: 'home' as WhereMode, label: "Someone's place" },
                         { id: 'online' as WhereMode, label: 'Online' },
-                        { id: 'cinema' as WhereMode, label: String.fromCodePoint(0x1F3A5) + ' Movies' },
+                        { id: 'cinema' as WhereMode, label: 'Movies' },
                         { id: 'tbd' as WhereMode, label: 'TBD' },
                       ]).map(({ id, label }) => (
                         <button key={id} onClick={() => { dispatchDraft({ type: 'set', field: 'whereMode', value: id }); setWhereProvenance('filled') }}
-                          style={{ padding: '6px 11px', borderRadius: 20, border: `1px solid ${draft.whereMode === id ? '#111' : 'var(--border2)'}`, background: draft.whereMode === id ? '#111' : 'transparent', color: draft.whereMode === id ? '#fff' : 'var(--text3)', fontSize: 11, fontWeight: draft.whereMode === id ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 20, border: `1px solid ${draft.whereMode === id ? '#111' : 'var(--border2)'}`, background: draft.whereMode === id ? '#111' : 'transparent', color: draft.whereMode === id ? '#fff' : 'var(--text3)', fontSize: 11, fontWeight: draft.whereMode === id ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                          {id === 'cinema' && <i className="ti ti-movie" style={{ fontSize: ICON_SIZE.inline, color: draft.whereMode === id ? 'var(--yellow)' : 'var(--text3)' }} />}
                           {label}
                         </button>
                       ))}
@@ -1156,8 +1163,8 @@ export default function Composer({
                             )}
                           </div>
                           <button onClick={() => { dispatchDraft({ type: 'set', field: 'whereMode', value: 'poll' }); fetchVenuePollSuggestions() }}
-                            style={{ padding: '8px 10px', borderRadius: 9, border: '1px solid var(--yellow-dim)', background: 'var(--yellow-soft)', color: 'var(--yellow)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' as const }}>
-                            🗺 Fair spot
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--yellow-dim)', background: 'var(--yellow-soft)', color: 'var(--yellow)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' as const }}>
+                            <i className="ti ti-map" style={{ fontSize: ICON_SIZE.inline, color: 'var(--yellow)' }} /> Fair spot
                           </button>
                         </div>
                         <Discover members={members} currentUser={currentUser} onVenueSelect={(venue: any) => { dispatchDraft({ type: 'select_venue', venue, whereMode: 'discover' }); setWhereProvenance('filled') }} />
@@ -1186,7 +1193,7 @@ export default function Composer({
                             <div key={m.id} onClick={() => toggleSelectedMember(m.id)}
                               style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: checked ? 'var(--yellow-soft)' : 'var(--bg3)', border: `1px solid ${checked ? 'var(--yellow)' : 'var(--border2)'}`, cursor: 'pointer' }}>
                               <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${checked ? 'var(--yellow)' : 'var(--border2)'}`, background: checked ? 'var(--yellow)' : 'transparent', color: '#111', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                {checked ? '✓' : ''}
+                                {checked && <i className="ti ti-check" style={{ fontSize: 11, color: '#111' }} />}
                               </div>
                               <span style={{ fontSize: 13, color: 'var(--text)' }}>{m.name}</span>
                             </div>
@@ -1227,7 +1234,7 @@ export default function Composer({
                               <div key={m.id} onClick={() => toggleSurpriseMember(m.id)}
                                 style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: checked ? 'var(--yellow-soft)' : 'var(--bg3)', border: `1px solid ${checked ? 'var(--yellow)' : 'var(--border2)'}`, cursor: 'pointer' }}>
                                 <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${checked ? 'var(--yellow)' : 'var(--border2)'}`, background: checked ? 'var(--yellow)' : 'transparent', color: '#111', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                  {checked ? '✓' : ''}
+                                  {checked && <i className="ti ti-check" style={{ fontSize: 11, color: '#111' }} />}
                                 </div>
                                 <span style={{ fontSize: 13, color: 'var(--text)' }}>{m.name}</span>
                               </div>
@@ -1327,8 +1334,8 @@ export default function Composer({
           {userInitials}
         </div>
         <button onClick={() => setSheet('plus')} aria-label="More options"
-          style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--bg3)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, fontSize: 20, color: 'var(--text3)', fontFamily: 'inherit' }}>
-          +
+          style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--bg3)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, fontFamily: 'inherit' }}>
+          <i className="ti ti-plus" style={{ fontSize: ICON_SIZE.nav, color: 'var(--text3)' }} />
         </button>
         <input
           className="composer-input"
@@ -1344,9 +1351,9 @@ export default function Composer({
             else if (draft.hangoutTitle.trim() || draft.scheduledFor || draft.selectedVenue) { postHangout() }
             else { setSheet('moment') }
           }}
-          style={{ width: 34, height: 34, borderRadius: '50%', background: inputText.trim() || draft.hangoutTitle.trim() ? 'var(--yellow)' : 'var(--bg3)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, fontSize: 15, color: '#111' }}
+          style={{ width: 34, height: 34, borderRadius: '50%', background: inputText.trim() || draft.hangoutTitle.trim() ? 'var(--yellow)' : 'var(--bg3)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
           aria-label="Post">
-          ↑
+          <i className="ti ti-send" style={{ fontSize: ICON_SIZE.nav, color: '#111' }} />
         </button>
       </div>
 
@@ -1368,15 +1375,15 @@ export default function Composer({
           <div style={{ display: 'flex', gap: 6, padding: '2px 12px 10px', borderTop: '0.5px solid var(--border)' }}>
             <button onClick={() => setSheet('moment')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
-              📷 Moment
+              <i className="ti ti-camera" style={{ fontSize: ICON_SIZE.inline, color: 'var(--text3)' }} /> Moment
             </button>
             <button onClick={() => { setActiveType('hangout'); document.querySelector<HTMLInputElement>('.composer-input')?.focus() }}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, border: '1px solid var(--yellow-dim)', background: 'var(--yellow-soft)', color: 'var(--yellow)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-              🗓 Plan a hangout
+              <i className="ti ti-calendar" style={{ fontSize: ICON_SIZE.inline, color: 'var(--yellow)' }} /> Plan a hangout
             </button>
             <button onClick={() => setSheet('bill')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
-              🧾 Bill
+              <i className="ti ti-receipt" style={{ fontSize: ICON_SIZE.inline, color: 'var(--text3)' }} /> Bill
             </button>
           </div>
         </>
@@ -1389,15 +1396,15 @@ export default function Composer({
           <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', zIndex: 201, padding: '10px 16px calc(16px + env(safe-area-inset-bottom, 0px))', maxWidth: 480, margin: '0 auto' }}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border2)', margin: '4px auto 12px' }} />
             {[
-              { icon: '📷', label: 'Moment', onClick: () => setSheet('moment') },
-              { icon: '🗓', label: 'Plan a hangout', onClick: () => { setSheet(null); setActiveType('hangout'); setTimeout(() => document.querySelector<HTMLInputElement>('.composer-input')?.focus(), 0) } },
-              { icon: '🧾', label: 'Bill', onClick: () => setSheet('bill') },
-              { icon: '💻', label: 'Online hangout', onClick: () => { setSheet(null); setActiveType('hangout'); dispatchDraft({ type: 'set', field: 'whereMode', value: 'online' }); setWhereProvenance('filled'); setComposerPhase('ready') } },
-              { icon: '🔴', label: 'Live join-in', onClick: () => { setSheet(null); setActiveType('hangout'); dispatchDraft({ type: 'set', field: 'whenType', value: 'now' }); setWhenProvenance('filled'); setComposerPhase('ready') } },
+              { icon: 'ti-camera', label: 'Moment', onClick: () => setSheet('moment') },
+              { icon: 'ti-calendar', label: 'Plan a hangout', onClick: () => { setSheet(null); setActiveType('hangout'); setTimeout(() => document.querySelector<HTMLInputElement>('.composer-input')?.focus(), 0) } },
+              { icon: 'ti-receipt', label: 'Bill', onClick: () => setSheet('bill') },
+              { icon: 'ti-world', label: 'Online hangout', onClick: () => { setSheet(null); setActiveType('hangout'); dispatchDraft({ type: 'set', field: 'whereMode', value: 'online' }); setWhereProvenance('filled'); setComposerPhase('ready') } },
+              { icon: 'ti-broadcast', label: 'Live join-in', onClick: () => { setSheet(null); setActiveType('hangout'); dispatchDraft({ type: 'set', field: 'whenType', value: 'now' }); setWhenProvenance('filled'); setComposerPhase('ready') } },
             ].map(item => (
               <div key={item.label} onClick={item.onClick}
                 style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 4px', cursor: 'pointer', fontFamily: 'inherit' }}>
-                <span style={{ fontSize: 20 }}>{item.icon}</span>
+                <i className={`ti ${item.icon}`} style={{ fontSize: ICON_SIZE.nav, color: 'var(--text3)' }} />
                 <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{item.label}</span>
               </div>
             ))}
@@ -1428,7 +1435,7 @@ export default function Composer({
             <input type="file" accept="image/*,video/*" ref={momentPhotoInputRef} onChange={handleMomentPhotoSelect} style={{ display: 'none' }} />
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => momentPhotoInputRef.current?.click()} style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 10, color: 'var(--text2)', fontFamily: 'inherit', fontSize: 12, fontWeight: 500, padding: '9px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                📷 {momentPhoto ? 'Change' : 'Add photo'}
+                <i className="ti ti-camera" style={{ fontSize: ICON_SIZE.inline, color: 'var(--text3)' }} /> {momentPhoto ? 'Change' : 'Add photo'}
               </button>
               <button onClick={async () => { await postMoment(); setSheet(null) }} disabled={(!momentText.trim() && !momentPhoto) || posting}
                 style={{ ...btnYellow, width: 'auto', flex: 1, opacity: (!momentText.trim() && !momentPhoto) || posting ? 0.5 : 1 }}>
@@ -1458,7 +1465,7 @@ export default function Composer({
                   <div key={m.id} onClick={() => toggleQuickBillMember(m.id)}
                     style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, background: checked ? 'var(--yellow-soft)' : 'var(--bg3)', border: `1px solid ${checked ? 'var(--yellow)' : 'var(--border2)'}`, cursor: 'pointer' }}>
                     <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${checked ? 'var(--yellow)' : 'var(--border2)'}`, background: checked ? 'var(--yellow)' : 'transparent', color: '#111', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      {checked ? '✓' : ''}
+                      {checked && <i className="ti ti-check" style={{ fontSize: 11, color: '#111' }} />}
                     </div>
                     <span style={{ fontSize: 12, color: 'var(--text)' }}>{m.name}</span>
                   </div>

@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import BillSplitForm, { BillCategory } from '@/components/BillSplitForm'
 import LedgerView from '@/components/LedgerView'
@@ -8,19 +8,21 @@ import { createNotification } from '@/lib/notify'
 import { useToast } from '@/components/ToastProvider'
 import { getRandom, LOADING, EMPTY } from '@/lib/copy'
 import { track } from '@/lib/track'
+import { ICON_SIZE } from '@/lib/constants'
 
+// icon holds a Tabler ti-* class suffix, not raw glyph content — see AGENTS.md icon audit notes.
 const CATEGORIES: { id: string; label: string; icon: string }[] = [
   { id: 'all',           label: 'All',           icon: '' },
-  { id: 'dinner',        label: 'Dinner',        icon: String.fromCodePoint(0x1F37D) },
-  { id: 'drinks',        label: 'Drinks',        icon: String.fromCodePoint(0x1F37A) },
-  { id: 'transport',     label: 'Transport',     icon: String.fromCodePoint(0x1F697) },
-  { id: 'accommodation', label: 'Stay',          icon: String.fromCodePoint(0x1F3E8) },
-  { id: 'activities',    label: 'Activities',    icon: String.fromCodePoint(0x1F3A8) },
-  { id: 'other',         label: 'Other',         icon: String.fromCodePoint(0x1F4CB) },
+  { id: 'dinner',        label: 'Dinner',        icon: 'ti-glass-full' },
+  { id: 'drinks',        label: 'Drinks',        icon: 'ti-beer' },
+  { id: 'transport',     label: 'Transport',     icon: 'ti-car' },
+  { id: 'accommodation', label: 'Stay',          icon: 'ti-bed' },
+  { id: 'activities',    label: 'Activities',    icon: 'ti-palette' },
+  { id: 'other',         label: 'Other',         icon: 'ti-clipboard' },
 ]
 
 function getCatIcon(cat: string) {
-  return CATEGORIES.find(c => c.id === cat)?.icon || String.fromCodePoint(0x1F4CB)
+  return CATEGORIES.find(c => c.id === cat)?.icon || 'ti-clipboard'
 }
 
 function timeAgo(date: string) {
@@ -108,26 +110,7 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
   const [search, setSearch]         = useState('')
   const [filterCat, setFilterCat]   = useState('all')
 
-  useEffect(() => {
-    if (knotId) loadAll()
-  }, [knotId])
-
-  useEffect(() => {
-    if (!hangoutId) { setHangoutGuestDietary([]); return }
-    let cancelled = false
-    supabase
-      .from('hangout_rsvps')
-      .select('guest_dietary')
-      .eq('hangout_id', hangoutId)
-      .eq('status', 'yes')
-      .then(({ data }) => {
-        if (cancelled) return
-        setHangoutGuestDietary((data || []).map((r: any) => r.guest_dietary || []))
-      })
-    return () => { cancelled = true }
-  }, [hangoutId])
-
-  async function loadAll() {
+  const loadAll = useCallback(async () => {
     if (!knotId) return
     setLoadError('')
 
@@ -161,7 +144,26 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
     setBills(withSplits)
     setSettlements(settlementData || [])
     setLoading(false)
-  }
+  }, [knotId])
+
+  useEffect(() => {
+    if (knotId) loadAll()
+  }, [knotId, loadAll])
+
+  useEffect(() => {
+    if (!hangoutId) { setHangoutGuestDietary([]); return }
+    let cancelled = false
+    supabase
+      .from('hangout_rsvps')
+      .select('guest_dietary')
+      .eq('hangout_id', hangoutId)
+      .eq('status', 'yes')
+      .then(({ data }) => {
+        if (cancelled) return
+        setHangoutGuestDietary((data || []).map((r: any) => r.guest_dietary || []))
+      })
+    return () => { cancelled = true }
+  }, [hangoutId])
 
   async function handleAddBill(
     desc: string, amount: number, splits: { user_id: string; amount: number }[],
@@ -346,7 +348,7 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
     await loadAll()
   }
 
-  const memberList: Member[] = members.map(m => ({ id: m.id, name: m.name }))
+  const memberList: Member[] = useMemo(() => members.map(m => ({ id: m.id, name: m.name })), [members])
 
   const dietarySummary = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -359,12 +361,12 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
     const parts = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([label, count]) => `${count} ${label}`)
     return parts.length > 0 ? `Dietary notes: ${parts.join(', ')}` : ''
   }, [members, hangoutGuestDietary])
-  const billsForLedger: Bill[] = bills.map(b => ({ id: b.id, added_by: b.added_by, total_amount: parseFloat(b.total_amount) }))
-  const splitsForLedger: BillSplitRow[] = bills.flatMap(b => (b.splits || []).map((s: any) => ({ bill_id: b.id, user_id: s.user_id, amount: parseFloat(s.amount) })))
-  const settlementsForLedger: Settlement[] = settlements.map(s => ({ from_user_id: s.from_user_id, to_user_id: s.to_user_id, amount: parseFloat(s.amount) }))
+  const billsForLedger: Bill[] = useMemo(() => bills.map(b => ({ id: b.id, added_by: b.added_by, total_amount: parseFloat(b.total_amount) })), [bills])
+  const splitsForLedger: BillSplitRow[] = useMemo(() => bills.flatMap(b => (b.splits || []).map((s: any) => ({ bill_id: b.id, user_id: s.user_id, amount: parseFloat(s.amount) }))), [bills])
+  const settlementsForLedger: Settlement[] = useMemo(() => settlements.map(s => ({ from_user_id: s.from_user_id, to_user_id: s.to_user_id, amount: parseFloat(s.amount) })), [settlements])
 
-  const balances = useMemo(() => computeNetBalances(billsForLedger, splitsForLedger, settlementsForLedger, memberList), [bills, settlements])
-  const simplified = useMemo(() => simplifyDebts(balances, memberList) ?? [], [balances])
+  const balances = useMemo(() => computeNetBalances(billsForLedger, splitsForLedger, settlementsForLedger, memberList), [billsForLedger, splitsForLedger, settlementsForLedger, memberList])
+  const simplified = useMemo(() => simplifyDebts(balances, memberList) ?? [], [balances, memberList])
   const myBalance = balances.get(currentUser?.id) || 0
   const myDebts = (simplified ?? []).filter(d => d.from.id === currentUser?.id || d.to.id === currentUser?.id)
   const undoableIds = latestSettlementIdsByPair(settlements)
@@ -454,7 +456,7 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
                   display: 'flex', alignItems: 'center', gap: 4,
                   fontWeight: filterCat === cat.id ? 700 : 400,
                 }}>
-                {cat.icon && <span>{cat.icon}</span>}
+                {cat.icon && <i className={`ti ${cat.icon}`} style={{ fontSize: ICON_SIZE.inline, color: filterCat === cat.id ? 'var(--yellow)' : 'var(--text3)' }} />}
                 <span>{cat.label}</span>
               </button>
             ))}
@@ -555,7 +557,7 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                           <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <span style={{ fontSize: 15 }}>{catIcon}</span>
+                              <i className={`ti ${catIcon}`} style={{ fontSize: ICON_SIZE.card, color: 'var(--text3)' }} />
                               <span style={{ fontSize: 16, fontWeight: 700 }}>${parseFloat(bill.total_amount).toFixed(2)}</span>
                               {bill.is_recurring && (
                                 <span style={{ fontSize: 10, padding: '2px 6px', background: 'var(--yellow-soft)', color: 'var(--yellow)', borderRadius: 4, fontWeight: 700, letterSpacing: '0.04em' }}>
@@ -599,8 +601,8 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
                                   onClick={() => sendReminder(splitKey, split.user_id, split.profiles?.name || 'them', bill.description, parseFloat(split.amount))}
                                   disabled={remindingId === splitKey}
                                   title="Send reminder"
-                                  style={{ padding: '4px 8px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--text3)', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit', opacity: remindingId === splitKey ? 0.5 : 1 }}>
-                                  {remindingId === splitKey ? '...' : String.fromCodePoint(0x1F514)}
+                                  style={{ padding: '4px 8px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--text3)', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit', opacity: remindingId === splitKey ? 0.5 : 1, display: 'inline-flex', alignItems: 'center' }}>
+                                  {remindingId === splitKey ? '...' : <i className="ti ti-bell" style={{ fontSize: ICON_SIZE.inline, color: 'var(--text3)' }} />}
                                 </button>
                               )}
                             </div>

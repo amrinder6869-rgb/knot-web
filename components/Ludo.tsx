@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { ICON_SIZE } from '@/lib/constants'
 
 const PLAYER_COLORS = ['#E8624A', '#6C63FF', '#4CAF87', '#F0A855']
 const PLAYER_LABELS = ['Red', 'Blue', 'Green', 'Yellow']
@@ -53,7 +54,7 @@ function initialPieces() {
   )
 }
 
-export default function Ludo({ game, members, currentUser, _knotId, onEnd }: any) {
+export default function Ludo({ game, currentUser, onEnd }: any) {
   const [players, setPlayers]     = useState<any[]>([])
   const [pieces, setPieces]       = useState(initialPieces())
   const [dice, setDice]           = useState<number|null>(null)
@@ -66,18 +67,8 @@ export default function Ludo({ game, members, currentUser, _knotId, onEnd }: any
   const [myPlayerIndex, setMyPlayerIndex] = useState(-1)
   const [movablePieces, setMovablePieces] = useState<string[]>([])
 
-  useEffect(() => {
-    loadGame()
-    const channel = supabase.channel(`ludo:${game.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_moves', filter: `game_id=eq.${game.id}` }, () => loadGame())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_players', filter: `game_id=eq.${game.id}` }, () => loadGame())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'games', filter: `id=eq.${game.id}` }, () => loadGame())
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [game.id])
-
-  async function loadGame() {
-    const [{ data: gData }, { data: pData }, { data: mData }] = await Promise.all([
+  const loadGame = useCallback(async () => {
+    const [{ data: gData }, { data: pData }] = await Promise.all([
       supabase.from('games').select('*').eq('id', game.id).single(),
       supabase.from('game_players').select('*, profiles:user_id(name)').eq('game_id', game.id),
       supabase.from('game_moves').select('*').eq('game_id', game.id).order('created_at', { ascending: true }),
@@ -105,7 +96,17 @@ export default function Ludo({ game, members, currentUser, _knotId, onEnd }: any
       if (gData.data?.movablePieces) setMovablePieces(gData.data.movablePieces)
     }
     setLoading(false)
-  }
+  }, [game.id, currentUser?.id])
+
+  useEffect(() => {
+    loadGame()
+    const channel = supabase.channel(`ludo:${game.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_moves', filter: `game_id=eq.${game.id}` }, () => loadGame())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_players', filter: `game_id=eq.${game.id}` }, () => loadGame())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'games', filter: `id=eq.${game.id}` }, () => loadGame())
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [game.id, loadGame])
 
   async function startGame() {
     await supabase.from('games').update({
@@ -403,7 +404,11 @@ export default function Ludo({ game, members, currentUser, _knotId, onEnd }: any
             )}
           </div>
 
-          {dice === 6 && <div style={{ fontSize: 12, color: 'var(--amber)', textAlign: 'center' }}>🎉 Six! Roll again after moving.</div>}
+          {dice === 6 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontSize: 12, color: 'var(--amber)', textAlign: 'center' }}>
+              <i className="ti ti-confetti" style={{ fontSize: ICON_SIZE.inline, color: 'var(--yellow)' }} /> Six! Roll again after moving.
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import MerchantSpecials from './MerchantSpecials'
 import MerchantMenu from './MerchantMenu'
 import { supabase } from '@/lib/supabase'
@@ -42,11 +42,21 @@ function RestrictionsSummary() {
   )
 }
 
-export default function MerchantHome({ merchant, user, onUpdate }: Props) {
+export default function MerchantHome({ merchant }: Props) {
   const [bookings, setBookings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'bookings' | 'specials' | 'menu' | 'profile'>('bookings')
   const [updatingBooking, setUpdatingBooking] = useState<string | null>(null)
+
+  const loadBookings = useCallback(async () => {
+    const { data } = await supabase
+      .from('merchant_bookings')
+      .select('*, knot:knot_id(name, emoji)')
+      .eq('merchant_id', merchant.id)
+      .order('scheduled_for', { ascending: true })
+    setBookings(data || [])
+    setLoading(false)
+  }, [merchant.id])
 
   useEffect(() => {
     loadBookings()
@@ -55,17 +65,7 @@ export default function MerchantHome({ merchant, user, onUpdate }: Props) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'merchant_bookings', filter: 'merchant_id=eq.' + merchant.id }, () => loadBookings())
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [merchant.id])
-
-  async function loadBookings() {
-    const { data } = await supabase
-      .from('merchant_bookings')
-      .select('*, knot:knot_id(name, emoji)')
-      .eq('merchant_id', merchant.id)
-      .order('scheduled_for', { ascending: true })
-    setBookings(data || [])
-    setLoading(false)
-  }
+  }, [merchant.id, loadBookings])
 
   async function updateBookingStatus(id: string, status: string) {
     setUpdatingBooking(id)
@@ -77,7 +77,6 @@ export default function MerchantHome({ merchant, user, onUpdate }: Props) {
   const now = new Date()
   const pending = bookings.filter(b => b.status === 'pending')
   const confirmed = bookings.filter(b => b.status === 'confirmed' && (!b.scheduled_for || new Date(b.scheduled_for) >= now))
-  const past = bookings.filter(b => b.status === 'cancelled' || b.status === 'declined' || (b.scheduled_for && new Date(b.scheduled_for) < now))
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '24px' }}>
@@ -167,7 +166,7 @@ export default function MerchantHome({ merchant, user, onUpdate }: Props) {
 
           {!loading && bookings.length === 0 && (
             <div style={{ textAlign: 'center', padding: '48px 20px' }}>
-              <div style={{ fontSize: 32, marginBottom: 12 }}>📋</div>
+              <i className="ti ti-clipboard" style={{ display: 'block', fontSize: 32, marginBottom: 12, color: 'var(--text3)' }} />
               <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>No bookings yet</div>
               <div style={{ fontSize: 13, color: 'var(--text3)' }}>Bookings from Knot groups will appear here when they choose your restaurant.</div>
             </div>

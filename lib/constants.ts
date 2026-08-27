@@ -24,6 +24,16 @@ export const EVENT_RESTRICTION_OPTIONS = [
   { id: 'couples-only', label: 'Couples only' },
 ]
 
+// Tabler Icons (ti ti-* classes) are the only icon system in this codebase —
+// see AGENTS.md icon audit notes. These are the only sizes used anywhere.
+export const ICON_SIZE = {
+  nav: 20,
+  card: 16,
+  inline: 14,
+  header: 22,
+  input: 16,
+} as const
+
 export const PUSH_TITLES: Record<string, string> = {
   new_moment: 'New moment',
   bill_reminder: 'Bill reminder',
