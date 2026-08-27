@@ -91,7 +91,7 @@ function timeAgo(date: string) {
 }
 
 export default function Feed({ members, knotName, knotEmoji, knotId, currentUser, onOpenBills, onOpenChat }: {
-  members: any[], knotName: string, knotEmoji?: string, knotId?: string, currentUser?: any, onOpenBills?: () => void, onOpenChat?: (hangoutId: string) => void
+  members: any[], knotName: string, knotEmoji?: string, knotId?: string, currentUser?: any, onOpenBills?: () => void, onOpenChat: (hangoutId: string) => void
 }) {
   const [posts, setPosts]     = useState<Post[]>([])
   const [showOrientCard, setShowOrientCard] = useState(false)

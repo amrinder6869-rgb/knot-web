@@ -1293,13 +1293,25 @@ export default function Dashboard() {
       )}
 
       {openChat && (profile || user) && (
-        <HangoutChatView
-          hangoutId={openChat.hangoutId}
-          currentUser={profile ?? { id: user!.id, name: (user!.user_metadata?.name as string) || 'You' }}
-          onClose={() => setOpenChat(null)}
-          scrollToBottom={openChat.scrollToBottom !== false}
-          scrollTarget={openChat.scrollTarget || null}
-        />
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: '#F5F3EE',
+            zIndex: 400,
+            display: 'flex',
+            flexDirection: 'column',
+            overflowY: 'hidden',
+          }}
+        >
+          <HangoutChatView
+            hangoutId={openChat.hangoutId}
+            currentUser={profile ?? { id: user!.id, name: (user!.user_metadata?.name as string) || 'You' }}
+            onClose={() => setOpenChat(null)}
+            scrollToBottom={openChat.scrollToBottom !== false}
+            scrollTarget={openChat.scrollTarget || null}
+          />
+        </div>
       )}
     </div>
   )

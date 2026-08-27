@@ -12,7 +12,7 @@ import {
   type ReactionCount,
 } from '@/lib/reactions'
 
-export default function Hangout({ members, knotId, currentUser, onOpenChat }: { members: any[], knotId?: string, currentUser?: any, onOpenChat?: (hangoutId: string) => void }) {
+export default function Hangout({ members, knotId, currentUser, onOpenChat }: { members: any[], knotId?: string, currentUser?: any, onOpenChat: (hangoutId: string) => void }) {
   const [posts, setPosts]     = useState<any[]>([])
   const [bundle, setBundle]   = useState<any>(null)
   const [loading, setLoading] = useState(true)

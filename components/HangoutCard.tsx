@@ -48,7 +48,7 @@ type HangoutCardProps = {
   members: any[]
   onRefresh: () => void
   onToggleReaction?: (emoji: string) => void
-  onOpenChat?: (hangoutId: string) => void
+  onOpenChat: (hangoutId: string) => void
 }
 
 export default function HangoutCard({ post, data, currentUser, onRefresh, onToggleReaction, onOpenChat }: HangoutCardProps) {
@@ -100,7 +100,7 @@ export default function HangoutCard({ post, data, currentUser, onRefresh, onTogg
   const timestamp = post?.created_at || hangout.created_at
 
   function openChat() {
-    if (hangout?.id && onOpenChat) onOpenChat(hangout.id)
+    onOpenChat(hangout.id)
   }
 
   async function shareInvite(e: React.MouseEvent) {
@@ -139,9 +139,9 @@ export default function HangoutCard({ post, data, currentUser, onRefresh, onTogg
     <div
       role="button"
       tabIndex={0}
-      onClick={openChat}
-      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openChat() } }}
-      style={{ background: '#fff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', padding: 12, marginBottom: 10, cursor: onOpenChat ? 'pointer' : 'default' }}
+      onClick={() => onOpenChat(hangout.id)}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenChat(hangout.id) } }}
+      style={{ background: '#fff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', padding: 12, marginBottom: 10, cursor: 'pointer' }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
         <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -214,7 +214,11 @@ export default function HangoutCard({ post, data, currentUser, onRefresh, onTogg
           )}
         </div>
         {onToggleReaction && (
-          <div onClick={e => e.stopPropagation()} style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+          <div
+            onClick={e => e.stopPropagation()}
+            onKeyDown={e => e.stopPropagation()}
+            style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}
+          >
             <ReactionBar compact iconTrigger reactions={post.reactions || []} onToggle={onToggleReaction} />
           </div>
         )}

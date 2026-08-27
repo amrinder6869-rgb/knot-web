@@ -52,7 +52,12 @@ export default function ReactionBar({
   const fontSize = compact ? 11 : 12
 
   return (
-    <div ref={rootRef} style={{ display: 'inline-flex', gap: 5, flexWrap: iconTrigger ? 'nowrap' : 'wrap', alignItems: 'center', position: 'relative' }}>
+    <div
+      ref={rootRef}
+      onClick={e => e.stopPropagation()}
+      onKeyDown={e => e.stopPropagation()}
+      style={{ display: 'inline-flex', gap: 5, flexWrap: iconTrigger ? 'nowrap' : 'wrap', alignItems: 'center', position: 'relative' }}
+    >
       {!iconTrigger && reactions.map(r => (
         <button
           key={r.e}

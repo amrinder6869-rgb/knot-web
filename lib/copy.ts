@@ -112,6 +112,11 @@ export const AGENT_MESSAGES = {
   REVENUE_TRANSPORT: ['Sort your ride?', 'Uber time?'],
   REVENUE_PRINTS: ['Order prints from tonight?'],
   BILL_REMINDER: ['Still a few bills outstanding.', 'Gentle reminder — bills are open.'],
+  WELCOME: [
+    'What are we doing?',
+    "Let's figure something out.",
+    "What's the plan?",
+  ],
 }
 
 export const LOADING_MEMBERS: { text: string; rare: boolean }[] = [

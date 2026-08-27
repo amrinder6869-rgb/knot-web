@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import https from 'https'
 import { createClient } from '@supabase/supabase-js'
-import { getRandom, AGENT_MESSAGES, PLANNER_NUDGE, AGENT_VENUE_PROMPT } from '@/lib/copy'
+import { getRandom, AGENT_MESSAGES, PLANNER_NUDGE, AGENT_VENUE_PROMPT, PLAN_UNTITLED, CTA_CONFIRM } from '@/lib/copy'
 
 const NUDGE_THRESHOLD_MS = 48 * 60 * 60 * 1000
 
@@ -93,6 +93,76 @@ async function searchVenues(query: string, token: string) {
   }
 }
 
+async function welcomeForHangout(
+  serviceClient: any,
+  hangoutId: string,
+  agentUserId: string,
+  token: string,
+) {
+  const { count } = await serviceClient
+    .from('hangout_messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('hangout_id', hangoutId)
+  if ((count || 0) > 0) {
+    return { agent_message: null, chips: null, venue_suggestions: null as any[] | null }
+  }
+
+  const { data: hangout } = await serviceClient
+    .from('hangouts')
+    .select('id, title, planning_status, status, scheduled_for, venue_name, venue_address')
+    .eq('id', hangoutId)
+    .maybeSingle()
+  if (!hangout) {
+    return { agent_message: null, chips: null, venue_suggestions: null as any[] | null }
+  }
+
+  const phase = String(hangout.planning_status || hangout.status || 'voting')
+  const title = (hangout.title || '').trim()
+  const untitled = !title || title === PLAN_UNTITLED || title === 'Hangout'
+  let agentMessage = getRandom(AGENT_MESSAGES.WELCOME)
+  let chips: { label: string; action: string; value: any }[] | null = null
+  let venueSuggestions: Awaited<ReturnType<typeof searchVenues>> = []
+
+  if (phase === 'confirmed' || phase === 'locked') {
+    const when = hangout.scheduled_for
+      ? new Date(hangout.scheduled_for).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+      : null
+    const summary = [title || PLAN_UNTITLED, when, hangout.venue_name].filter(Boolean).join(' · ')
+    agentMessage = summary ? `Locked in. See you there. ${summary}` : 'Locked in. See you there.'
+    chips = [{ label: CTA_CONFIRM, action: 'lock', value: true }]
+  } else if (phase === 'live') {
+    agentMessage = "It's happening. Drop some photos."
+    chips = [{ label: 'Photo', action: 'camera', value: 'photo' }]
+  } else if (untitled) {
+    agentMessage = 'What are we doing?'
+    chips = null
+  } else if (!hangout.scheduled_for) {
+    agentMessage = 'When are you thinking?'
+    chips = [
+      { label: 'Today', action: 'when', value: 'today' },
+      { label: 'This Friday', action: 'when', value: 'friday' },
+      { label: 'This Weekend', action: 'when', value: 'weekend' },
+    ]
+  } else if (!hangout.venue_name) {
+    agentMessage = 'Where are you going?'
+    venueSuggestions = await searchVenues(title, token)
+  }
+
+  if (agentMessage) {
+    await serviceClient.from('hangout_messages').insert({
+      hangout_id: hangoutId,
+      author_id: agentUserId,
+      content: agentMessage,
+    })
+  }
+
+  return {
+    agent_message: agentMessage,
+    chips,
+    venue_suggestions: venueSuggestions.length > 0 ? venueSuggestions : null,
+  }
+}
+
 export async function POST(request: Request) {
   const authHeader = request.headers.get('authorization')
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
@@ -132,6 +202,20 @@ export async function POST(request: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
+
+    if (message.trim() === '__init__') {
+      if (!hangout_id) return NextResponse.json({ error: 'Missing hangout_id' }, { status: 400 })
+      const welcome = await welcomeForHangout(serviceClient, hangout_id, agentUserId, token)
+      return NextResponse.json({
+        agent_message: welcome.agent_message,
+        chips: welcome.chips,
+        plan_updates: null,
+        todo_updates: null,
+        revenue_suggestion: null,
+        venue_suggestions: welcome.venue_suggestions,
+        hangout_id,
+      })
+    }
 
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) return NextResponse.json({ agent_message: null, chips: null, plan_updates: null, todo_updates: null, revenue_suggestion: null })

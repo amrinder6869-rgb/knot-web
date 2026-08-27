@@ -141,7 +141,7 @@ export default function HangoutChatView({
   const [actionError, setActionError] = useState('')
 
   const [messages, setMessages] = useState<ThreadMessage[]>([])
-  const [loadingMessages, setLoadingMessages] = useState(false)
+  const [loadingMessages, setLoadingMessages] = useState(true)
   const [chatInput, setChatInput] = useState('')
   const [resolving, setResolving] = useState(false)
   const [resolvingLine, setResolvingLine] = useState('')
@@ -157,6 +157,7 @@ export default function HangoutChatView({
   const billRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const livePromptedRef = useRef(false)
+  const welcomeStartedRef = useRef<string | null>(null)
 
   const [sheet, setSheet] = useState<null | 'plus' | 'moment' | 'bill' | 'carpool' | 'edit'>(null)
   const [momentText, setMomentText] = useState('')
@@ -323,6 +324,49 @@ export default function HangoutChatView({
       if (!hasReceipt) await supabase.from('hangout_messages').insert({ hangout_id: hangoutId, author_id: agentId, content: LIVE_RECEIPT_PROMPT })
     })()
   }, [phase, agentId, hangoutId, loadingMessages, messages])
+
+  useEffect(() => {
+    welcomeStartedRef.current = null
+  }, [hangoutId])
+
+  useEffect(() => {
+    if (!hangout || loading || loadingMessages) return
+    if (messages.length > 0) return
+    if (welcomeStartedRef.current === hangout.id) return
+    if (!currentUser?.id) return
+    welcomeStartedRef.current = hangout.id
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        welcomeStartedRef.current = null
+        return
+      }
+      try {
+        const res = await fetch('/api/planning-agent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({
+            message: '__init__',
+            hangout_id: hangout.id,
+            knot_id: hangout.knot_id,
+            sender_id: currentUser.id,
+            current_plan_state: {
+              title: hangout.title,
+              planning_status: hangout.planning_status,
+              scheduled_for: hangout.scheduled_for,
+              venue_name: hangout.venue_name,
+            },
+          }),
+        })
+        const data = await res.json()
+        await loadMessages()
+        setPendingChips(data.chips ?? null)
+        setPendingVenues(data.venue_suggestions ?? null)
+      } catch {
+        welcomeStartedRef.current = null
+      }
+    })()
+  }, [hangout, loading, loadingMessages, messages.length, currentUser?.id, loadMessages])
 
   async function sendChat(overrideText?: string) {
     const text = (overrideText ?? chatInput).trim()
@@ -506,9 +550,18 @@ export default function HangoutChatView({
     await loadHangout()
   }
 
-  async function tapChip(chip: { label: string }) {
+  async function tapChip(chip: { label: string; action?: string; value?: any }) {
     setPendingChips(null)
     setPendingRevenue(null)
+    if (chip.action === 'camera') {
+      setSheet('moment')
+      photoInputRef.current?.click()
+      return
+    }
+    if (chip.action === 'lock') {
+      await lockPlan()
+      return
+    }
     await sendChat(chip.label)
   }
 
@@ -662,7 +715,7 @@ export default function HangoutChatView({
 
   if (loading || !hangout) {
     return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text3)', fontSize: 13 }}>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 400, background: '#F5F3EE', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text3)', fontSize: 13 }}>
         Loading...
       </div>
     )
@@ -671,7 +724,7 @@ export default function HangoutChatView({
   const title = hangout.title || hangout.venue_name || PLAN_UNTITLED
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'var(--bg)', display: 'flex', flexDirection: 'column', fontFamily: 'Manrope, sans-serif' }}>
+    <div style={{ flex: 1, minHeight: 0, height: '100%', background: '#F5F3EE', display: 'flex', flexDirection: 'column', fontFamily: 'Manrope, sans-serif' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', paddingTop: 'calc(10px + env(safe-area-inset-top, 0px))', borderBottom: '1px solid var(--border)', background: 'var(--glass-bg)', backdropFilter: 'blur(16px)', flexShrink: 0 }}>
         <button type="button" onClick={onClose} aria-label="Back" style={{ width: 36, height: 36, borderRadius: 8, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>
           <i className="ti ti-arrow-left" style={{ fontSize: ICON_SIZE.header, color: 'var(--text)' }} />
