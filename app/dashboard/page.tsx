@@ -1293,25 +1293,20 @@ export default function Dashboard() {
       )}
 
       {activeHangoutId && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: '#F5F3EE',
-          zIndex: 400,
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-        }}>
-          <HangoutChatView
-            hangoutId={activeHangoutId}
-            knotId={activeKnot?.id}
-            currentUser={profile ?? { id: user!.id, name: (user!.user_metadata?.name as string) || 'You' }}
-            onClose={() => setActiveHangoutId(null)}
+        <>
+          <div
+            className="hangout-chat-backdrop"
+            onClick={() => setActiveHangoutId(null)}
           />
-        </div>
+          <div className="hangout-chat-panel">
+            <HangoutChatView
+              hangoutId={activeHangoutId}
+              knotId={activeKnot?.id}
+              currentUser={profile ?? { id: user!.id, name: (user!.user_metadata?.name as string) || 'You' }}
+              onClose={() => setActiveHangoutId(null)}
+            />
+          </div>
+        </>
       )}
     </div>
   )

@@ -46,6 +46,7 @@ export const TOAST = {
   MEMBER_REMOVED: 'Member removed.',
   KNOT_DELETED: 'Circle closed.',
   ERROR: 'That was not supposed to happen.',
+  NUDGED: 'Nudged.',
 }
 
 export const CONFIRM = {
@@ -168,6 +169,7 @@ export const TOAST_HANGOUT_CONFIRMED = 'Locked.'
 export const TOAST_HANGOUT_LIVE = 'It is go time.'
 export const TOAST_HANGOUT_ENDED = 'That is a wrap.'
 export const TOAST_ERROR = 'That was not supposed to happen.'
+export const TOAST_NUDGED = 'Nudged.'
 export const TOAST_KNOT_DELETED = 'Circle closed.'
 export const TOAST_CONFLICT = 'Someone else just changed that. Take a look.'
 

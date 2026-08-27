@@ -6,7 +6,7 @@ import LedgerView from '@/components/LedgerView'
 import { computeNetBalances, simplifyDebts, Bill, BillSplit as BillSplitRow, Settlement, Member, SimplifiedDebt } from '@/lib/ledger'
 import { createNotification } from '@/lib/notify'
 import { useToast } from '@/components/ToastProvider'
-import { getRandom, LOADING, EMPTY } from '@/lib/copy'
+import { getRandom, LOADING, EMPTY, TOAST_ERROR, TOAST_NUDGED } from '@/lib/copy'
 import { track } from '@/lib/track'
 import { ICON_SIZE } from '@/lib/constants'
 
@@ -136,7 +136,7 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
     const withSplits = await Promise.all((billData || []).map(async (bill: any) => {
       const { data: splitData } = await supabase
         .from('bill_splits')
-        .select('*, profiles:user_id(name)')
+        .select('*, profiles:user_id(name), last_reminded_at, reminder_sent_at')
         .eq('bill_id', bill.id)
       return { ...bill, splits: splitData || [] }
     }))
@@ -298,21 +298,26 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
     await loadAll()
   }
 
-  async function sendReminder(splitId: string, targetUserId: string, memberName: string, billDesc: string, amount: number) {
+  async function sendReminder(splitId: string, targetUserId: string, amount: number, lastRemindedAt?: string | null) {
+    const lastRaw = lastRemindedAt
+    const last = lastRaw ? new Date(lastRaw).getTime() : 0
+    if (last && Date.now() - last < 24 * 60 * 60 * 1000) {
+      toast.error('Already nudged recently.')
+      return
+    }
     setRemindingId(splitId)
     setRemindError('')
-    const { error } = await supabase
+    const now = new Date().toISOString()
+    let { error } = await supabase
       .from('bill_splits')
-      .update({ reminder_sent_at: new Date().toISOString() })
+      .update({ last_reminded_at: now })
       .eq('id', splitId)
-    if (error) { setRemindError('Could not send reminder.'); setRemindingId(null); return }
-    // Post a gentle nudge to feed
-    await supabase.from('posts').insert({
-      knot_id: knotId,
-      author_id: currentUser?.id,
-      content: `sent a reminder to ${memberName} for $${amount.toFixed(2)} (${billDesc})`,
-      post_type: 'bill',
-    })
+    if (error) {
+      const retry = await supabase.from('bill_splits').update({ reminder_sent_at: now }).eq('id', splitId)
+      error = retry.error
+    }
+    if (error) { setRemindError('Could not send reminder.'); toast.error(TOAST_ERROR); setRemindingId(null); return }
+    const creditorName = currentUser?.name || 'a friend'
     if (targetUserId) {
       await createNotification(supabase, {
         userId: targetUserId,
@@ -320,9 +325,10 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
         type: 'bill_reminder',
         actorId: currentUser?.id,
         entityId: splitId,
-        message: `Reminder: you owe $${amount.toFixed(2)} for ${billDesc}`,
+        message: `You owe ${creditorName} $${amount.toFixed(2)}. Settle up in Knot.`,
       })
     }
+    toast.success(TOAST_NUDGED)
     setRemindingId(null)
     await loadAll()
   }
@@ -433,7 +439,7 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
       )}
 
       {view === 'ledger' && (
-        <LedgerView debts={simplified} currentUser={currentUser} knotId={knotId!} onSettled={loadAll} />
+        <LedgerView debts={simplified} currentUser={currentUser} knotId={knotId!} bills={bills} onSettled={loadAll} />
       )}
 
       {view === 'activity' && (
@@ -583,9 +589,9 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
 
                         {billSplits.map((split: any) => {
                           const isMe = split.user_id === currentUser?.id
-                          const isTreasurer = isMine
+                          const isCreditor = bill.added_by === currentUser?.id
                           const splitKey = split.id
-                          const canRemind = isTreasurer && !split.settled && !isMe
+                          const canRemind = isCreditor && !split.settled && !isMe
                           return (
                             <div key={split.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
                               <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -598,11 +604,17 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
                               </span>
                               {canRemind && (
                                 <button
-                                  onClick={() => sendReminder(splitKey, split.user_id, split.profiles?.name || 'them', bill.description, parseFloat(split.amount))}
+                                  type="button"
+                                  onClick={() => sendReminder(splitKey, split.user_id, parseFloat(split.amount), split.last_reminded_at || split.reminder_sent_at)}
                                   disabled={remindingId === splitKey}
                                   title="Send reminder"
-                                  style={{ padding: '4px 8px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--text3)', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit', opacity: remindingId === splitKey ? 0.5 : 1, display: 'inline-flex', alignItems: 'center' }}>
-                                  {remindingId === splitKey ? '...' : <i className="ti ti-bell" style={{ fontSize: ICON_SIZE.inline, color: 'var(--text3)' }} />}
+                                  style={{ padding: '4px 8px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--text2)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', opacity: remindingId === splitKey ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
+                                  {remindingId === splitKey ? '...' : (
+                                    <>
+                                      <i className="ti ti-bell" style={{ fontSize: 13, color: 'var(--text3)' }} />
+                                      Remind
+                                    </>
+                                  )}
                                 </button>
                               )}
                             </div>

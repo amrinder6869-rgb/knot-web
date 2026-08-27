@@ -210,6 +210,7 @@ export default function Composer({
       is_standalone:       false,
       post_content:        `${actorName} started a plan`,
       post_type:           'hangout',
+      planning_status:     'voting',
     }
     try {
       const { data, error } = await supabase.rpc('create_hangout', { p_input: pInput })
@@ -223,13 +224,6 @@ export default function Composer({
       if (!newHangoutId) {
         toast.error(TOAST_ERROR)
         return
-      }
-      const { error: statusError } = await supabase
-        .from('hangouts')
-        .update({ planning_status: 'voting', title: PLAN_UNTITLED })
-        .eq('id', newHangoutId)
-      if (statusError) {
-        console.warn('[startPlan] planning_status update failed', statusError)
       }
       track(supabase, 'hangout_created', {
         hangout_id: newHangoutId,

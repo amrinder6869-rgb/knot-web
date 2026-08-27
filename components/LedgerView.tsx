@@ -3,6 +3,9 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { SimplifiedDebt } from '@/lib/ledger'
 import { track } from '@/lib/track'
+import { createNotification } from '@/lib/notify'
+import { useToast } from '@/components/ToastProvider'
+import { TOAST_ERROR, TOAST_NUDGED } from '@/lib/copy'
 
 function getInitials(name: string) {
   return (name || 'U').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()
@@ -12,11 +15,21 @@ type LedgerViewProps = {
   debts: SimplifiedDebt[]
   currentUser: any
   knotId: string
+  bills?: any[]
   onSettled: () => void
 }
 
-export default function LedgerView({ debts, currentUser, knotId, onSettled }: LedgerViewProps) {
+const DAY_MS = 24 * 60 * 60 * 1000
+const ghostBtn: React.CSSProperties = {
+  padding: '8px 12px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 8,
+  color: 'var(--text2)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+  display: 'inline-flex', alignItems: 'center', gap: 5,
+}
+
+export default function LedgerView({ debts, currentUser, knotId, bills = [], onSettled }: LedgerViewProps) {
+  const toast = useToast()
   const [settlingId, setSettlingId] = useState<string | null>(null)
+  const [remindingKey, setRemindingKey] = useState<string | null>(null)
   const [partialKey, setPartialKey] = useState<string | null>(null)
   const [partialAmount, setPartialAmount] = useState('')
   const [error, setError] = useState('')
@@ -45,6 +58,48 @@ export default function LedgerView({ debts, currentUser, knotId, onSettled }: Le
     setSettlingId(null)
     setPartialKey(null)
     setPartialAmount('')
+    onSettled()
+  }
+
+  function findUnsettledSplit(debt: SimplifiedDebt) {
+    for (const bill of bills) {
+      if (bill.added_by !== debt.to.id) continue
+      for (const s of bill.splits || []) {
+        if (s.user_id === debt.from.id && !s.settled) return s
+      }
+    }
+    return null
+  }
+
+  async function remindDebt(debt: SimplifiedDebt) {
+    const split = findUnsettledSplit(debt)
+    if (!split) { toast.error(TOAST_ERROR); return }
+    const lastRaw = split.last_reminded_at || split.reminder_sent_at
+    const last = lastRaw ? new Date(lastRaw).getTime() : 0
+    if (last && Date.now() - last < DAY_MS) {
+      toast.error('Already nudged recently.')
+      return
+    }
+    const key = debt.from.id + debt.to.id
+    setRemindingKey(key)
+    const now = new Date().toISOString()
+    let { error: updateError } = await supabase.from('bill_splits').update({ last_reminded_at: now }).eq('id', split.id)
+    if (updateError) {
+      const retry = await supabase.from('bill_splits').update({ reminder_sent_at: now }).eq('id', split.id)
+      updateError = retry.error
+    }
+    if (updateError) { toast.error(TOAST_ERROR); setRemindingKey(null); return }
+    const creditorName = currentUser?.name || 'a friend'
+    await createNotification(supabase, {
+      userId: debt.from.id,
+      knotId,
+      type: 'bill_reminder',
+      actorId: currentUser?.id,
+      entityId: split.id,
+      message: `You owe ${creditorName} $${parseFloat(split.amount).toFixed(2)}. Settle up in Knot.`,
+    })
+    toast.success(TOAST_NUDGED)
+    setRemindingKey(null)
     onSettled()
   }
 
@@ -82,6 +137,7 @@ export default function LedgerView({ debts, currentUser, knotId, onSettled }: Le
           const isMine = debt.from.id === currentUser?.id
           const isOwedToMe = debt.to.id === currentUser?.id
           const canSettle = isMine || isOwedToMe
+          const canRemind = isOwedToMe && !isMine && !!findUnsettledSplit(debt)
           const isPartialOpen = partialKey === key
 
           return (
@@ -105,8 +161,15 @@ export default function LedgerView({ debts, currentUser, knotId, onSettled }: Le
                 </div>
                 {canSettle && !isPartialOpen && (
                   <div style={{ display: 'flex', gap: 6 }}>
+                    {canRemind && (
+                      <button type="button" onClick={() => remindDebt(debt)} disabled={remindingKey === key}
+                        style={{ ...ghostBtn, opacity: remindingKey === key ? 0.6 : 1 }}>
+                        <i className="ti ti-bell" style={{ fontSize: 13, color: 'var(--text3)' }} />
+                        {remindingKey === key ? '...' : 'Remind'}
+                      </button>
+                    )}
                     <button onClick={() => startPartial(key, debt.amount)}
-                      style={{ padding: '8px 12px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                      style={ghostBtn}>
                       Partial
                     </button>
                     <button onClick={() => settleDebt(debt, debt.amount)} disabled={settlingId === key}

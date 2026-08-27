@@ -728,7 +728,7 @@ export default function HangoutChatView({
 
   if (loading || !hangout) {
     return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 400, background: '#F5F3EE', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text3)', fontSize: 13 }}>
+      <div style={{ flex: 1, minHeight: 0, height: '100%', background: '#F5F3EE', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text3)', fontSize: 13 }}>
         Loading...
       </div>
     )
