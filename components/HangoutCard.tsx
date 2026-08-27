@@ -5,7 +5,7 @@ import { Skeleton } from '@/components/Skeleton'
 import { useToast } from '@/components/ToastProvider'
 import MemberAvatar from '@/components/MemberAvatar'
 import { ACTIVITY_ICONS, ICON_SIZE } from '@/lib/constants'
-import { CARD_STATE_COPY, CHIP_WHEN, CHIP_WHEN_DATE, CHIP_WHERE, CONFIRM_CANCEL_HANGOUT, MENU_CANCEL_HANGOUT, MENU_EDIT_HANGOUT, MENU_JOIN_CALL, MENU_SHARE_INVITE, PLAN_UNTITLED, TOAST_INVITE_COPIED, TOAST_INVITE_COPY_FAILED } from '@/lib/copy'
+import { CARD_STATE_COPY, CHIP_WHEN, CHIP_WHEN_DATE, CHIP_WHERE, CONFIRM_CANCEL_HANGOUT, ERROR_CANCEL_HANGOUT, CANCELLING_HANGOUT, MENU_CANCEL_HANGOUT, MENU_EDIT_HANGOUT, MENU_JOIN_CALL, MENU_SHARE_INVITE, PLAN_UNTITLED, TOAST_INVITE_COPIED, TOAST_INVITE_COPY_FAILED } from '@/lib/copy'
 import { cardStateKey } from '@/lib/hangoutPhase'
 import type { OpenChatOpts } from '@/components/AttentionStrip'
 
@@ -124,13 +124,13 @@ export default function HangoutCard({ post, data, currentUser, onRefresh, onOpen
     setCancelling(true)
     const { error } = await supabase
       .from('hangouts')
-      .update({ status: 'cancelled', is_live: false, planning_status: 'cancelled' })
+      .update({ status: 'cancelled', is_live: false, planning_status: 'abandoned' })
       .eq('id', hangout.id)
       .eq('created_by', currentUser.id)
     setCancelling(false)
     setMenuOpen(false)
-    if (error) { toast.error('Could not cancel the hangout.'); return }
-    setHangout((prev: any) => ({ ...prev, status: 'cancelled', is_live: false, planning_status: 'cancelled' }))
+    if (error) { toast.error(ERROR_CANCEL_HANGOUT); return }
+    setHangout((prev: any) => ({ ...prev, status: 'cancelled', is_live: false, planning_status: 'abandoned' }))
     onRefresh()
   }
 
@@ -174,7 +174,7 @@ export default function HangoutCard({ post, data, currentUser, onRefresh, onOpen
               {isCreator && hangout.status !== 'ended' && hangout.status !== 'cancelled' && (
                 <button type="button" onClick={cancelHangout} disabled={cancelling}
                   style={{ width: '100%', textAlign: 'left', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 8, color: 'var(--danger)', fontSize: 13, cursor: cancelling ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
-                  {cancelling ? 'Cancelling…' : MENU_CANCEL_HANGOUT}
+                  {cancelling ? CANCELLING_HANGOUT : MENU_CANCEL_HANGOUT}
                 </button>
               )}
               {(stateKey === 'confirmed' || stateKey === 'live') && (

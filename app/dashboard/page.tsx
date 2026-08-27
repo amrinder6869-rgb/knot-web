@@ -755,6 +755,7 @@ export default function Dashboard() {
                     currentUser={profile}
                     members={knotMembers}
                     onNavigateToFeed={() => setActive('feed')}
+                    onOpenChat={openHangoutChat}
                   />
                   <div style={{ marginTop: 24 }}>
                     <PlansList

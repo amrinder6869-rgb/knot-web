@@ -502,7 +502,7 @@ export default function HangoutChatView({
       if (postError || !newPost) { toast.error(TOAST_ERROR); setPendingAction(null); return }
       postId = newPost.id
     }
-    const { error } = await supabase.from('hangouts').update({ post_id: postId, planning_status: 'confirmed', status: 'confirmed' }).eq('id', hangout.id)
+    const { error } = await supabase.from('hangouts').update({ post_id: postId, planning_status: 'locked', status: 'confirmed' }).eq('id', hangout.id)
     setPendingAction(null)
     if (error) { toast.error(TOAST_ERROR); return }
     toast.success('Locked.')
@@ -514,7 +514,7 @@ export default function HangoutChatView({
     if (!currentUser) return
     setActionError('')
     const actorName = currentUser.name || 'Someone'
-    const { error } = await supabase.from('hangouts').update({ status: 'live', is_live: true, planning_status: 'live' }).eq('id', hangout.id)
+    const { error } = await supabase.from('hangouts').update({ status: 'live', is_live: true }).eq('id', hangout.id)
     if (error) { setActionError('Could not go live.'); return }
     await supabase.from('posts').insert({ knot_id: knotId, author_id: currentUser.id, content: `${actorName} is at ${hangout.venue_name || hangout.title} \u2014 the night is on!`, post_type: 'moment' })
     await loadHangout()
@@ -530,7 +530,7 @@ export default function HangoutChatView({
     if (!currentUser || hangout.created_by !== currentUser.id) return
     if (!confirm(CONFIRM_CANCEL_HANGOUT)) return
     setPendingAction('cancel')
-    const { error } = await supabase.from('hangouts').update({ status: 'cancelled', is_live: false, planning_status: 'cancelled' }).eq('id', hangout.id).eq('created_by', currentUser.id)
+    const { error } = await supabase.from('hangouts').update({ status: 'cancelled', is_live: false, planning_status: 'abandoned' }).eq('id', hangout.id).eq('created_by', currentUser.id)
     setPendingAction(null)
     setMenuOpen(false)
     if (error) { toast.error('Could not cancel the hangout.'); return }
@@ -800,7 +800,7 @@ export default function HangoutChatView({
 
   async function handlePollDateSelected(date: string, time: string | null) {
     const scheduledIso = new Date(time ? `${date}T${time}` : `${date}T00:00:00`).toISOString()
-    await supabase.from('hangouts').update({ scheduled_for: scheduledIso, status: 'confirmed', planning_status: 'confirmed' }).eq('id', hangout.id)
+    await supabase.from('hangouts').update({ scheduled_for: scheduledIso, status: 'confirmed', planning_status: 'locked' }).eq('id', hangout.id)
     if (poll) await supabase.from('availability_polls').update({ status: 'closed', closed_at: new Date().toISOString() }).eq('id', poll.id)
     toast.success('Date confirmed!')
     await loadHangout()

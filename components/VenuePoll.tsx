@@ -101,6 +101,7 @@ export default function VenuePoll({ hangoutId, options, currentUser, isCreator, 
     setError('')
     const { error: err } = await supabase.from('hangouts').update({
       status: 'confirmed',
+      planning_status: 'locked',
       venue_name: option.venue_name,
       venue_address: option.venue_address,
       venue_place_id: option.venue_place_id,

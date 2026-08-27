@@ -1,6 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { hangoutPhase } from '@/lib/hangoutPhase'
+import { HOME_EVENTS_EMPTY, HOME_EVENTS_EMPTY_SUB, HOME_EVENTS_LIVE, HOME_EVENTS_LOADING, HOME_EVENTS_SUGGESTED, HOME_EVENTS_UPCOMING } from '@/lib/copy'
 
 function formatDate(d: string) {
   const date = new Date(d)
@@ -76,29 +78,29 @@ export default function HomeEvents({ knots, onOpenKnotTab }: { knots: KnotRef[];
     setLoading(false)
   }
 
-  if (loading) return <div style={{ color: 'var(--text2)', fontSize: 13, padding: '20px 0' }}>Loading...</div>
+  if (loading) return <div style={{ color: 'var(--text2)', fontSize: 13, padding: '20px 0' }}>{HOME_EVENTS_LOADING}</div>
   if (error) return <div className="error-banner">{error}</div>
 
-  const live       = hangouts.filter(h => h.is_live)
-  const upcoming   = hangouts.filter(h => !h.is_live && h.status === 'confirmed')
-  const suggested  = hangouts.filter(h => !h.is_live && h.status === 'voting')
+  const live       = hangouts.filter(h => hangoutPhase(h) === 'live')
+  const upcoming   = hangouts.filter(h => hangoutPhase(h) === 'confirmed')
+  const suggested  = hangouts.filter(h => hangoutPhase(h) === 'planning')
 
   const knotById = new Map(knots.map(k => [k.id, k]))
 
   if (hangouts.length === 0 || (live.length === 0 && upcoming.length === 0 && suggested.length === 0)) {
     return (
       <div style={{ textAlign: 'center', padding: '48px 20px' }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>Nothing planned yet</div>
-        <div style={{ fontSize: 13, color: 'var(--text3)' }}>Hangouts from all your Knots will show up here.</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>{HOME_EVENTS_EMPTY}</div>
+        <div style={{ fontSize: 13, color: 'var(--text3)' }}>{HOME_EVENTS_EMPTY_SUB}</div>
       </div>
     )
   }
 
   return (
     <div>
-      <EventsSection title="Live now" items={live} color="#4ade80" knotById={knotById} onOpenKnotTab={onOpenKnotTab} />
-      <EventsSection title="Upcoming" items={upcoming} color="var(--sage)" knotById={knotById} onOpenKnotTab={onOpenKnotTab} />
-      <EventsSection title="Suggested" items={suggested} color="var(--yellow)" knotById={knotById} onOpenKnotTab={onOpenKnotTab} />
+      <EventsSection title={HOME_EVENTS_LIVE} items={live} color="#4ade80" knotById={knotById} onOpenKnotTab={onOpenKnotTab} />
+      <EventsSection title={HOME_EVENTS_UPCOMING} items={upcoming} color="var(--sage)" knotById={knotById} onOpenKnotTab={onOpenKnotTab} />
+      <EventsSection title={HOME_EVENTS_SUGGESTED} items={suggested} color="var(--yellow)" knotById={knotById} onOpenKnotTab={onOpenKnotTab} />
     </div>
   )
 }

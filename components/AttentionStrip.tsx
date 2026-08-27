@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { ICON_SIZE } from '@/lib/constants'
+import { isUpcomingHangout } from '@/lib/hangoutPhase'
 import {
   ATTENTION_STRIP_HEADER,
   EMPTY_TODO,
@@ -51,10 +52,7 @@ export default function AttentionStrip({
       .select('id, title, created_by, planning_status, status, knot_id, profiles:created_by(name)')
       .in('knot_id', knotIds)
 
-    const upcoming = (hangouts || []).filter((h: any) => {
-      const ps = h.planning_status || h.status
-      return (ps === 'voting' || ps === 'confirmed') && h.status !== 'ended' && h.status !== 'cancelled'
-    })
+    const upcoming = (hangouts || []).filter((h: any) => isUpcomingHangout(h))
     const hangoutIds = upcoming.map((h: any) => h.id)
     const next: AttentionItem[] = []
 
