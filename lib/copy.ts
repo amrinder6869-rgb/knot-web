@@ -199,6 +199,14 @@ export const NOTIF_FRESH_DROP = 'Fresh drop.'
 export const NOTIF_HANGOUT_STARTING = 'It is go time.'
 export const NOTIF_HANGOUT_ENDED = 'Memories secured.'
 
+export const CARD_STATE_COPY: Record<string, { title: string; subtitle: string }> = {
+  voting: { title: "Let's figure it out", subtitle: 'RSVP so the plan can lock.' },
+  confirmed: { title: 'Locked in', subtitle: 'See you there.' },
+  live: { title: 'Happening now', subtitle: "You're either there or you're not." },
+  ended: { title: 'Done', subtitle: 'Hope it was worth the group chat.' },
+  cancelled: { title: 'Called off', subtitle: 'Next time.' },
+}
+
 export const PLAN_BOARD_HINT = 'tap for full plan'
 export const PLAN_BOARD_LIVE = 'Live'
 export const PLAN_FIELD_NOT_BOOKED = 'Not booked'

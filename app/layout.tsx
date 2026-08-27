@@ -20,6 +20,7 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="manifest" href="/manifest.json" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.1/dist/tabler-icons.min.css" />
         <meta name="theme-color" content="#F8BD03" />
       </head>
       <body className={manrope.className}>

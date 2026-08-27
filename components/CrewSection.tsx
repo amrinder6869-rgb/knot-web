@@ -153,12 +153,6 @@ export function CrewSection({ hangoutId, knotId, currentUserId, isPlanner, isLiv
   return (
     <>
       <div style={{ marginTop: 16, marginBottom: 16 }}>
-        <div style={{
-          fontSize: 11, fontWeight: 700, color: subColor,
-          letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10
-        }}>
-          Crew
-        </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {crew.map((member: any) => (
             <div key={member.user_id}>
