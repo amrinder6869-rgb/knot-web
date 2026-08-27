@@ -133,7 +133,9 @@ export default function PlansList({
       is_standalone:       false,
       post_content:        `${actorName} started a plan`,
       post_type:           'hangout',
-      planning_status:     'voting',
+      // hangouts_planning_status_check allows planning|draft|locked|abandoned
+      // (not 'voting' — that is hangouts.status). Composer hangouts start in planning.
+      planning_status:     'planning',
     }
     try {
       const { data, error } = await supabase.rpc('create_hangout', { p_input: pInput })

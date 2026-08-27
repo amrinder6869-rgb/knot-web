@@ -1,5 +1,7 @@
 -- Adds planning_status to create_hangout(p_input jsonb).
 -- Signature is unchanged: one argument, p_input jsonb.
+-- Default is 'planning' (hangouts_planning_status_check allows
+-- planning|draft|locked|abandoned; 'voting' is hangouts.status, not this column).
 -- Run this in the Supabase SQL editor. Do not apply via the agent.
 
 CREATE OR REPLACE FUNCTION public.create_hangout(p_input jsonb)
@@ -81,7 +83,7 @@ BEGIN
     v_reveal_at,
     COALESCE((p_input->>'is_standalone')::boolean, false),
     p_input->>'standalone_token',
-    COALESCE(NULLIF(p_input->>'planning_status', ''), 'voting')
+    COALESCE(NULLIF(p_input->>'planning_status', ''), 'planning')
   )
   RETURNING id INTO v_hangout_id;
 
