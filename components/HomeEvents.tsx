@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { hangoutPhase } from '@/lib/hangoutPhase'
 import { HOME_EVENTS_EMPTY, HOME_EVENTS_EMPTY_SUB, HOME_EVENTS_LIVE, HOME_EVENTS_LOADING, HOME_EVENTS_SUGGESTED, HOME_EVENTS_UPCOMING } from '@/lib/copy'
@@ -59,12 +59,9 @@ export default function HomeEvents({ knots, onOpenKnotTab }: { knots: KnotRef[];
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState('')
 
-  useEffect(() => {
-    if (knots.length > 0) load()
-    else setLoading(false)
-  }, [knots.map(k => k.id).join(',')])
+  const knotIdsKey = knots.map(k => k.id).join(',')
 
-  async function load() {
+  const load = useCallback(async () => {
     setError('')
     const knotIds = knots.map(k => k.id)
     const { data, error: fetchError } = await supabase
@@ -76,7 +73,12 @@ export default function HomeEvents({ knots, onOpenKnotTab }: { knots: KnotRef[];
     if (fetchError) { setError('Could not load your events.'); setLoading(false); return }
     setHangouts(data || [])
     setLoading(false)
-  }
+  }, [knots])
+
+  useEffect(() => {
+    if (knots.length > 0) load()
+    else setLoading(false)
+  }, [knots.length, knotIdsKey, load])
 
   if (loading) return <div style={{ color: 'var(--text2)', fontSize: 13, padding: '20px 0' }}>{HOME_EVENTS_LOADING}</div>
   if (error) return <div className="error-banner">{error}</div>
