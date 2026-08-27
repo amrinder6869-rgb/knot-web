@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getRandom, AGENT_MESSAGES } from '@/lib/copy'
+import { getRandom, AGENT_MESSAGES, PLANNER_NUDGE } from '@/lib/copy'
+
+const NUDGE_THRESHOLD_MS = 48 * 60 * 60 * 1000
 
 // You are Knot, a planning assistant in a private friend group chat. Your job
 // is to help the group plan their hangout by proposing options and letting
@@ -130,15 +132,35 @@ export async function POST(request: Request) {
     // withholds plan_updates until a chip is tapped (see system prompt), so
     // gating creation on planUpdates alone would mean the very first message
     // in a fresh knot has nowhere for the agent's reply to attach.
+    const wasExisting = !!resolvedHangoutId
     const needsHangout = !resolvedHangoutId && (planUpdates || agentMessage)
 
-    if (needsHangout || (planUpdates && resolvedHangoutId)) {
+    // Every message against an existing plan touches last_planning_activity_at
+    // (the 7-day auto-archive and the 48h nudge both read it), even messages
+    // the model judged irrelevant to planning — a "sounds good" still counts
+    // as the group being present.
+    if (needsHangout || wasExisting) {
       const serviceClient = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
       )
       const wasNewPlan = !resolvedHangoutId
       let writeFailed = false
+
+      // Checked before this message's own activity bump lands, since the
+      // question is whether the group was silent *up to* this message.
+      let nudgeMessage: string | null = null
+      if (wasExisting && resolvedHangoutId) {
+        const { data: existing } = await serviceClient
+          .from('hangouts')
+          .select('last_planning_activity_at, planning_status')
+          .eq('id', resolvedHangoutId)
+          .maybeSingle()
+        if (existing?.planning_status === 'planning' && existing.last_planning_activity_at) {
+          const silentMs = Date.now() - new Date(existing.last_planning_activity_at).getTime()
+          if (silentMs > NUDGE_THRESHOLD_MS) nudgeMessage = getRandom(PLANNER_NUDGE)
+        }
+      }
 
       if (wasNewPlan) {
         const { data: newHangout, error: createError } = await serviceClient
@@ -168,6 +190,13 @@ export async function POST(request: Request) {
         else if ('scheduled_for' in planUpdates) agentMessage = getRandom(AGENT_MESSAGES.TIME_CONFIRMED)
       }
 
+      if (resolvedHangoutId) {
+        await serviceClient
+          .from('hangouts')
+          .update({ last_planning_activity_at: new Date().toISOString() })
+          .eq('id', resolvedHangoutId)
+      }
+
       if (agentMessage && resolvedHangoutId) {
         await serviceClient.from('hangout_messages').insert({
           hangout_id: resolvedHangoutId,
@@ -175,16 +204,13 @@ export async function POST(request: Request) {
           content: agentMessage,
         })
       }
-    } else if (agentMessage && resolvedHangoutId) {
-      const serviceClient = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      )
-      await serviceClient.from('hangout_messages').insert({
-        hangout_id: resolvedHangoutId,
-        author_id: agentUserId,
-        content: agentMessage,
-      })
+      if (nudgeMessage && resolvedHangoutId) {
+        await serviceClient.from('hangout_messages').insert({
+          hangout_id: resolvedHangoutId,
+          author_id: agentUserId,
+          content: nudgeMessage,
+        })
+      }
     }
 
     return NextResponse.json({

@@ -719,7 +719,7 @@ export default function Dashboard() {
             <div>
               {active === 'discover'  && <Discover  members={knotMembers} currentUser={profile} />}
               {active === 'feed'      && <Feed      members={knotMembers} knotName={activeKnot.name} knotEmoji={activeKnot.emoji} knotId={activeKnot?.id} currentUser={profile} onOpenBills={() => setActive('split')} />}
-              {active === 'hangout'   && <PlanningView members={knotMembers} knotId={activeKnot?.id} currentUser={profile} />}
+              {active === 'hangout'   && <PlanningView members={knotMembers} knotId={activeKnot?.id} currentUser={profile} onNavigateToFeed={() => setActive('feed')} />}
               {active === 'split'     && <BillSplit members={knotMembers} knotId={activeKnot?.id} currentUser={profile} />}
               {active === 'members'   && <Members   members={knotMembers} knotId={activeKnot?.id} />}
               {active === 'memories'  && <Memories  members={knotMembers} knotId={activeKnot?.id} />}

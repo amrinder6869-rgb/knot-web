@@ -211,3 +211,26 @@ export const TODO_SETTLE_LABEL = 'Settle'
 export const TODO_RSVP_ACTION = 'Going'
 export const TODO_VOTE_ACTION = 'Vote'
 export const TODO_SETTLE_ACTION = 'Pay'
+
+// Planner lifecycle — three sections (planning, draft, locked) plus the
+// abandoned terminal state. Locked/abandoned plans leave the Planner
+// entirely: locked ones live in the Feed, abandoned ones just disappear.
+export const PLANNER_SECTION_PLANNING = 'Planning now'
+export const PLANNER_SECTION_DRAFTS = 'Drafts'
+export const PLANNER_SECTION_LOCKED = 'Locked in'
+export const PLANNER_EMPTY_PLANNING = 'Nothing in motion. Say what you want to do below.'
+export const PLANNER_EMPTY_DRAFTS = 'No drafts saved.'
+export const PLANNER_EMPTY_LOCKED = 'Nothing locked in yet.'
+export const PLANNER_CTA_SAVE = 'Save for later'
+export const PLANNER_CTA_ABANDON = 'Abandon'
+export const PLANNER_CTA_RESUME = 'Resume'
+export const PLANNER_VIEW_IN_FEED = 'View in Feed'
+export const PLANNER_CONFIRM_ABANDON = 'Abandon this plan? It disappears from the Planner. This cannot be undone.'
+export const PLANNER_TOAST_LOCKED = 'Locked. Find it in the Feed.'
+export const PLANNER_TOAST_SAVED = 'Saved for later.'
+export const PLANNER_TOAST_ABANDONED = 'Plan abandoned.'
+export const PLANNER_TOAST_RESUMED = 'Back in motion.'
+export const PLANNER_NUDGE = [
+  "Still figuring this out? It's been quiet a couple days.",
+  'This one has gone quiet. Still on?',
+]

@@ -1,16 +1,8 @@
 'use client'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { supabase, getSignedUrl } from '@/lib/supabase'
 import { compressImage } from '@/lib/compressImage'
-import HangoutCard from '@/components/HangoutCard'
-import { loadHangoutBundle } from '@/lib/hangoutBundle'
-import {
-  aggregateReactions,
-  legacyHeartEmojis,
-  normalizeReactionEmoji,
-  toggleReactionLocal,
-  type ReactionCount,
-} from '@/lib/reactions'
+import { useToast } from '@/components/ToastProvider'
 import {
   getRandom,
   getRandomTagged,
@@ -19,24 +11,31 @@ import {
   COMPOSER_PLACEHOLDER,
   EMPTY_TODO,
   CTA_CONFIRM,
-  STATE_VOTING,
-  STATE_CONFIRMED,
-  STATE_LIVE,
-  STATE_ENDED,
-  STATE_CANCELLED,
-  CHIP_WHERE,
-  CHIP_WHEN,
   PLAN_BOARD_HINT,
-  PLAN_BOARD_LIVE,
   PLAN_FIELD_NOT_BOOKED,
   PLAN_FIELD_TBD,
-  PLAN_FIELD_POLL_OPEN,
   TODO_RSVP_SUB,
   TODO_VOTE_LABEL,
   TODO_SETTLE_LABEL,
   TODO_RSVP_ACTION,
   TODO_VOTE_ACTION,
   TODO_SETTLE_ACTION,
+  TOAST_ERROR,
+  PLANNER_SECTION_PLANNING,
+  PLANNER_SECTION_DRAFTS,
+  PLANNER_SECTION_LOCKED,
+  PLANNER_EMPTY_PLANNING,
+  PLANNER_EMPTY_DRAFTS,
+  PLANNER_EMPTY_LOCKED,
+  PLANNER_CTA_SAVE,
+  PLANNER_CTA_ABANDON,
+  PLANNER_CTA_RESUME,
+  PLANNER_VIEW_IN_FEED,
+  PLANNER_CONFIRM_ABANDON,
+  PLANNER_TOAST_LOCKED,
+  PLANNER_TOAST_SAVED,
+  PLANNER_TOAST_ABANDONED,
+  PLANNER_TOAST_RESUMED,
 } from '@/lib/copy'
 
 // TODO: replace with /public/knot-logo.png once the asset is exported.
@@ -73,14 +72,6 @@ function formatWhen(scheduledFor: string | null) {
   return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ` · ${time}`
 }
 
-function stateLabel(hangout: any): string {
-  if (hangout.status === 'cancelled') return STATE_CANCELLED
-  if (hangout.is_live) return STATE_LIVE
-  if (hangout.status === 'ended') return STATE_ENDED
-  if (hangout.status === 'confirmed') return STATE_CONFIRMED
-  return STATE_VOTING
-}
-
 type ThreadMessage = {
   id: string
   hangout_id: string
@@ -93,19 +84,20 @@ type ThreadMessage = {
   revenue_suggestion?: { type: string; label: string; url: string } | null
 }
 
-export default function PlanningView({ knotId, currentUser, members }: {
+export default function PlanningView({ knotId, currentUser, members, onNavigateToFeed }: {
   knotId?: string
   currentUser?: any
   members: any[]
+  onNavigateToFeed?: () => void
 }) {
   const agentId = process.env.NEXT_PUBLIC_KNOT_AGENT_USER_ID || ''
+  const toast = useToast()
 
   const [hangouts, setHangouts] = useState<any[]>([])
   const [loadingHangouts, setLoadingHangouts] = useState(true)
   const [boardExpanded, setBoardExpanded] = useState(false)
-
-  const [posts, setPosts] = useState<any[]>([])
-  const [bundle, setBundle] = useState<any>(null)
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null)
+  const [pendingAction, setPendingAction] = useState<{ id: string; type: 'lock' | 'save' | 'abandon' | 'resume' } | null>(null)
 
   const [messages, setMessages] = useState<ThreadMessage[]>([])
   const [loadingMessages, setLoadingMessages] = useState(false)
@@ -134,8 +126,27 @@ export default function PlanningView({ knotId, currentUser, members }: {
   const [todoPolls, setTodoPolls] = useState<any[]>([])
   const [todoBills, setTodoBills] = useState<any[]>([])
 
-  const activeHangout = hangouts.find(h => h.is_live)
-    || hangouts.find(h => h.status === 'voting' || h.status === 'confirmed')
+  // The three Planner sections. Composer-created hangouts default to
+  // planning_status='planning' too (the column predates that flow), but they
+  // already have a post_id by the time anyone can see them — the post_id
+  // guard is what actually keeps them out of the Planner, not planning_status.
+  const planningHangouts = useMemo(() => hangouts
+    .filter(h => h.planning_status === 'planning' && !h.post_id)
+    .sort((a, b) => new Date(b.last_planning_activity_at).getTime() - new Date(a.last_planning_activity_at).getTime()),
+    [hangouts])
+  const draftHangouts = useMemo(() => hangouts
+    .filter(h => h.planning_status === 'draft' && !h.post_id)
+    .sort((a, b) => new Date(b.last_planning_activity_at).getTime() - new Date(a.last_planning_activity_at).getTime()),
+    [hangouts])
+  const lockedHangouts = useMemo(() => hangouts
+    .filter(h => h.planning_status === 'locked')
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+    [hangouts])
+
+  // The chat thread (Surface 2) always follows whichever plan is actively
+  // being negotiated — drafts and locked plans have no chat surface here.
+  const activeHangout = (selectedPlanId && planningHangouts.find(h => h.id === selectedPlanId))
+    || planningHangouts[0]
     || null
 
   function scrollToBottom() {
@@ -154,69 +165,6 @@ const loadHangouts = useCallback(async () => {
     setHangouts(data || [])
     setLoadingHangouts(false)
   }, [knotId])
-
-  const loadHangoutPosts = useCallback(async () => {
-    if (!knotId) return
-    const { data: postData } = await supabase
-      .from('posts')
-      .select('*, profiles:author_id(name)')
-      .eq('knot_id', knotId)
-      .in('post_type', ['hangout', 'poll'])
-      .order('created_at', { ascending: false })
-
-    if (!postData || postData.length === 0) { setPosts([]); setBundle(null); return }
-
-    const hangoutIds = postData.map((p: any) => p.hangout_id).filter(Boolean)
-    const postIds = postData.map((p: any) => p.id)
-    const b = await loadHangoutBundle(hangoutIds, postIds, currentUser?.id)
-
-    const { data: reactionsData } = await supabase
-      .from('reactions')
-      .select('post_id, emoji, user_id')
-      .in('post_id', postIds)
-    const byPost: Record<string, { emoji: string; user_id: string }[]> = {}
-    ;(reactionsData || []).forEach((r: any) => {
-      if (!byPost[r.post_id]) byPost[r.post_id] = []
-      byPost[r.post_id].push({ emoji: r.emoji, user_id: r.user_id })
-    })
-    const reactionsMap: Record<string, ReactionCount[]> = {}
-    Object.keys(byPost).forEach(pid => { reactionsMap[pid] = aggregateReactions(byPost[pid], currentUser?.id) })
-
-    setPosts(postData.map((p: any) => ({ ...p, reactions: reactionsMap[p.id] || [] })))
-    setBundle(b)
-  }, [knotId, currentUser])
-
-  async function toggleReaction(postId: string, emoji: string) {
-    if (!currentUser?.id) return
-    const normalized = normalizeReactionEmoji(emoji)
-    const post = posts.find(p => p.id === postId)
-    const existing = post?.reactions?.find((r: ReactionCount) => r.e === normalized && r.mine)
-    if (existing) {
-      await supabase.from('reactions').delete()
-        .eq('post_id', postId).eq('user_id', currentUser.id).in('emoji', legacyHeartEmojis(normalized))
-    } else {
-      await supabase.from('reactions').insert({ post_id: postId, user_id: currentUser.id, emoji: normalized })
-    }
-    setPosts(ps => ps.map(p => p.id === postId ? { ...p, reactions: toggleReactionLocal(p.reactions || [], normalized) } : p))
-  }
-
-  function buildCardData(post: any) {
-    if (!bundle || !post.hangout_id) return null
-    const hangout = bundle.hangoutsById.get(post.hangout_id)
-    const options = (bundle.optionsByHangout.get(post.hangout_id) || []).map((o: any) => ({
-      ...o,
-      _myVote: (bundle.votesByHangout.get(post.hangout_id) || []).some((v: any) => v.option_id === o.id && v.user_id === currentUser?.id),
-    }))
-    return {
-      hangout,
-      options,
-      rsvps: bundle.rsvpsByHangout.get(post.hangout_id) || [],
-      comments: bundle.commentsByPost.get(post.id) || [],
-      bills: bundle.billsByHangout.get(post.hangout_id) || [],
-      invites: bundle.invitesByHangout.get(post.hangout_id) || [],
-      poll: bundle.pollByHangout.get(post.hangout_id) || null,
-    }
-  }
 
   const loadMessages = useCallback(async (hangoutId: string) => {
     setLoadingMessages(true)
@@ -294,7 +242,7 @@ const loadHangouts = useCallback(async () => {
     }
   }, [knotId, currentUser, hangouts])
 
-  useEffect(() => { if (knotId) { loadHangouts(); loadHangoutPosts() } }, [knotId, loadHangouts, loadHangoutPosts])
+  useEffect(() => { if (knotId) loadHangouts() }, [knotId, loadHangouts])
   useEffect(() => { loadTodos() }, [loadTodos])
 
   useEffect(() => {
@@ -302,10 +250,9 @@ const loadHangouts = useCallback(async () => {
     const channel = supabase
       .channel(`planning:${knotId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'hangouts', filter: `knot_id=eq.${knotId}` }, () => loadHangouts())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts', filter: `knot_id=eq.${knotId}` }, () => loadHangoutPosts())
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [knotId, loadHangouts, loadHangoutPosts])
+  }, [knotId, loadHangouts])
 
   useEffect(() => {
     if (!activeHangout?.id) { setMessages([]); return }
@@ -440,9 +387,61 @@ const loadHangouts = useCallback(async () => {
     setSheet(null)
   }
 
-  async function confirmPlan() {
-    if (!activeHangout?.id) return
-    await supabase.from('hangouts').update({ status: 'confirmed' }).eq('id', activeHangout.id)
+  // Planning-agent-created hangouts never go through create_hangout(), so
+  // locking one in has to do that RPC's post-creation step itself: insert
+  // the feed post, then point hangouts.post_id at it. Only then does the
+  // plan leave the Planner and start living in the Feed like any other hangout.
+  async function lockPlan(hangout: any) {
+    if (!hangout || hangout.post_id || pendingAction || !currentUser?.id) return
+    setPendingAction({ id: hangout.id, type: 'lock' })
+    const { data: newPost, error: postError } = await supabase
+      .from('posts')
+      .insert({ knot_id: hangout.knot_id, hangout_id: hangout.id, author_id: currentUser.id, content: 'locked in a plan', post_type: 'hangout' })
+      .select('id')
+      .single()
+    if (postError || !newPost) { toast.error(TOAST_ERROR); setPendingAction(null); return }
+    const { error: updateError } = await supabase
+      .from('hangouts')
+      .update({ post_id: newPost.id, planning_status: 'locked' })
+      .eq('id', hangout.id)
+    setPendingAction(null)
+    if (updateError) { toast.error(TOAST_ERROR); return }
+    toast.success(PLANNER_TOAST_LOCKED)
+    await loadHangouts()
+  }
+
+  async function savePlan(hangout: any) {
+    if (!hangout || pendingAction) return
+    setPendingAction({ id: hangout.id, type: 'save' })
+    const { error } = await supabase.from('hangouts').update({ planning_status: 'draft' }).eq('id', hangout.id)
+    setPendingAction(null)
+    if (error) { toast.error(TOAST_ERROR); return }
+    toast.success(PLANNER_TOAST_SAVED)
+    if (selectedPlanId === hangout.id) setSelectedPlanId(null)
+    await loadHangouts()
+  }
+
+  async function abandonPlan(hangout: any) {
+    if (!hangout || pendingAction) return
+    if (!confirm(PLANNER_CONFIRM_ABANDON)) return
+    setPendingAction({ id: hangout.id, type: 'abandon' })
+    const { error } = await supabase.from('hangouts').update({ planning_status: 'abandoned' }).eq('id', hangout.id)
+    setPendingAction(null)
+    if (error) { toast.error(TOAST_ERROR); return }
+    toast.success(PLANNER_TOAST_ABANDONED)
+    if (selectedPlanId === hangout.id) setSelectedPlanId(null)
+    await loadHangouts()
+  }
+
+  async function resumePlan(hangout: any) {
+    if (!hangout || pendingAction) return
+    setPendingAction({ id: hangout.id, type: 'resume' })
+    const { error } = await supabase.from('hangouts').update({ planning_status: 'planning' }).eq('id', hangout.id)
+    setPendingAction(null)
+    if (error) { toast.error(TOAST_ERROR); return }
+    toast.success(PLANNER_TOAST_RESUMED)
+    setSelectedPlanId(hangout.id)
+    await loadHangouts()
   }
 
   async function tapChip(chip: { label: string; action: string; value: any }) {
@@ -459,98 +458,142 @@ const loadHangouts = useCallback(async () => {
   }
 
   const todoCount = todoRsvps.length + todoPolls.length + todoBills.length
-  const isCreator = activeHangout?.created_by === currentUser?.id
-  const activeHasOpenPoll = !!(activeHangout && bundle?.pollByHangout?.get(activeHangout.id)?.status === 'open')
-  const whenFieldLabel = activeHangout
-    ? (formatWhen(activeHangout.scheduled_for) || (activeHasOpenPoll ? PLAN_FIELD_POLL_OPEN : PLAN_FIELD_TBD))
-    : PLAN_FIELD_TBD
+  const whenFieldLabel = activeHangout ? (formatWhen(activeHangout.scheduled_for) || PLAN_FIELD_TBD) : PLAN_FIELD_TBD
+  const totalPlans = planningHangouts.length + draftHangouts.length + lockedHangouts.length
+
+  function renderPlanRow(h: any, kind: 'planning' | 'draft' | 'locked') {
+    const isRowCreator = h.created_by === currentUser?.id
+    const isActive = kind === 'planning' && h.id === activeHangout?.id
+    const busy = pendingAction?.id === h.id
+    return (
+      <div key={h.id}
+        onClick={kind === 'planning' ? () => setSelectedPlanId(h.id) : undefined}
+        style={{
+          display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 12px', borderRadius: 10, marginBottom: 8,
+          background: isActive ? 'var(--yellow-soft)' : 'var(--bg3)',
+          border: `1px solid ${isActive ? 'var(--yellow)' : 'var(--border2)'}`,
+          cursor: kind === 'planning' ? 'pointer' : 'default',
+        }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{h.title || 'Untitled plan'}</div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const }}>
+          <span style={{ padding: '3px 9px', borderRadius: 20, background: '#fff', border: '1px solid var(--border2)', fontSize: 11, color: 'var(--text2)' }}>
+            {formatWhen(h.scheduled_for) || PLAN_FIELD_TBD}
+          </span>
+          <span style={{ padding: '3px 9px', borderRadius: 20, background: '#fff', border: '1px solid var(--border2)', fontSize: 11, color: 'var(--text2)' }}>
+            {h.venue_name || PLAN_FIELD_NOT_BOOKED}
+          </span>
+        </div>
+        {h.brief && <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.4 }}>{h.brief}</div>}
+        {isRowCreator && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const }} onClick={e => e.stopPropagation()}>
+            {kind === 'planning' && (
+              <>
+                <button onClick={() => lockPlan(h)} disabled={busy}
+                  style={{ padding: '6px 12px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 12, fontWeight: 700, cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: busy ? 0.6 : 1 }}>
+                  {CTA_CONFIRM}
+                </button>
+                <button onClick={() => savePlan(h)} disabled={busy}
+                  style={{ padding: '6px 12px', background: '#fff', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: busy ? 0.6 : 1 }}>
+                  {PLANNER_CTA_SAVE}
+                </button>
+                <button onClick={() => abandonPlan(h)} disabled={busy}
+                  style={{ padding: '6px 12px', background: 'transparent', border: 'none', borderRadius: 8, color: 'var(--danger)', fontSize: 12, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: busy ? 0.6 : 1 }}>
+                  {PLANNER_CTA_ABANDON}
+                </button>
+              </>
+            )}
+            {kind === 'draft' && (
+              <>
+                <button onClick={() => resumePlan(h)} disabled={busy}
+                  style={{ padding: '6px 12px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 12, fontWeight: 700, cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: busy ? 0.6 : 1 }}>
+                  {PLANNER_CTA_RESUME}
+                </button>
+                <button onClick={() => abandonPlan(h)} disabled={busy}
+                  style={{ padding: '6px 12px', background: 'transparent', border: 'none', borderRadius: 8, color: 'var(--danger)', fontSize: 12, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: busy ? 0.6 : 1 }}>
+                  {PLANNER_CTA_ABANDON}
+                </button>
+              </>
+            )}
+          </div>
+        )}
+        {kind === 'locked' && (
+          <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => onNavigateToFeed?.()}
+              style={{ padding: '6px 12px', background: '#fff', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--yellow)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              {PLANNER_VIEW_IN_FEED}
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  function renderPlanSection(title: string, emptyLine: string, list: any[], kind: 'planning' | 'draft' | 'locked') {
+    return (
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: 8 }}>
+          {title}{list.length > 0 && ` · ${list.length}`}
+        </div>
+        {list.length === 0 ? (
+          <div style={{ fontSize: 12, color: 'var(--text3)' }}>{emptyLine}</div>
+        ) : (
+          list.map(h => renderPlanRow(h, kind))
+        )}
+      </div>
+    )
+  }
 
   return (
     <div style={{ maxWidth: 720, display: 'flex', flexDirection: 'column', height: 'calc(100vh - 220px)', minHeight: 480 }}>
 
-      {/* SURFACE 1: PLAN BOARD */}
-      {activeHangout && (
-        <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 14, marginBottom: 12, overflow: 'hidden', flexShrink: 0 }}>
-          <div onClick={() => setBoardExpanded(v => !v)}
-            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', cursor: 'pointer', minHeight: 80, boxSizing: 'border-box' }}>
-            <KnotMark size={28} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {activeHangout.title || 'Untitled plan'}
-              </div>
-              <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' as const }}>
-                <span style={{ padding: '3px 9px', borderRadius: 20, background: 'var(--bg3)', border: '1px solid var(--border2)', fontSize: 11, color: 'var(--text2)' }}>
-                  {whenFieldLabel}
-                </span>
-                <span style={{ padding: '3px 9px', borderRadius: 20, background: 'var(--bg3)', border: '1px solid var(--border2)', fontSize: 11, color: 'var(--text2)' }}>
-                  {activeHangout.venue_name || PLAN_FIELD_NOT_BOOKED}
-                </span>
-                {activeHangout.is_live && (
-                  <span style={{ padding: '3px 9px', borderRadius: 20, background: 'var(--danger-soft)', color: 'var(--danger)', fontSize: 11, fontWeight: 700 }}>{PLAN_BOARD_LIVE}</span>
-                )}
-              </div>
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--text3)', flexShrink: 0 }}>{PLAN_BOARD_HINT}</div>
+      {/* SURFACE 1: PLANNER — Planning now / Drafts / Locked in. Locked plans
+          live in the Feed from here on; this panel never renders their
+          HangoutCard, only a link back to it. */}
+      <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 14, marginBottom: 12, overflow: 'hidden', flexShrink: 0 }}>
+        <div onClick={() => setBoardExpanded(v => !v)}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', cursor: 'pointer', minHeight: 80, boxSizing: 'border-box' }}>
+          <KnotMark size={28} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {activeHangout ? (
+              <>
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {activeHangout.title || 'Untitled plan'}
+                </div>
+                <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' as const }}>
+                  <span style={{ padding: '3px 9px', borderRadius: 20, background: 'var(--bg3)', border: '1px solid var(--border2)', fontSize: 11, color: 'var(--text2)' }}>
+                    {whenFieldLabel}
+                  </span>
+                  <span style={{ padding: '3px 9px', borderRadius: 20, background: 'var(--bg3)', border: '1px solid var(--border2)', fontSize: 11, color: 'var(--text2)' }}>
+                    {activeHangout.venue_name || PLAN_FIELD_NOT_BOOKED}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>Planner</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>
+                  {totalPlans > 0 ? `${lockedHangouts.length} locked in` : 'Nothing planned yet'}
+                </div>
+              </>
+            )}
           </div>
-
-          {boardExpanded && (
-            <div style={{ borderTop: '1px solid var(--border)', padding: 16, maxHeight: 420, overflowY: 'auto' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                  <span style={{ color: 'var(--text3)' }}>Status</span>
-                  <span style={{ color: 'var(--text)', fontWeight: 600 }}>{stateLabel(activeHangout)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                  <span style={{ color: 'var(--text3)' }}>{CHIP_WHEN}</span>
-                  <span style={{ color: 'var(--text)', fontWeight: 600 }}>{whenFieldLabel}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                  <span style={{ color: 'var(--text3)' }}>{CHIP_WHERE}</span>
-                  <span style={{ color: 'var(--text)', fontWeight: 600 }}>{activeHangout.venue_name || PLAN_FIELD_NOT_BOOKED}</span>
-                </div>
-                {activeHangout.brief && (
-                  <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.5, padding: '8px 10px', background: 'var(--bg3)', borderRadius: 8 }}>
-                    {activeHangout.brief}
-                  </div>
-                )}
-              </div>
-
-              {isCreator && activeHangout.status !== 'confirmed' && activeHangout.status !== 'ended' && activeHangout.status !== 'cancelled' && (
-                <button onClick={confirmPlan}
-                  style={{ width: '100%', padding: '11px', background: 'var(--yellow)', border: 'none', borderRadius: 10, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 16 }}>
-                  {CTA_CONFIRM}
-                </button>
-              )}
-
-              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>Planner</div>
-              <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 12 }}>All your hangouts, live and upcoming</div>
-
-              {loadingHangouts ? (
-                <div style={{ fontSize: 13, color: 'var(--text3)' }}>Loading...</div>
-              ) : posts.length === 0 ? (
-                <div style={{ fontSize: 13, color: 'var(--text3)', textAlign: 'center' as const, padding: '20px 0' }}>Nothing planned yet.</div>
-              ) : (
-                posts.map((post: any) => {
-                  const cardData = buildCardData(post)
-                  if (!cardData || !cardData.hangout) return null
-                  return (
-                    <HangoutCard
-                      key={post.id}
-                      post={post}
-                      data={cardData}
-                      currentUser={currentUser}
-                      knotId={knotId!}
-                      members={members}
-                      onRefresh={loadHangoutPosts}
-                      onToggleReaction={(emoji) => toggleReaction(post.id, emoji)}
-                    />
-                  )
-                })
-              )}
-            </div>
-          )}
+          <div style={{ fontSize: 11, color: 'var(--text3)', flexShrink: 0 }}>{PLAN_BOARD_HINT}</div>
         </div>
-      )}
+
+        {boardExpanded && (
+          <div style={{ borderTop: '1px solid var(--border)', padding: 16, maxHeight: 420, overflowY: 'auto' }}>
+            {loadingHangouts ? (
+              <div style={{ fontSize: 13, color: 'var(--text3)' }}>Loading...</div>
+            ) : (
+              <>
+                {renderPlanSection(PLANNER_SECTION_PLANNING, PLANNER_EMPTY_PLANNING, planningHangouts, 'planning')}
+                {renderPlanSection(PLANNER_SECTION_DRAFTS, PLANNER_EMPTY_DRAFTS, draftHangouts, 'draft')}
+                {renderPlanSection(PLANNER_SECTION_LOCKED, PLANNER_EMPTY_LOCKED, lockedHangouts, 'locked')}
+              </>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* SURFACE 2: GROUP CHAT */}
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
