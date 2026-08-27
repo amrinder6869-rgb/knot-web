@@ -7,10 +7,10 @@ import DateTimePicker from '@/components/DateTimePicker'
 import { DailyCall } from '@/components/DailyCall'
 import AvailabilityPoll from '@/components/AvailabilityPoll'
 import VenuePoll from '@/components/VenuePoll'
-import { ICON_SIZE } from '@/lib/constants'
+import { ACTIVITY_ICONS, ICON_SIZE } from '@/lib/constants'
 import { createNotification } from '@/lib/notify'
 import { track } from '@/lib/track'
-import { hangoutPhase } from '@/lib/hangoutPhase'
+import { hangoutPhase, cardStateKey } from '@/lib/hangoutPhase'
 import {
   getRandom,
   getRandomTagged,
@@ -19,9 +19,10 @@ import {
   COMPOSER_PLACEHOLDER,
   PLANNING_CHAT_PLACEHOLDER,
   CTA_CONFIRM,
-  PLAN_BOARD_HINT,
-  PLAN_FIELD_NOT_BOOKED,
-  PLAN_FIELD_TBD,
+  CARD_STATE_COPY,
+  CHIP_WHEN,
+  CHIP_WHEN_DATE,
+  CHIP_WHERE,
   TOAST_ERROR,
   PLAN_UNTITLED,
   AGENT_TITLE_PROMPT,
@@ -63,16 +64,22 @@ function dateDividerLabel(dateStr: string): string {
   return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
-function formatWhen(scheduledFor: string | null) {
-  if (!scheduledFor) return null
-  const date = new Date(scheduledFor)
-  const now = new Date()
-  const tomorrow = new Date(now)
-  tomorrow.setDate(now.getDate() + 1)
-  const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-  if (date.toDateString() === now.toDateString()) return `Tonight · ${time}`
-  if (date.toDateString() === tomorrow.toDateString()) return `Tomorrow · ${time}`
-  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ` · ${time}`
+function activityIcon(hangout: any): string {
+  const keys = [hangout?.activity_type, hangout?.occasion_type, hangout?.brief_vibe, hangout?.type, hangout?.movie_title ? 'movie' : null]
+  for (const key of keys) {
+    if (key && ACTIVITY_ICONS[String(key).toLowerCase()]) return ACTIVITY_ICONS[String(key).toLowerCase()]
+  }
+  return 'ti-calendar-event'
+}
+
+function fieldChipStyle(filled: boolean): React.CSSProperties {
+  return {
+    display: 'inline-flex', alignItems: 'center', gap: 4,
+    background: '#fff',
+    border: `0.5px ${filled ? 'solid' : 'dashed'} rgba(248,189,3,0.25)`,
+    borderRadius: 6, padding: '3px 8px', fontSize: 11,
+    color: filled ? '#555' : '#aaa',
+  }
 }
 
 function buildUberLink(venueName: string, venueAddress: string) {
@@ -197,7 +204,15 @@ export default function HangoutChatView({
   const isTreasurer = roles.includes('treasurer')
   const checkedIn = messages.some(m => m.author_id === currentUser?.id && m.content === HERE_MESSAGE)
   const showRsvpPills = (phase === 'planning' || phase === 'confirmed') && myRsvpStatus !== 'yes'
-  const whenLabel = hangout ? (formatWhen(hangout.scheduled_for) || PLAN_FIELD_TBD) : PLAN_FIELD_TBD
+  const dateChipLabel = hangout?.scheduled_for
+    ? new Date(hangout.scheduled_for).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    : CHIP_WHEN_DATE
+  const timeChipLabel = hangout?.scheduled_for
+    ? new Date(hangout.scheduled_for).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    : CHIP_WHEN
+  const venueChipLabel = hangout?.venue_name || CHIP_WHERE
+  const stateCopy = CARD_STATE_COPY[hangout ? cardStateKey(hangout) : 'voting'] || CARD_STATE_COPY.voting
+  const planIcon = activityIcon(hangout)
 
   function scrollThreadToBottom() {
     requestAnimationFrame(() => {
@@ -771,6 +786,9 @@ export default function HangoutChatView({
 
   const title = hangout.title || hangout.venue_name || PLAN_UNTITLED
 
+  // TEMP debug: confirm venuesByMessageId keys line up with rendered message ids.
+  console.log('[venue-cards] venuesByMessageId keys:', Object.keys(venuesByMessageId), venuesByMessageId)
+
   return (
     <div style={{ flex: 1, minHeight: 0, height: '100%', background: '#F5F3EE', display: 'flex', flexDirection: 'column', fontFamily: 'Manrope, sans-serif' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', paddingTop: 'calc(10px + env(safe-area-inset-top, 0px))', borderBottom: '1px solid var(--border)', background: 'var(--glass-bg)', backdropFilter: 'blur(16px)', flexShrink: 0 }}>
@@ -807,8 +825,10 @@ export default function HangoutChatView({
       </div>
 
       <div style={{ background: '#fff', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-        <div onClick={() => setBoardExpanded(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', cursor: 'pointer' }}>
-          <KnotMark size={24} />
+        <div onClick={() => setBoardExpanded(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', cursor: 'pointer', background: 'rgba(248,189,3,0.06)', borderBottom: '1px solid rgba(248,189,3,0.18)' }}>
+          <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(248,189,3,0.12)', border: '1px solid rgba(248,189,3,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <i className={`ti ${planIcon}`} style={{ fontSize: 20, color: '#b38c00' }} />
+          </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             {phase === 'live' && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
@@ -816,13 +836,21 @@ export default function HangoutChatView({
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--danger)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{STATE_LIVE}</span>
               </div>
             )}
-            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
+            <div style={{ fontSize: 11, color: '#b38c00', fontWeight: 600, marginTop: 2 }}>{stateCopy.subtitle}</div>
             <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-              <span style={{ padding: '3px 9px', borderRadius: 20, background: 'var(--bg3)', border: '1px solid var(--border2)', fontSize: 11, color: 'var(--text2)' }}>{whenLabel}</span>
-              <span style={{ padding: '3px 9px', borderRadius: 20, background: 'var(--bg3)', border: '1px solid var(--border2)', fontSize: 11, color: 'var(--text2)' }}>{hangout.venue_name || PLAN_FIELD_NOT_BOOKED}</span>
+              <span style={fieldChipStyle(!!hangout.scheduled_for)}>
+                <i className="ti ti-calendar" style={{ fontSize: 11 }} /> {dateChipLabel}
+              </span>
+              <span style={fieldChipStyle(!!hangout.scheduled_for)}>
+                <i className="ti ti-clock" style={{ fontSize: 11 }} /> {timeChipLabel}
+              </span>
+              <span style={fieldChipStyle(!!hangout.venue_name)}>
+                <i className="ti ti-map-pin" style={{ fontSize: 11 }} /> {venueChipLabel}
+              </span>
             </div>
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text3)', flexShrink: 0 }}>{PLAN_BOARD_HINT}</div>
+          <i className="ti ti-chevron-down" style={{ fontSize: 14, color: '#b38c00', flexShrink: 0 }} />
         </div>
         {boardExpanded && (
           <div style={{ borderTop: '1px solid var(--border)', padding: 16, maxHeight: 360, overflowY: 'auto' }}>
@@ -939,18 +967,34 @@ export default function HangoutChatView({
                     </div>
                   </div>
                   {venueOptions && venueOptions.length > 0 && !resolving && (
-                    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingLeft: 34 }}>
+                    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginLeft: 36 }}>
                       {venueOptions.map(v => {
                         const busy = confirmingVenueId === v.place_id
                         return (
                           <button key={v.place_id} type="button" onClick={() => confirmVenue(v, m.id)} disabled={busy}
-                            style={{ flexShrink: 0, width: 168, textAlign: 'left', background: '#fff', border: '1px solid var(--border2)', borderRadius: 10, overflow: 'hidden', cursor: busy ? 'wait' : 'pointer', fontFamily: 'inherit', padding: 0, opacity: busy ? 0.6 : 1 }}>
-                            <div style={{ width: '100%', height: 90, background: 'var(--bg3)' }}>
-                              {v.photo_url && <img src={v.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
+                            style={{ flexShrink: 0, width: 140, textAlign: 'left', background: '#fff', border: '1px solid var(--border2)', borderRadius: 10, overflow: 'hidden', cursor: busy ? 'wait' : 'pointer', fontFamily: 'inherit', padding: 0, opacity: busy ? 0.6 : 1 }}>
+                            <div style={{ width: '100%', height: 80, background: 'var(--bg3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              {v.photo_url ? (
+                                <img src={v.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                              ) : (
+                                <i className="ti ti-building-store" style={{ fontSize: 22, color: 'var(--text3)' }} />
+                              )}
                             </div>
                             <div style={{ padding: '8px 10px' }}>
                               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.name}</div>
                               <div style={{ fontSize: 10, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{v.formatted_address}</div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                                {v.rating != null && (
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 10, color: 'var(--text2)' }}>
+                                    <i className="ti ti-star-filled" style={{ fontSize: 10, color: 'var(--yellow)' }} /> {v.rating}
+                                  </span>
+                                )}
+                                {v.open_now != null && (
+                                  <span style={{ fontSize: 10, color: v.open_now ? 'var(--sage)' : 'var(--danger)' }}>
+                                    {v.open_now ? 'Open now' : 'Closed'}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </button>
                         )
