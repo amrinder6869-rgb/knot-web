@@ -732,7 +732,7 @@ export default function HangoutChatView({
                 {CTA_CONFIRM}
               </button>
             )}
-            {phase === 'confirmed' && (
+            {phase === 'confirmed' && isCreator && (
               <button type="button" onClick={goLive}
                 style={{ padding: '8px 14px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 10 }}>
                 We are here
