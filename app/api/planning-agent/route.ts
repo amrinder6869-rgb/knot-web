@@ -372,7 +372,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({
+    const result = {
       agent_message: agentMessage,
       chips: parsed.chips ?? null,
       plan_updates: planUpdates,
@@ -380,7 +380,10 @@ export async function POST(request: Request) {
       revenue_suggestion: parsed.revenue_suggestion ?? null,
       venue_suggestions: venueSuggestions.length > 0 ? venueSuggestions : null,
       hangout_id: resolvedHangoutId,
-    })
+    }
+    console.log('[route] returning venue_suggestions count:', result.venue_suggestions?.length ?? 0)
+    console.log('[route] full result keys:', Object.keys(result))
+    return NextResponse.json(result)
   } catch {
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }

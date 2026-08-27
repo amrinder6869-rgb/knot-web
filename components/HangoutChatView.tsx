@@ -285,6 +285,7 @@ export default function HangoutChatView({
   }, [hangoutId, currentUser?.id, scrollToBottom])
 
   const attachVenueSuggestions = useCallback((freshMessages: ThreadMessage[], venues: VenueSuggestion[] | null | undefined) => {
+    console.log('[attachVenueSuggestions] called, venues length:', venues?.length, 'messages length:', freshMessages?.length)
     if (!venues || venues.length === 0) return
     const lastAgentMessage = [...freshMessages].reverse().find(m => agentId && m.author_id === agentId)
     if (!lastAgentMessage) return
@@ -432,6 +433,9 @@ export default function HangoutChatView({
         }),
       })
       const data = await res.json()
+      console.log('[sendChat] data keys:', Object.keys(data))
+      console.log('[sendChat] venue_suggestions:', data.venue_suggestions)
+      console.log('[sendChat] data.agent_message:', data.agent_message)
       await loadHangout()
       const freshMessages = await loadMessages()
       setPendingChips(data.chips ?? null)
