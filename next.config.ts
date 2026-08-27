@@ -12,6 +12,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Next.js already content-hashes JS chunk filenames per build by default,
+  // so stale bundles aren't a filename-collision problem — this just pins
+  // generateBuildId explicitly rather than relying on the implicit default.
+  generateBuildId: async () => Date.now().toString(),
   async headers() {
     return [
       {
