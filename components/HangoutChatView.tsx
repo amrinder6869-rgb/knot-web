@@ -109,6 +109,7 @@ const HERE_MESSAGE = "I'm here."
 
 export default function HangoutChatView({
   hangoutId,
+  knotId: knotIdProp,
   currentUser,
   onClose,
   scrollToBottom = true,
@@ -116,6 +117,7 @@ export default function HangoutChatView({
   onChanged,
 }: {
   hangoutId: string
+  knotId?: string
   currentUser: any
   onClose: () => void
   scrollToBottom?: boolean
@@ -185,7 +187,7 @@ export default function HangoutChatView({
   const [rating, setRating] = useState<number | null>(null)
   const [ratingSubmitted, setRatingSubmitted] = useState(false)
 
-  const knotId = hangout?.knot_id as string | undefined
+  const knotId = (hangout?.knot_id || knotIdProp) as string | undefined
   const phase = hangoutPhase(hangout)
   const isCreator = hangout?.created_by === currentUser?.id
   const myRsvp = rsvps.find((r: any) => r.user_id === currentUser?.id)
