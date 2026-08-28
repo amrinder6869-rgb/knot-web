@@ -667,12 +667,6 @@ export default function Dashboard() {
                   onOpenChat={openHangoutChat}
                 />
               )}
-              {active === 'feed' && activeKnot && (
-                <button onClick={() => setShowGroupChat(true)} aria-label="Group chat"
-                  style={{ position: 'fixed', bottom: 72, right: 16, width: 52, height: 52, borderRadius: '50%', background: '#111', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 200, boxShadow: '0 4px 16px rgba(0,0,0,0.25)' }}>
-                  <i className="ti ti-message-circle" style={{ fontSize: 22, color: '#F8BD03' }} />
-                </button>
-              )}
               {active === 'split'     && <BillSplit members={knotMembers} knotId={activeKnot?.id} currentUser={profile} />}
               {active === 'members'   && <Members   members={knotMembers} knotId={activeKnot?.id} />}
               {active === 'memories'  && <Memories  members={knotMembers} knotId={activeKnot?.id} />}
@@ -747,6 +741,12 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+          {activeKnot && (
+            <button onClick={() => setShowGroupChat(true)} aria-label="Group chat"
+              style={{ position: 'fixed', bottom: 72, right: 16, width: 52, height: 52, borderRadius: '50%', background: '#111', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 200, boxShadow: '0 4px 16px rgba(0,0,0,0.25)' }}>
+              <i className="ti ti-message-circle" style={{ fontSize: 22, color: '#F8BD03' }} />
+            </button>
+          )}
         </>
 
       ) : showHome ? (
