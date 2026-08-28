@@ -16,6 +16,7 @@ import Memories from '@/components/Memories'
 import Discover from '@/components/Discover'
 import Games from '@/components/Games'
 import Notifications from '@/components/Notifications'
+import KnotGroupChat from '@/components/KnotGroupChat'
 import { useToast } from '@/components/ToastProvider'
 import DateTimePicker from '@/components/DateTimePicker'
 import { CONFIRM, TOAST } from '@/lib/copy'
@@ -112,6 +113,7 @@ export default function Dashboard() {
   const [eventError, setEventError]               = useState('')
   const [createdEventLink, setCreatedEventLink]   = useState<string | null>(null)
   const [activeChat, setActiveChat]               = useState<OpenChatOpts | null>(null)
+  const [showGroupChat, setShowGroupChat]         = useState(false)
 
   function openHangoutChat(opts: OpenChatOpts | string) {
     setActiveChat(typeof opts === 'string' ? { hangoutId: opts } : opts)
@@ -666,6 +668,12 @@ export default function Dashboard() {
                   onOpenBills={() => setActive('split')}
                   onOpenChat={openHangoutChat}
                 />
+              )}
+              {active === 'feed' && activeKnot && (
+                <button onClick={() => setShowGroupChat(true)} aria-label="Group chat"
+                  style={{ position: 'fixed', bottom: 72, right: 16, width: 52, height: 52, borderRadius: '50%', background: '#111', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 200, boxShadow: '0 4px 16px rgba(0,0,0,0.25)' }}>
+                  <i className="ti ti-message-circle" style={{ fontSize: 22, color: '#F8BD03' }} />
+                </button>
               )}
               {active === 'hangout'   && (
                 <PlanningView
@@ -1225,6 +1233,26 @@ export default function Dashboard() {
               scrollToBottom={activeChat.scrollToBottom ?? true}
               autoJoinCall={activeChat.autoJoinCall ?? false}
               onClose={() => setActiveChat(null)}
+            />
+          </div>
+        </>
+      )}
+
+      {showGroupChat && activeKnot && (
+        <>
+          <div
+            onClick={() => setShowGroupChat(false)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 398 }}
+          />
+          <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '100%', maxWidth: 480, background: '#F5F3EE', zIndex: 400, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '-4px 0 24px rgba(0,0,0,0.12)' }}>
+            <KnotGroupChat
+              knotId={activeKnot.id}
+              knotName={activeKnot.name}
+              knotEmoji={activeKnot.emoji}
+              members={knotMembers}
+              currentUser={profile ?? { id: user!.id, name: user!.user_metadata?.name || 'You' }}
+              onClose={() => setShowGroupChat(false)}
+              onOpenHangout={(hangoutId: string) => { setShowGroupChat(false); openHangoutChat({ hangoutId }) }}
             />
           </div>
         </>

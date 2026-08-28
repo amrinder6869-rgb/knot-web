@@ -176,7 +176,7 @@ export async function POST(request: Request) {
   if (!agentUserId) return NextResponse.json({ error: 'Agent not configured' }, { status: 500 })
 
   try {
-    const { message, hangout_id, knot_id, current_plan_state } = await request.json()
+    const { message, hangout_id, knot_id, current_plan_state, detection_mode } = await request.json()
     if (!message || typeof message !== 'string' || !message.trim() || !knot_id) {
       return NextResponse.json({ error: 'Missing message or knot_id' }, { status: 400 })
     }
@@ -195,6 +195,54 @@ export async function POST(request: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
+
+    if (detection_mode) {
+      const apiKey = process.env.ANTHROPIC_API_KEY
+      if (!apiKey) return NextResponse.json({ plan_detected: false, agent_message: null })
+
+      const detectionPrompt = [
+        'You are detecting planning intent in a group chat message.',
+        'Respond only with JSON: { "plan_detected": boolean, "agent_message": string | null }',
+        'plan_detected is true when the message clearly suggests a group activity, meetup, event, or outing.',
+        'agent_message is a short (max 10 words) message to show if plan_detected is true.',
+        'Example: "Sounds like a plan. Want to make it official?"',
+        'If plan_detected is false, agent_message must be null.',
+      ].join('\n')
+
+      try {
+        const detectResponse = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model: 'claude-haiku-4-5',
+            max_tokens: 100,
+            system: detectionPrompt,
+            messages: [{ role: 'user', content: message.trim() }],
+          }),
+        })
+
+        if (!detectResponse.ok) {
+          return NextResponse.json({ plan_detected: false, agent_message: null })
+        }
+
+        const detectData = await detectResponse.json()
+        const detectText = detectData.content?.find((b: any) => b.type === 'text')?.text || '{}'
+        const cleanText = detectText.replace(/```json|```/g, '').trim()
+        const detectParsed = JSON.parse(cleanText)
+
+        return NextResponse.json({
+          plan_detected: !!detectParsed.plan_detected,
+          agent_message: detectParsed.plan_detected ? (detectParsed.agent_message ?? null) : null,
+        })
+      } catch (err) {
+        console.error('[planning-agent] detection_mode error:', err)
+        return NextResponse.json({ plan_detected: false, agent_message: null })
+      }
+    }
 
     if (message.trim() === '__init__') {
       if (!hangout_id) return NextResponse.json({ error: 'Missing hangout_id' }, { status: 400 })

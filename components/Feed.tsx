@@ -173,6 +173,7 @@ export default function Feed({ members, knotName, knotEmoji, knotId, currentUser
       .from('posts')
       .select('*, profiles:author_id(name, avatar_url, username)')
       .eq('knot_id', knotId)
+      .neq('post_type', 'chat')
       .order('created_at', { ascending: false })
       .limit(30)
 

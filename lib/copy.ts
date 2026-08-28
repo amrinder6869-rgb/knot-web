@@ -379,6 +379,13 @@ export const COVER_IMAGE_UPLOAD_TAB = 'Upload photo'
 export const COVER_IMAGE_SET_BUTTON = 'Set cover'
 export const COVER_IMAGE_PREMIUM_LABEL = 'Coming soon'
 
+export const GROUP_CHAT_PLACEHOLDER = 'Message the group...'
+export const AGENT_PLAN_DETECTED = 'Sounds like a plan. Want to make it official?'
+export const AGENT_START_PLAN = 'Start a plan'
+export const AGENT_NOT_A_PLAN = 'Not a plan'
+export const POST_OPEN_PLAN = 'Open plan'
+export const GROUP_CHAT_EMPTY = 'Nothing yet. Say something.'
+
 export const CARD_STATE_COPY: Record<string, { title: string; subtitle: string }> = {
   voting: { title: "Let's figure it out", subtitle: 'RSVP so the plan can lock.' },
   planning: { title: "Let's figure it out", subtitle: 'RSVP so the plan can lock.' },

@@ -391,7 +391,7 @@ export default function Notifications({ userId, onSelectKnot, knots, onOpenChat 
   }
 
   const mobileSheet = open && mounted && isMobile ? createPortal(
-    <div ref={panelRef} style={{ position: 'fixed', inset: 0, zIndex: 500, background: '#FFFFFF', display: 'flex', flexDirection: 'column' }}>
+    <div ref={panelRef} style={{ position: 'fixed', inset: 0, zIndex: 500, background: '#FFFFFF', backdropFilter: 'none', WebkitBackdropFilter: 'none', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--border)', height: 52, boxSizing: 'border-box', background: '#FFFFFF', flexShrink: 0 }}>
         <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Notifications</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
