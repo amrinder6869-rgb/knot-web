@@ -12,6 +12,8 @@ import { ACTIVITY_ICONS, ICON_SIZE } from '@/lib/constants'
 import { createNotification } from '@/lib/notify'
 import { insertAgentMessage } from '@/lib/insertAgentMessage'
 import BillItemiser from '@/components/BillItemiser'
+import { getFlag } from '@/lib/flags'
+import { type ScannedItem, normalizeOcrItems, computeReceiptHash } from '@/lib/receiptOcr'
 import { track } from '@/lib/track'
 import { hangoutPhase, cardStateKey } from '@/lib/hangoutPhase'
 import {
@@ -245,8 +247,17 @@ export default function HangoutChatView({
   const [billSelectedIds, setBillSelectedIds] = useState<Set<string>>(new Set())
   const [billPosting, setBillPosting] = useState(false)
   const [billError, setBillError] = useState('')
+  const [billOcrItems, setBillOcrItems] = useState<ScannedItem[]>([])
+  const [billReceiptPreview, setBillReceiptPreview] = useState('')
+  const [billPhotoUrl, setBillPhotoUrl] = useState('')
+  const [billReceiptHash, setBillReceiptHash] = useState('')
+  const [billScanning, setBillScanning] = useState(false)
+  const [billUploading, setBillUploading] = useState(false)
+  const [billOcrEnabled, setBillOcrEnabled] = useState(true)
+  const billReceiptInputRef = useRef<HTMLInputElement>(null)
   const [remindingId, setRemindingId] = useState<string | null>(null)
   const [itemiserBillId, setItemiserBillId] = useState<string | null>(null)
+  const [itemiserInitialItems, setItemiserInitialItems] = useState<ScannedItem[] | undefined>(undefined)
 
   const [editTitle, setEditTitle] = useState('')
   const [editScheduledFor, setEditScheduledFor] = useState<Date | null>(null)
@@ -402,6 +413,10 @@ export default function HangoutChatView({
   }, [joiningCall, hangout])
 
   useEffect(() => { loadHangout() }, [loadHangout])
+
+  useEffect(() => {
+    getFlag(supabase, 'receipt_ocr').then(setBillOcrEnabled)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -719,7 +734,10 @@ export default function HangoutChatView({
     const label = chip.label?.toLowerCase() || ''
     if (chip.action === 'by_item' || label.includes('by item')) {
       const latest = latestHangoutBill
-      if (latest) setItemiserBillId(latest.id)
+      if (latest) {
+        setItemiserInitialItems(billOcrItems.length > 0 ? billOcrItems : undefined)
+        setItemiserBillId(latest.id)
+      }
       return
     }
     if (chip.action === 'split_equal' || label.includes('equally')) {
@@ -801,6 +819,65 @@ export default function HangoutChatView({
     })
   }
 
+  function resetBillReceiptState() {
+    setBillOcrItems([])
+    setBillReceiptPreview('')
+    setBillPhotoUrl('')
+    setBillReceiptHash('')
+    if (billReceiptInputRef.current) billReceiptInputRef.current.value = ''
+  }
+
+  async function handleBillReceiptUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setBillUploading(true)
+    setBillError('')
+    setBillOcrItems([])
+    setBillReceiptPreview(URL.createObjectURL(file))
+
+    if (billOcrEnabled) {
+      setBillScanning(true)
+      try {
+        const compressed = await compressImage(file)
+        const reader = new FileReader()
+        const base64 = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve((reader.result as string).split(',')[1])
+          reader.onerror = reject
+          reader.readAsDataURL(compressed)
+        })
+        const { data: { session } } = await supabase.auth.getSession()
+        const res = await fetch('/api/parse-receipt', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(session ? { Authorization: 'Bearer ' + session.access_token } : {}),
+          },
+          body: JSON.stringify({ imageBase64: base64, mediaType: compressed.type }),
+        })
+        if (res.ok) {
+          const parsed = await res.json()
+          if (parsed.total && !isNaN(parsed.total)) setBillAmount(String(parsed.total))
+          if (parsed.description && !billDesc) setBillDesc(parsed.description)
+          if (parsed.items?.length) {
+            const normalized = normalizeOcrItems(parsed.items)
+            setBillOcrItems(normalized)
+            const totalForHash = parsed.total && !isNaN(parsed.total) ? parsed.total : 0
+            setBillReceiptHash(computeReceiptHash(normalized, totalForHash))
+          }
+        }
+      } catch { /* silent */ }
+      setBillScanning(false)
+    }
+
+    const ext = file.name.split('.').pop()
+    const fileName = `bill-receipts/${Date.now()}.${ext}`
+    const { error: upErr } = await supabase.storage.from('knot-photos').upload(fileName, file, { upsert: true })
+    if (upErr) { setBillError('Photo upload failed. Scanned data was saved.'); setBillUploading(false); return }
+    const { data: urlData } = supabase.storage.from('knot-photos').getPublicUrl(fileName)
+    setBillPhotoUrl(urlData.publicUrl)
+    setBillUploading(false)
+  }
+
   async function postBill() {
     if (!billDesc.trim() || !billAmount || billPosting || !knotId) return
     const amount = parseFloat(billAmount)
@@ -813,6 +890,8 @@ export default function HangoutChatView({
     const share = amount / splitIds.length
     const { data: bill, error } = await supabase.from('bills').insert({
       knot_id: knotId, hangout_id: hangoutId, added_by: user.id, total_amount: amount, description: billDesc.trim(), split_type: 'equal',
+      photo_url: billPhotoUrl || null,
+      receipt_hash: billReceiptHash || null,
     }).select().single()
     if (error || !bill) { setBillError(ERROR_ADD_BILL); setBillPosting(false); return }
     await supabase.from('bill_splits').insert(
@@ -1375,6 +1454,41 @@ export default function HangoutChatView({
           <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', zIndex: 411, padding: '16px 16px calc(16px + env(safe-area-inset-bottom, 0px))', maxWidth: 480, margin: '0 auto', maxHeight: '80vh', overflowY: 'auto' }}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border2)', margin: '4px auto 12px' }} />
             {billError && <div className="error-banner" style={{ marginBottom: 8 }}>{billError}</div>}
+            <div style={{ marginBottom: 12 }}>
+              {billScanning ? (
+                <div style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', display: 'flex', alignItems: 'center', gap: 12 }}>
+                  {billReceiptPreview && <img src={billReceiptPreview} alt="Receipt" style={{ width: 44, height: 44, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />}
+                  <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--yellow)' }}>Scanning receipt…</div>
+                </div>
+              ) : (billPhotoUrl || billReceiptPreview) ? (
+                <div style={{ padding: '10px 12px', borderRadius: 10, background: 'var(--bg3)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <img src={billReceiptPreview || billPhotoUrl} alt="Receipt" style={{ width: 44, height: 44, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>Receipt attached</div>
+                    {billOcrItems.length > 0 && (
+                      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                        {billOcrItems.length} scanned item{billOcrItems.length === 1 ? '' : 's'} ready for split by item
+                      </div>
+                    )}
+                  </div>
+                  <button type="button" onClick={resetBillReceiptState}
+                    style={{ padding: '4px 10px', background: 'transparent', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--text3)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <button type="button" onClick={() => billReceiptInputRef.current?.click()} disabled={billUploading}
+                  style={{
+                    width: '100%', padding: '12px 14px', borderRadius: 10,
+                    border: '1.5px dashed var(--border2)', background: 'transparent',
+                    cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                  }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Scan receipt to autofill</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Or fill in the details below manually</div>
+                </button>
+              )}
+              <input ref={billReceiptInputRef} type="file" accept="image/*" onChange={handleBillReceiptUpload} style={{ display: 'none' }} />
+            </div>
             <input value={billDesc} onChange={e => setBillDesc(e.target.value)} placeholder={BILL_DESC_PLACEHOLDER}
               style={{ width: '100%', padding: '9px 12px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 8 }} />
             <input type="number" value={billAmount} onChange={e => setBillAmount(e.target.value)} placeholder={BILL_AMOUNT_PLACEHOLDER}
@@ -1391,7 +1505,12 @@ export default function HangoutChatView({
                 )
               })}
             </div>
-            <button type="button" onClick={postBill} disabled={!billDesc.trim() || !billAmount || billPosting}
+            {billOcrItems.length > 0 && (
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>
+                {billOcrItems.length} scanned item{billOcrItems.length === 1 ? '' : 's'} will pre-fill when you split by item.
+              </div>
+            )}
+            <button type="button" onClick={postBill} disabled={!billDesc.trim() || !billAmount || billPosting || billScanning || billUploading}
               style={{ width: '100%', padding: '10px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: !billDesc.trim() || !billAmount || billPosting ? 0.5 : 1 }}>
               {billPosting ? SHEET_POSTING : SHEET_POST_BILL}
             </button>
@@ -1460,9 +1579,16 @@ export default function HangoutChatView({
           totalAmount={parseFloat(itemiserBill.total_amount)}
           members={members}
           currentUser={currentUser}
-          onCancel={() => setItemiserBillId(null)}
+          payerId={itemiserBill.added_by}
+          initialItems={itemiserInitialItems}
+          onCancel={() => {
+            setItemiserBillId(null)
+            setItemiserInitialItems(undefined)
+          }}
           onComplete={async () => {
             setItemiserBillId(null)
+            setItemiserInitialItems(undefined)
+            resetBillReceiptState()
             await loadHangout()
             onChanged?.()
           }}

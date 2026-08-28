@@ -5,11 +5,13 @@ import { compressImage } from '@/lib/compressImage'
 import { getFlag } from '@/lib/flags'
 import MemberAvatar from '@/components/MemberAvatar'
 import BillItemiser from '@/components/BillItemiser'
+import { type ScannedItem, normalizeOcrItems, computeReceiptHash } from '@/lib/receiptOcr'
 
 type Member = { id: string; name: string; avatar_url?: string | null }
 type SplitLine = { user_id: string; amount: number }
 
 export type BillCategory = 'dinner' | 'drinks' | 'transport' | 'accommodation' | 'activities' | 'other'
+export type { ScannedItem }
 
 const CATEGORIES: { id: BillCategory; label: string; icon: string }[] = [
   { id: 'dinner',        label: 'Dinner',        icon: 'ti-glass-full' },
@@ -19,21 +21,6 @@ const CATEGORIES: { id: BillCategory; label: string; icon: string }[] = [
   { id: 'activities',    label: 'Activities',    icon: 'ti-run' },
   { id: 'other',         label: 'Other',         icon: 'ti-dots' },
 ]
-
-export type ScannedItem = { description: string; amount: number }
-
-function normalizeOcrItems(raw: unknown[]): ScannedItem[] {
-  return raw.map(item => {
-    if (item && typeof item === 'object' && 'description' in item && 'amount' in item) {
-      const row = item as { description: string; amount: number }
-      return { description: String(row.description).trim(), amount: Number(row.amount) }
-    }
-    const str = String(item).trim()
-    const match = str.match(/^(.+?)\s+[\$]?(\d+(?:\.\d{1,2})?)\s*$/)
-    if (match) return { description: match[1].trim(), amount: parseFloat(match[2]) }
-    return { description: str, amount: 0 }
-  }).filter(row => row.description)
-}
 
 type BillSplitFormProps = {
   members: Member[]
@@ -75,19 +62,8 @@ type BillSplitFormProps = {
     receiptHash: string | undefined,
     memberIds: string[],
   ) => Promise<string | null>
-  onItemisedFinished?: (desc: string, amount: number, splitCount: number) => void
-}
-
-// Simple djb2-style hash over the OCR'd item list plus total, used to flag
-// likely-duplicate receipts. Not cryptographic — just needs to be stable and
-// cheap to compute client-side.
-function computeReceiptHash(items: ScannedItem[], total: number): string {
-  const input = items.map(i => `${i.description}:${i.amount.toFixed(2)}`).join('|') + '|' + total.toFixed(2)
-  let hash = 5381
-  for (let i = 0; i < input.length; i++) {
-    hash = ((hash << 5) + hash + input.charCodeAt(i)) | 0
-  }
-  return (hash >>> 0).toString(16)
+  onItemisedFinished?: (billId: string, desc: string, amount: number, splitCount: number) => void
+  onItemisedCancel?: (billId: string) => void | Promise<void>
 }
 
 export default function BillSplitForm({
@@ -111,6 +87,7 @@ export default function BillSplitForm({
   currentUser,
   onItemisedStart,
   onItemisedFinished,
+  onItemisedCancel,
 }: BillSplitFormProps) {
   const [desc, setDesc]         = useState(defaultDesc)
   const [amount, setAmount]     = useState(defaultAmount !== undefined ? String(defaultAmount) : '')
@@ -128,6 +105,7 @@ export default function BillSplitForm({
   const [mode, setMode]         = useState<'equal' | 'percentage' | 'item'>('equal')
   const [itemiserBillId, setItemiserBillId] = useState<string | null>(null)
   const [itemiserStarting, setItemiserStarting] = useState(false)
+  const [itemiserError, setItemiserError] = useState('')
   const [selected, setSelected] = useState<Set<string>>(
     new Set(defaultSelectedIds && defaultSelectedIds.length > 0 ? defaultSelectedIds : members.map(m => m.id))
   )
@@ -195,6 +173,7 @@ export default function BillSplitForm({
   async function startItemisedSplit() {
     if (!onItemisedStart || !currentUser) return
     setItemiserStarting(true)
+    setItemiserError('')
     const billId = await onItemisedStart(
       desc.trim(),
       parsedAmount,
@@ -207,7 +186,18 @@ export default function BillSplitForm({
       selectedMembers.map(m => m.id),
     )
     setItemiserStarting(false)
-    if (billId) setItemiserBillId(billId)
+    if (billId) {
+      setItemiserBillId(billId)
+    } else {
+      setItemiserError('Could not start itemised split. Please try again.')
+    }
+  }
+
+  async function handleItemiserCancel() {
+    if (!itemiserBillId) return
+    const billId = itemiserBillId
+    setItemiserBillId(null)
+    await onItemisedCancel?.(billId)
   }
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -264,9 +254,9 @@ export default function BillSplitForm({
 
   return (
     <div>
-      {(error || uploadError) && (
+      {(error || uploadError || itemiserError) && (
         <div style={{ padding: '8px 12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 8, fontSize: 12, color: 'var(--yellow)', marginBottom: 12 }}>
-          {error || uploadError}
+          {error || uploadError || itemiserError}
         </div>
       )}
 
@@ -457,11 +447,13 @@ export default function BillSplitForm({
           totalAmount={parsedAmount}
           members={members}
           currentUser={currentUser}
+          payerId={currentUser.id}
           initialItems={ocrItems.length > 0 ? ocrItems : undefined}
-          onCancel={() => setItemiserBillId(null)}
+          onCancel={handleItemiserCancel}
           onComplete={() => {
-            onItemisedFinished?.(desc.trim(), parsedAmount, selectedMembers.length)
+            const billId = itemiserBillId
             setItemiserBillId(null)
+            onItemisedFinished?.(billId, desc.trim(), parsedAmount, selectedMembers.length)
           }}
         />
       )}

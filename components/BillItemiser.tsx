@@ -1,5 +1,5 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import MemberAvatar from '@/components/MemberAvatar'
 import {
@@ -22,6 +22,7 @@ export interface BillItemiserProps {
   totalAmount: number
   members: any[]
   currentUser: any
+  payerId?: string
   initialItems?: { description: string; amount: number }[]
   onComplete: () => void
   onCancel: () => void
@@ -36,10 +37,12 @@ export default function BillItemiser({
   totalAmount,
   members,
   currentUser,
+  payerId,
   initialItems,
   onComplete,
   onCancel,
 }: BillItemiserProps) {
+  const settledUserId = payerId || currentUser?.id
   const [items, setItems] = useState<LineItem[]>(() =>
     (initialItems || []).map(item => ({
       id: newItemId(),
@@ -51,7 +54,35 @@ export default function BillItemiser({
   const [descInput, setDescInput] = useState('')
   const [amountInput, setAmountInput] = useState('')
   const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(!!billId)
+  const [alreadyItemised, setAlreadyItemised] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!billId) {
+      setLoading(false)
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      const { data, error: fetchError } = await supabase
+        .from('bill_line_items')
+        .select('id')
+        .eq('bill_id', billId)
+        .limit(1)
+      if (cancelled) return
+      if (fetchError) {
+        setError('Could not load existing line items.')
+        setLoading(false)
+        return
+      }
+      if (data && data.length > 0) {
+        setAlreadyItemised(true)
+      }
+      setLoading(false)
+    })()
+    return () => { cancelled = true }
+  }, [billId])
 
   const itemsTotal = useMemo(
     () => items.reduce((sum, item) => sum + item.amount, 0),
@@ -73,7 +104,7 @@ export default function BillItemiser({
 
   const allAssigned = items.length > 0 && items.every(item => item.assignedUserIds.length > 0)
   const totalMatches = Math.abs(itemsTotal - totalAmount) <= 0.5
-  const canConfirm = allAssigned && totalMatches && !saving
+  const canConfirm = allAssigned && totalMatches && !saving && !alreadyItemised && !loading
 
   function addItem() {
     const description = descInput.trim()
@@ -103,6 +134,18 @@ export default function BillItemiser({
     setError('')
 
     try {
+      const { data: existing } = await supabase
+        .from('bill_line_items')
+        .select('id')
+        .eq('bill_id', billId)
+        .limit(1)
+      if (existing && existing.length > 0) {
+        setAlreadyItemised(true)
+        setError('This bill has already been itemised.')
+        setSaving(false)
+        return
+      }
+
       const insertedItems: { id: string; amount: number; assignedUserIds: string[] }[] = []
 
       for (const item of items) {
@@ -147,7 +190,7 @@ export default function BillItemiser({
           bill_id: billId,
           user_id: row.user_id,
           amount: row.amount,
-          settled: row.user_id === currentUser.id,
+          settled: row.user_id === settledUserId,
         })),
       )
       if (splitsError) {
@@ -184,6 +227,12 @@ export default function BillItemiser({
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px' }}>
+          {loading && <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 12 }}>Loading…</div>}
+          {alreadyItemised && (
+            <div className="error-banner" style={{ marginBottom: 12 }}>
+              This bill has already been itemised. Close and refresh to see the updated split.
+            </div>
+          )}
           {error && <div className="error-banner" style={{ marginBottom: 12 }}>{error}</div>}
 
           <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>

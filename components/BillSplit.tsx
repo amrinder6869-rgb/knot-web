@@ -362,6 +362,17 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
     await loadAll()
   }
 
+  async function cancelItemisedBill(billId: string) {
+    const { data: lineItems } = await supabase.from('bill_line_items').select('id').eq('bill_id', billId)
+    const lineItemIds = (lineItems || []).map(li => li.id)
+    if (lineItemIds.length > 0) {
+      await supabase.from('bill_line_item_assignments').delete().in('line_item_id', lineItemIds)
+      await supabase.from('bill_line_items').delete().eq('bill_id', billId)
+    }
+    await supabase.from('bill_splits').delete().eq('bill_id', billId)
+    await supabase.from('bills').delete().eq('id', billId)
+  }
+
   async function createBillForItemiser(
     desc: string,
     amount: number,
@@ -407,13 +418,14 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
     return bill.id
   }
 
-  async function finishItemisedBill(desc: string, amount: number, splitCount: number) {
+  async function finishItemisedBill(billId: string, desc: string, amount: number, splitCount: number) {
     if (!knotId || !currentUser) return
     await supabase.from('posts').insert({
       knot_id: knotId,
       author_id: currentUser.id,
       content: `added a bill ${String.fromCodePoint(0x2014)} $${amount.toFixed(2)} for ${desc}, split by item (${splitCount} people)`,
       post_type: 'bill',
+      bill_id: billId,
     })
     track(supabase, 'bill_added', { hangout_id: hangoutId ?? null, amount }, knotId)
     setShowAdd(false)
@@ -526,6 +538,7 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
             currentUser={currentUser}
             onItemisedStart={createBillForItemiser}
             onItemisedFinished={finishItemisedBill}
+            onItemisedCancel={cancelItemisedBill}
             onSubmit={(desc, amount, splits, category, note, photoUrl, isRecurring, recurringInterval, receiptHash) =>
               handleAddBill(desc, amount, splits, category, note, photoUrl, isRecurring, recurringInterval, receiptHash)
             }
