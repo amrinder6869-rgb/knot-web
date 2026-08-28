@@ -28,25 +28,29 @@ type ImagePack = {
   sort_order: number
 }
 
+interface CoverImagePickerProps {
+  hangoutId: string
+  knotId: string
+  currentUser: any
+  currentImageUrl?: string | null
+  onClose: () => void
+  onImageSet: (newUrl: string) => void
+}
+
 export default function CoverImagePicker({
   hangoutId,
   knotId,
   currentUser,
+  currentImageUrl,
   onClose,
-  onSet,
-}: {
-  hangoutId: string
-  knotId: string
-  currentUser: any
-  onClose: () => void
-  onSet?: (url: string) => void
-}) {
+  onImageSet,
+}: CoverImagePickerProps) {
   const toast = useToast()
   const [tab, setTab] = useState<'library' | 'upload'>('library')
   const [packs, setPacks] = useState<ImagePack[]>([])
   const [loadingPacks, setLoadingPacks] = useState(true)
   const [category, setCategory] = useState<string | null>(null)
-  const [selectedUrl, setSelectedUrl] = useState<string | null>(null)
+  const [selectedUrl, setSelectedUrl] = useState<string | null>(currentImageUrl ?? null)
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [uploadPreview, setUploadPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -114,8 +118,8 @@ export default function CoverImagePicker({
     const { error } = await supabase.from('hangouts').update({ cover_image_url: finalUrl }).eq('id', hangoutId)
     setSaving(false)
     if (error) { toast.error(TOAST_ERROR); return }
+    onImageSet(finalUrl)
     toast.success(COVER_IMAGE_SET)
-    onSet?.(finalUrl)
     onClose()
   }
 

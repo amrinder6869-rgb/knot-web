@@ -54,6 +54,7 @@ type HangoutCardProps = {
 export default function HangoutCard({ post, data, currentUser, knotId, onRefresh, onOpenChat }: HangoutCardProps) {
   const toast = useToast()
   const [hangout, setHangout] = useState<any>(data.hangout)
+  const [localCoverUrl, setLocalCoverUrl] = useState<string | null>(data.hangout?.cover_image_url ?? null)
   const [showCoverPicker, setShowCoverPicker] = useState(false)
   const [rsvps, setRsvps] = useState<any[]>(data.rsvps ?? [])
   const [comments, setComments] = useState<any[]>(data.comments ?? [])
@@ -64,6 +65,12 @@ export default function HangoutCard({ post, data, currentUser, knotId, onRefresh
 
   useEffect(() => {
     setHangout(data.hangout)
+    // Feed rebuilds `data` on toast re-renders from a stale bundle that may
+    // still lack cover_image_url. Only copy a truthy parent URL so a just-set
+    // cover is not wiped before the next fetch.
+    if (data.hangout?.cover_image_url) {
+      setLocalCoverUrl(data.hangout.cover_image_url)
+    }
     setRsvps(data.rsvps ?? [])
     setComments(data.comments ?? [])
     setInvites(data.invites ?? [])
@@ -145,9 +152,9 @@ export default function HangoutCard({ post, data, currentUser, knotId, onRefresh
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openChat() } }}
       style={{ background: '#fff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 10, cursor: 'pointer', overflow: 'visible', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}
     >
-      {hangout.cover_image_url && (
+      {localCoverUrl && (
         <div style={{ position: 'relative', width: '100%', height: 160, overflow: 'hidden', borderRadius: '12px 12px 0 0' }}>
-          <img src={hangout.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          <img src={localCoverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           {isCreator && (
             <button type="button" onClick={e => { e.stopPropagation(); setShowCoverPicker(true) }} aria-label="Change cover photo"
               style={{ position: 'absolute', bottom: 8, right: 8, width: 32, height: 32, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
@@ -256,8 +263,12 @@ export default function HangoutCard({ post, data, currentUser, knotId, onRefresh
           hangoutId={hangout.id}
           knotId={knotId}
           currentUser={currentUser}
+          currentImageUrl={localCoverUrl}
           onClose={() => setShowCoverPicker(false)}
-          onSet={url => setHangout((prev: any) => ({ ...prev, cover_image_url: url }))}
+          onImageSet={(url) => {
+            setLocalCoverUrl(url)
+            setShowCoverPicker(false)
+          }}
         />
       </div>
     )}

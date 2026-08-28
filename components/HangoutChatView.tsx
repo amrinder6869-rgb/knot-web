@@ -1568,8 +1568,12 @@ export default function HangoutChatView({
           hangoutId={hangout.id}
           knotId={knotId as string}
           currentUser={currentUser}
+          currentImageUrl={hangout.cover_image_url}
           onClose={() => setShowCoverPicker(false)}
-          onSet={url => setHangout((h: any) => ({ ...h, cover_image_url: url }))}
+          onImageSet={(url) => {
+            setHangout(prev => prev ? { ...prev, cover_image_url: url } : prev)
+            setShowCoverPicker(false)
+          }}
         />
       )}
 
