@@ -103,8 +103,6 @@ export default function Dashboard() {
   const [avatarError, setAvatarError]       = useState('')
   const [profileError, setProfileError]     = useState('')
 
-  const [showPushBanner, setShowPushBanner]       = useState(false)
-
   const [showCreateEvent, setShowCreateEvent]     = useState(false)
   const [eventTitle, setEventTitle]               = useState('')
   const [eventWhen, setEventWhen]                 = useState<Date | null>(null)
@@ -196,14 +194,6 @@ export default function Dashboard() {
   }, [active])
 
   useEffect(() => {
-    if (!user || typeof window === 'undefined') return
-    if (localStorage.getItem('push_prompted')) return
-    if (!('Notification' in window)) return
-    if (Notification.permission !== 'default') return
-    setShowPushBanner(true)
-  }, [user])
-
-  useEffect(() => {
     const url = activeKnot?.cover_url
     // Only render an <img> for real public http(s) URLs. Null/empty/legacy
     // storage paths must keep coverSignedUrl null so the placeholder shows.
@@ -213,49 +203,6 @@ export default function Dashboard() {
     }
     setCoverSignedUrl(url ? url.split('?')[0] + '?t=' + Date.now() : null)
   }, [activeKnot?.cover_url])
-
-  function urlBase64ToUint8Array(base64String: string): Uint8Array {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4)
-    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
-    const rawData = atob(base64)
-    const outputArray = new Uint8Array(rawData.length)
-    for (let i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i)
-    return outputArray
-  }
-
-  function dismissPushBanner() {
-    localStorage.setItem('push_prompted', 'true')
-    setShowPushBanner(false)
-  }
-
-  async function enableNotifications() {
-    localStorage.setItem('push_prompted', 'true')
-    setShowPushBanner(false)
-
-    const permission = await Notification.requestPermission()
-    if (permission !== 'granted') return
-
-    const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-    if (!publicKey || !('serviceWorker' in navigator)) return
-
-    try {
-      const registration = await navigator.serviceWorker.ready
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
-      })
-      const sub = subscription.toJSON()
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-      await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
-        body: JSON.stringify({ endpoint: sub.endpoint, p256dh: sub.keys?.p256dh, auth: sub.keys?.auth }),
-      })
-    } catch (err) {
-      console.error('Push subscribe error:', err)
-    }
-  }
 
   async function loadKnotMembers(knotId: string, userId?: string) {
     const { data } = await supabase
@@ -544,7 +491,7 @@ export default function Dashboard() {
   const isFounder = activeKnot?.created_by === user.id
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', fontFamily: 'Manrope, sans-serif' }}>
+    <div style={{ minHeight: '100vh', maxWidth: '100vw', overflowX: 'hidden', background: 'var(--bg)', fontFamily: 'Manrope, sans-serif' }}>
 
       {profile && profile.onboarding_completed === false && (
         <Onboarding
@@ -610,22 +557,6 @@ export default function Dashboard() {
           </button>
         </div>
       </div>
-
-      {showPushBanner && (
-        <div style={{ background: 'var(--yellow-soft)', borderBottom: '1px solid var(--yellow)', padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 13, color: 'var(--text)', textAlign: 'center' }}>Get notified when plans are confirmed and friends RSVP</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            <button onClick={enableNotifications}
-              style={{ padding: '6px 14px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-              Turn on notifications
-            </button>
-            <button onClick={dismissPushBanner} aria-label="Dismiss"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, lineHeight: 1, fontFamily: 'inherit', display: 'flex' }}>
-              <i className="ti ti-x" style={{ fontSize: ICON_SIZE.card, color: 'var(--text3)' }} />
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* MAIN VIEWS */}
       {activeKnot && !showHome ? (

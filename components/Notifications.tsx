@@ -1,5 +1,6 @@
 'use client'
 import { useCallback, useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { ICON_SIZE } from '@/lib/constants'
@@ -74,7 +75,16 @@ export default function Notifications({ userId, onSelectKnot, knots, onOpenChat 
   const [items, setItems]         = useState<any[]>([])
   const [unread, setUnread]       = useState(0)
   const [attentionItems, setAttentionItems] = useState<AttentionItem[]>([])
+  const [showPushPrompt, setShowPushPrompt] = useState(false)
   const ref                       = useRef<HTMLDivElement>(null)
+  // Mobile sheet is portaled to document.body (see render below) so it isn't
+  // contained by the sticky top nav's backdrop-filter — an ancestor with
+  // backdrop-filter/filter/transform creates a new containing block for
+  // position:fixed descendants, which was clipping the "full screen" sheet
+  // to the 52px header bar instead of the viewport. Outside-click detection
+  // below checks this ref too since the portaled content sits outside `ref`'s
+  // own DOM subtree.
+  const panelRef                  = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (userId) {
@@ -92,11 +102,63 @@ export default function Notifications({ userId, onSelectKnot, knots, onOpenChat 
 
   useEffect(() => {
     function handleOutsideClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      const target = e.target as Node
+      if (ref.current?.contains(target)) return
+      if (panelRef.current?.contains(target)) return
+      setOpen(false)
     }
     document.addEventListener('mousedown', handleOutsideClick)
     return () => document.removeEventListener('mousedown', handleOutsideClick)
   }, [])
+
+  useEffect(() => {
+    if (!userId || typeof window === 'undefined') return
+    if (localStorage.getItem('knot_notif_prompt_dismissed')) return
+    if (!('Notification' in window)) return
+    if (Notification.permission !== 'default') return
+    setShowPushPrompt(true)
+  }, [userId])
+
+  function dismissPushPrompt() {
+    localStorage.setItem('knot_notif_prompt_dismissed', 'true')
+    setShowPushPrompt(false)
+  }
+
+  function urlBase64ToUint8Array(base64String: string): Uint8Array {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4)
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+    const rawData = atob(base64)
+    return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)))
+  }
+
+  async function enablePushNotifications() {
+    localStorage.setItem('knot_notif_prompt_dismissed', 'true')
+    setShowPushPrompt(false)
+
+    const permission = await Notification.requestPermission()
+    if (permission !== 'granted') return
+
+    const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+    if (!publicKey || !('serviceWorker' in navigator)) return
+
+    try {
+      const registration = await navigator.serviceWorker.ready
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
+      })
+      const sub = subscription.toJSON()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+        body: JSON.stringify({ endpoint: sub.endpoint, p256dh: sub.keys?.p256dh, auth: sub.keys?.auth }),
+      })
+    } catch (err) {
+      console.error('Push subscribe error:', err)
+    }
+  }
 
   const loadAttention = useCallback(async () => {
     if (!userId || knots.length === 0) { setAttentionItems([]); return }
@@ -244,15 +306,33 @@ export default function Notifications({ userId, onSelectKnot, knots, onOpenChat 
   const badgeCount   = unread + attentionItems.length
 
   function renderList() {
+    const pushPrompt = showPushPrompt && (
+      <div style={{ background: 'var(--yellow-soft)', borderBottom: '1px solid var(--yellow)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ flex: 1, fontSize: 12, color: 'var(--text)' }}>Get notified when plans are confirmed and friends RSVP</span>
+        <button onClick={enablePushNotifications}
+          style={{ padding: '6px 12px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+          Turn on
+        </button>
+        <button onClick={dismissPushPrompt} aria-label="Dismiss"
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, lineHeight: 1, fontFamily: 'inherit', display: 'flex', flexShrink: 0 }}>
+          <i className="ti ti-x" style={{ fontSize: ICON_SIZE.inline, color: 'var(--text3)' }} />
+        </button>
+      </div>
+    )
+
     if (items.length === 0 && attentionItems.length === 0) {
       return (
-        <div style={{ padding: '32px 20px', textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>
-          You are all caught up
-        </div>
+        <>
+          {pushPrompt}
+          <div style={{ padding: '32px 20px', textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>
+            You are all caught up
+          </div>
+        </>
       )
     }
     return (
       <>
+        {pushPrompt}
         {attentionItems.length > 0 && (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px 4px', background: 'var(--yellow-soft)' }}>
@@ -307,40 +387,45 @@ export default function Notifications({ userId, onSelectKnot, knots, onOpenChat 
       </button>
 
       {open && (
-        <>
-          {/* Desktop: dropdown */}
-          <div className="desktop-only" style={{ position: 'absolute', top: '110%', right: 0, width: 340, background: '#ffffff', border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.14)', borderRadius: 12, zIndex: 300, overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 10px', borderBottom: '1px solid var(--border)' }}>
-              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Notifications</span>
+        /* Desktop: dropdown, positioned relative to the trigger button — must
+           stay in this DOM subtree (not portaled) or position:absolute would
+           resolve against document.body instead of `ref`. */
+        <div className="desktop-only" style={{ position: 'absolute', top: '110%', right: 0, width: 340, background: '#ffffff', border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.14)', borderRadius: 12, zIndex: 300, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 10px', borderBottom: '1px solid var(--border)' }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Notifications</span>
+            {unread > 0 && (
+              <button onClick={markAllRead} style={{ fontSize: 11, color: 'var(--yellow)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>
+                Mark all as read
+              </button>
+            )}
+          </div>
+          <div style={{ maxHeight: 420, overflowY: 'auto' }}>
+            {renderList()}
+          </div>
+        </div>
+      )}
+
+      {open && createPortal(
+        /* Mobile: full-screen sheet, portaled to document.body so its
+           position:fixed is contained by the real viewport, not the sticky
+           top nav's backdrop-filter (see panelRef comment above). */
+        <div ref={panelRef} className="mobile-only" style={{ display: 'none', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 500, background: '#fff', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--border)', height: 52, boxSizing: 'border-box' }}>
+            <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Notifications</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
               {unread > 0 && (
-                <button onClick={markAllRead} style={{ fontSize: 11, color: 'var(--yellow)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>
+                <button onClick={markAllRead} style={{ fontSize: 12, color: 'var(--yellow)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>
                   Mark all as read
                 </button>
               )}
-            </div>
-            <div style={{ maxHeight: 420, overflowY: 'auto' }}>
-              {renderList()}
+              <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', fontSize: 20, color: 'var(--text3)', cursor: 'pointer', lineHeight: 1, padding: 4 }}>×</button>
             </div>
           </div>
-
-          {/* Mobile: full-screen sheet */}
-          <div className="mobile-only" style={{ display: 'none', position: 'fixed', inset: 0, zIndex: 500, background: '#fff' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--border)', height: 52, boxSizing: 'border-box' }}>
-              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Notifications</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                {unread > 0 && (
-                  <button onClick={markAllRead} style={{ fontSize: 12, color: 'var(--yellow)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>
-                    Mark all as read
-                  </button>
-                )}
-                <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', fontSize: 20, color: 'var(--text3)', cursor: 'pointer', lineHeight: 1, padding: 4 }}>×</button>
-              </div>
-            </div>
-            <div style={{ height: 'calc(100vh - 52px)', overflowY: 'auto' }}>
-              {renderList()}
-            </div>
+          <div style={{ height: 'calc(100vh - 52px)', overflowY: 'auto' }}>
+            {renderList()}
           </div>
-        </>
+        </div>,
+        document.body
       )}
     </div>
   )
