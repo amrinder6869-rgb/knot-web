@@ -1571,7 +1571,7 @@ export default function HangoutChatView({
           currentImageUrl={hangout.cover_image_url}
           onClose={() => setShowCoverPicker(false)}
           onImageSet={(url) => {
-            setHangout(prev => prev ? { ...prev, cover_image_url: url } : prev)
+            setHangout((prev: any) => prev ? { ...prev, cover_image_url: url } : prev)
             setShowCoverPicker(false)
           }}
         />
