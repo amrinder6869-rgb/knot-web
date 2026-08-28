@@ -5,15 +5,20 @@ import { getRandom, AGENT_MESSAGES, PLANNER_NUDGE, AGENT_VENUE_PROMPT, PLAN_UNTI
 
 const NUDGE_THRESHOLD_MS = 48 * 60 * 60 * 1000
 
-// You are Knot, a planning assistant in a private friend group chat. Your job
-// is to help the group plan their hangout by proposing options and letting
-// them confirm. You never decide for the group. You always end with a
-// question or chips for them to tap.
-const SYSTEM_PROMPT = `You are Knot, a planning assistant in a private friend group chat. Your job is to help the group plan their hangout by proposing options and letting them confirm. You never decide for the group. You always end with a question or chips for them to tap.
+const SYSTEM_PROMPT = `You are Knot, the planning assistant living inside a private friend group chat. You are a participant in an ongoing conversation, not a one-shot bot. You read the full conversation history before every reply so you never forget what the group already decided.
 
-You have access to the current plan state. Read it before responding so you do not repeat confirmed details.
+Your job across the conversation:
+1. Help the group fill in the three core plan fields: when, where, and who is coming.
+2. Ask at most one clarifying question per reply. Never ask two things at once.
+3. Propose specific options when the group is vague. Do not ask open-ended questions when you can propose concrete chips instead.
+4. When a chip is tapped (a value confirmed), acknowledge it in one short sentence and move to the next open field.
+5. When all three core fields are filled, suggest the group locks it in.
 
-agent_message must be one or two short sentences maximum, never more than 15 words total. Dry, direct, no hedging. No exclamation points. No em dashes. No "Great", "Sure", "Of course", "just thinking out loud", or "We've got X locked in" — that is customer service language. Sound like the sharpest person in the group chat, not a customer service bot. If you would not say it to a friend, do not write it. Examples of correct tone: "Boston Pizza is locked. Switch to KFC?" or "Done. KFC it is." or "Switching to KFC?"
+Tone: the sharpest person in the group chat. Short. Present tense. No hedging. No exclamation points. No em dashes. Never say "Great", "Sure", "Of course", "Sounds good", "We've got X locked in", "I'd be happy to", or anything that sounds like a support bot. If you would not say it to a friend, do not write it.
+
+agent_message must be one or two short sentences maximum. Never more than 20 words total. Examples of correct tone: "Boston Pizza is locked. Switch to KFC?" or "Done. KFC it is." or "Saturday works. Where are you thinking?"
+
+You have access to the current plan state and the full conversation so far. Read both before responding. Do not repeat information the group already confirmed.
 
 Respond only with valid JSON:
 {
@@ -26,23 +31,20 @@ Respond only with valid JSON:
 }
 
 Rules:
-- agent_message null only when the message has no planning relevance at all. Never null when venueSearchQuery is set — see the venue rule below.
+- agent_message null only when the message has zero planning relevance. Never null when venueSearchQuery is set.
 - chips maximum three. Labels maximum three words each.
-- plan_updates only when a chip has been tapped confirming a value. Never from inference alone. The one exception is plan_updates.title — see the title rules below.
+- plan_updates only when a chip has been tapped confirming a value, or the user explicitly states a confirmed value. Never from inference alone. Exception: plan_updates.title on the first message that introduces a plan.
 - revenue_suggestion only when directly relevant to what was just discussed. One per message maximum. Never unsolicited.
-- If two members propose conflicting values, return agent_message using the conflict copy and plan_updates as null.
-- venueSearchQuery: set this whenever the message contains any of the following — a named specific venue ("Bar Isabel", "Boston Pizza"); a venue type or category ("bars", "restaurants", "coffee shops", "parks"); a phrase asking for venue suggestions ("show me some", "find me a", "what are good", "bars near me", "somewhere to eat", "a place to grab drinks"); or an activity that implies a venue ("let's grab drinks", "want to go for dinner", "movie night"). Format it as "[venue type or name] near [city]", using the sender's city given above — if unknown, use "near Toronto". Examples: "bars near me" → "bars near Toronto". "show me some restaurants" → "restaurants near Toronto". "Boston Pizza" → "Boston Pizza near Toronto". "somewhere to grab food" → "restaurants near Toronto". Null otherwise. Never set alongside plan_updates.venue_name in the same reply — a search proposes options, it does not confirm one. Whenever venueSearchQuery is set, agent_message must be exactly "Here are some options nearby." — never null.
+- If two members propose conflicting values, return agent_message describing the conflict and plan_updates as null.
+- venueSearchQuery: set whenever the message contains a named venue, a venue type or category, a phrase asking for suggestions, or an activity implying a venue. Format: "[venue type or name] near [city]". Use the sender city provided. Whenever venueSearchQuery is set, agent_message must be exactly "Here are some options nearby." Never set venueSearchQuery alongside plan_updates.venue_name in the same reply.
 
-Title rules (plan_updates.title) — this is the only field you may set from inference alone, and only on the message that starts a new plan:
-- A named venue is mentioned → title is the venue name. "Boston Pizza Friday 7pm" → title: "Boston Pizza".
-- An activity is mentioned with no venue → title is the activity. "Park hangout Saturday" → title: "Park hangout".
-- An occasion is mentioned → use it. "Birthday drinks for Simar" → title: "Simar's birthday drinks".
-- Set title to null when the message carries zero planning intent — do not invent one.
-- Never overwrite an already-confirmed title from inference; changing an existing title still requires a tapped chip.`
+Title rules (plan_updates.title) — the only field you may infer on the opening message of a new plan:
+- Named venue mentioned: title is the venue name.
+- Activity mentioned with no venue: title is the activity.
+- Occasion mentioned: use it. "Birthday drinks for Simar" becomes "Simar's birthday drinks".
+- Set title to null when the message carries zero planning intent.
+- Never overwrite an already-confirmed title from inference; changing an existing title requires a tapped chip.`
 
-// hangouts columns the agent is allowed to write. Anything else in
-// plan_updates is dropped rather than passed straight into a Supabase
-// update() call — the model's field names aren't a trusted schema.
 const ALLOWED_PLAN_FIELDS = new Set([
   'title', 'venue_name', 'venue_address', 'scheduled_for', 'status',
   'brief', 'brief_vibe', 'brief_budget',
@@ -59,17 +61,14 @@ function filterPlanUpdates(updates: Record<string, any> | null): Record<string, 
 
 function httpsGet(url: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    https.get(url, res => {
+    https.get(url, (res: any) => {
       let body = ''
-      res.on('data', chunk => body += chunk)
+      res.on('data', (chunk: any) => body += chunk)
       res.on('end', () => resolve(body))
     }).on('error', reject)
   })
 }
 
-// Google Places Text Search — same legacy endpoint family and API key as
-// app/api/venues/route.ts, but text search rather than nearby search since
-// the agent has a free-text query ("Boston Pizza near Toronto"), not coordinates.
 async function searchVenues(query: string, token: string) {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY
   if (!apiKey) return []
@@ -182,7 +181,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing message or knot_id' }, { status: 400 })
     }
 
-    // sender_id is trusted from the verified session, not the request body.
     const senderId = user.id
 
     const { data: membership } = await userClient
@@ -193,8 +191,6 @@ export async function POST(request: Request) {
       .maybeSingle()
     if (!membership) return NextResponse.json({ error: 'Not a member of this knot' }, { status: 403 })
 
-    // Created once and reused below — for the sender's resident_city lookup
-    // ahead of a venue search, and later for any hangout/message writes.
     const serviceClient = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -220,21 +216,60 @@ export async function POST(request: Request) {
       return NextResponse.json({ agent_message: null, chips: null, plan_updates: null, todo_updates: null, revenue_suggestion: null })
     }
 
-    // Fetched up front so the model can resolve "near me" itself in
-    // venueSearchQuery — searchVenues() below uses the model's query as-is,
-    // with no server-side location appended.
     const { data: senderProfile } = await serviceClient
       .from('profiles')
-      .select('resident_city')
+      .select('resident_city, name')
       .eq('id', senderId)
       .maybeSingle()
     const locationHint = senderProfile?.resident_city?.trim() || 'Toronto'
+    const senderName = senderProfile?.name?.trim() || 'Someone'
 
-    const contextLines = [
+    // Fetch group members for context
+    const { data: memberRows } = await serviceClient
+      .from('knot_members')
+      .select('profiles:user_id(id, name)')
+      .eq('knot_id', knot_id)
+    const memberNames = (memberRows || [])
+      .map((r: any) => r.profiles?.name)
+      .filter(Boolean)
+      .join(', ')
+    const memberCount = (memberRows || []).length
+
+    // Fetch conversation history — last 12 messages for context window
+    let conversationHistory: { role: 'user' | 'assistant'; content: string }[] = []
+    if (hangout_id) {
+      const { data: recentMessages } = await serviceClient
+        .from('hangout_messages')
+        .select('author_id, content')
+        .eq('hangout_id', hangout_id)
+        .order('created_at', { ascending: false })
+        .limit(12)
+      if (recentMessages && recentMessages.length > 0) {
+        // Reverse so oldest is first, exclude the current message (not yet inserted)
+        conversationHistory = recentMessages
+          .reverse()
+          .filter((m: any) => m.content)
+          .map((m: any) => ({
+            role: m.author_id === agentUserId ? 'assistant' : 'user',
+            content: m.content as string,
+          }))
+      }
+    }
+
+    // Build the final user turn with full context
+    const contextBlock = [
       `Current plan state: ${current_plan_state ? JSON.stringify(current_plan_state) : 'no active plan yet'}`,
-      `Sender's city: ${locationHint}`,
-      `Message: "${message.trim()}"`,
+      `Group members (${memberCount}): ${memberNames || 'unknown'}`,
+      `Sender: ${senderName} (city: ${locationHint})`,
+      `New message from ${senderName}: "${message.trim()}"`,
     ].join('\n')
+
+    // Merge history + current message into the messages array
+    // History messages go in as prior turns; the new context block is the final user turn
+    const anthropicMessages: { role: 'user' | 'assistant'; content: string }[] = [
+      ...conversationHistory,
+      { role: 'user', content: contextBlock },
+    ]
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -245,9 +280,9 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
-        max_tokens: 300,
+        max_tokens: 800,
         system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: contextLines }],
+        messages: anthropicMessages,
       }),
     })
 
@@ -268,20 +303,11 @@ export async function POST(request: Request) {
       console.error('[planning-agent] failed to parse model response as JSON:', err, 'raw text:', text)
       return NextResponse.json({ agent_message: null, chips: null, plan_updates: null, todo_updates: null, revenue_suggestion: null })
     }
+
     const planUpdates = filterPlanUpdates(parsed.plan_updates ?? null)
     let resolvedHangoutId: string | null = hangout_id || null
-    // Confirmation-type replies (a value was actually written) come from the
-    // canned AGENT_MESSAGES pools, not the model's own freeform text — the
-    // model's agent_message is only used verbatim for open-ended chat
-    // relevance (questions, clarifications) where no pool fits.
     let agentMessage: string | null = parsed.agent_message ?? null
 
-    // Google Places lookup happens before any hangout write below, and its
-    // result (not the model's raw text) becomes the message — canned copy for
-    // a fixed outcome, same as the confirmation pools further down.
-    // Suppress a repeat search while the group hasn't yet responded to the
-    // last round of suggestions — otherwise "Here are some options nearby."
-    // reposts on every message until someone taps a venue card.
     let skipVenueSearch = false
     if (hangout_id && !current_plan_state?.venue_name) {
       const { data: lastMsg } = await serviceClient
@@ -301,25 +327,13 @@ export async function POST(request: Request) {
     }
     if (venueSearchQuery && !skipVenueSearch) agentMessage = AGENT_VENUE_PROMPT
 
-    // A hangout gets created the first time the conversation produces
-    // anything worth keeping — either a confirmed field (planUpdates) or
-    // just a relevant reply (agentMessage non-null). The model correctly
-    // withholds plan_updates until a chip is tapped (see system prompt), so
-    // gating creation on planUpdates alone would mean the very first message
-    // in a fresh knot has nowhere for the agent's reply to attach.
     const wasExisting = !!resolvedHangoutId
     const needsHangout = !resolvedHangoutId && (planUpdates || agentMessage)
 
-    // Every message against an existing plan touches last_planning_activity_at
-    // (the 7-day auto-archive and the 48h nudge both read it), even messages
-    // the model judged irrelevant to planning — a "sounds good" still counts
-    // as the group being present.
     if (needsHangout || wasExisting) {
       const wasNewPlan = !resolvedHangoutId
       let writeFailed = false
 
-      // Checked before this message's own activity bump lands, since the
-      // question is whether the group was silent *up to* this message.
       let nudgeMessage: string | null = null
       if (wasExisting && resolvedHangoutId) {
         const { data: existing } = await serviceClient
@@ -355,15 +369,11 @@ export async function POST(request: Request) {
       if (writeFailed) {
         agentMessage = getRandom(AGENT_MESSAGES.CONFLICT)
       } else if (venueSuggestions.length === 0 && planUpdates && resolvedHangoutId) {
-        // Pick the confirmation copy matching what actually changed. Skipped
-        // when a venue search just ran — that prompt already won above.
         if (wasNewPlan) agentMessage = getRandom(AGENT_MESSAGES.PLAN_CREATED)
         else if ('venue_name' in planUpdates || 'venue_address' in planUpdates) agentMessage = getRandom(AGENT_MESSAGES.VENUE_CONFIRMED)
         else if ('scheduled_for' in planUpdates) agentMessage = getRandom(AGENT_MESSAGES.TIME_CONFIRMED)
       }
 
-      // Folded into the same string rather than a second row — one request
-      // must never produce two separate hangout_messages inserts.
       if (nudgeMessage) agentMessage = agentMessage ? `${agentMessage} ${nudgeMessage}` : nudgeMessage
 
       if (resolvedHangoutId) {
