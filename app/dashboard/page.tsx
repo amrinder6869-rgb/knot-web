@@ -596,7 +596,7 @@ export default function Dashboard() {
             </div>
             </div>
 
-            <div style={{ maxWidth: 1100, margin: '0 auto', padding: '16px 20px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+            <div style={{ maxWidth: 1100, margin: '0 auto', padding: '16px 20px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', width: '100%', boxSizing: 'border-box' }}>
               <div>
                 <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)', marginBottom: 4, letterSpacing: '-0.5px' }}>{activeKnot.name}</h1>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, color: 'var(--text3)' }}>
@@ -653,8 +653,8 @@ export default function Dashboard() {
           </div>
 
           {/* TWO COLUMN CONTENT */}
-          <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px', paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 0px))', display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, alignItems: 'start', width: '100%', boxSizing: 'border-box' }} className="desktop-layout">
-            <div style={{ minWidth: 0, maxWidth: '100%' }}>
+          <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px', paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 0px))', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 360px', gap: 20, alignItems: 'start', width: '100%', boxSizing: 'border-box', minWidth: 0, overflowX: 'hidden' }} className="desktop-layout">
+            <div className="feed-shell">
               {active === 'discover'  && <Discover  members={knotMembers} currentUser={profile} />}
               {active === 'feed'      && (
                 <Feed

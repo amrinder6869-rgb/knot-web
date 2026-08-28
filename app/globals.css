@@ -116,6 +116,20 @@ body {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   align-items: stretch;
+  min-width: 0;
+}
+
+.feed-shell {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.composer-actions {
+  display: flex;
+  gap: 6;
+  flex-wrap: wrap;
 }
 
 @media (max-width: 768px) {
@@ -125,7 +139,8 @@ body {
   .mobile-only { display: block !important; }
   .grid-2col { grid-template-columns: 1fr !important; }
   .content-pad { padding: 16px !important; }
-  .desktop-layout { grid-template-columns: 1fr !important; }
+  .desktop-layout { grid-template-columns: minmax(0, 1fr) !important; min-width: 0; overflow-x: hidden; }
+  .desktop-layout > * { min-width: 0; max-width: 100%; }
   .desktop-layout > div:last-child { display: none !important; }
   .cat-grid { grid-template-columns: repeat(2, 1fr) !important; }
   .members-grid { grid-template-columns: 1fr !important; }

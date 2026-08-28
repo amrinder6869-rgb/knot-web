@@ -143,7 +143,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, onRefresh
       tabIndex={0}
       onClick={() => openChat()}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openChat() } }}
-      style={{ background: '#fff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 10, cursor: 'pointer', overflow: 'hidden' }}
+      style={{ background: '#fff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 10, cursor: 'pointer', overflow: 'hidden', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}
     >
       {hangout.cover_image_url && (
         <div style={{ position: 'relative', width: '100%', height: 160 }}>
@@ -219,7 +219,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, onRefresh
       <div
         onClick={e => e.stopPropagation()}
         onKeyDown={e => e.stopPropagation()}
-        style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 10, fontSize: 11, color: 'var(--text2)' }}
+        style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 10, fontSize: 11, color: 'var(--text2)', maxWidth: '100%', minWidth: 0, WebkitOverflowScrolling: 'touch' }}
       >
         <span style={{ whiteSpace: 'nowrap', ...(dateOpen ? { color: 'var(--text3)', fontStyle: 'italic' as const } : {}) }}>{dateLabel}</span>
         <span style={{ color: 'var(--border2)' }}>·</span>
@@ -233,7 +233,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, onRefresh
       <div
         onClick={e => e.stopPropagation()}
         onKeyDown={e => e.stopPropagation()}
-        style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flexWrap: 'wrap' }}
       >
         <div style={{ display: 'flex', flex: 1, minWidth: 0, alignItems: 'center' }}>
           {going.slice(0, 4).map((r: any, i: number) => (

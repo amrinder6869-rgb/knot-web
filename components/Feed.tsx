@@ -51,6 +51,9 @@ const CARD_STYLE: React.CSSProperties = {
   boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
   padding: '14px 16px',
   marginBottom: 10,
+  maxWidth: '100%',
+  minWidth: 0,
+  boxSizing: 'border-box',
 }
 
 const COLORS = [
@@ -77,7 +80,7 @@ function MomentSkeleton() {
   return (
     <div style={{ display: 'flex', gap: 12, ...CARD_STYLE }}>
       <Skeleton width={36} height={36} borderRadius={999} />
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
         <Skeleton width="35%" height={12} style={{ marginBottom: 10 }} />
         <Skeleton width="90%" height={12} style={{ marginBottom: 6 }} />
         <Skeleton width="55%" height={12} />
@@ -503,7 +506,7 @@ export default function Feed({ members, knotName, knotEmoji, knotId, currentUser
   if (!knotId) return null
 
   return (
-    <div style={{ maxWidth: 640, width: '100%', minWidth: 0 }}>
+    <div className="feed-shell" style={{ maxWidth: 640 }}>
 
       {showOrientCard && currentUser?.id && (
         <OrientCard
@@ -597,8 +600,8 @@ export default function Feed({ members, knotName, knotEmoji, knotId, currentUser
 
           if (billInfo) {
             return (
-              <div key={p.id} style={{ background: '#ffffff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: 12, marginBottom: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <div key={p.id} style={{ background: '#ffffff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: 12, marginBottom: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, minWidth: 0 }}>
                   {p.author_username ? (
                     <a href={`/${p.author_username}`} style={{ flexShrink: 0 }}>
                       <MemberAvatar name={p.author} avatarUrl={p.author_avatar_url} size={26} color={p.color} textColor={p.text} />
@@ -611,7 +614,7 @@ export default function Feed({ members, knotName, knotEmoji, knotId, currentUser
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>{billInfo.description}</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>${billInfo.total_amount.toFixed(2)}</div>
                 <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>split {billInfo.splitCount} ways</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', minWidth: 0 }}>
                   <ReactionBar reactions={p.reactions || []} onToggle={(emoji) => toggleReaction(p.id, emoji)} />
                   <button onClick={onOpenBills}
                     style={{ background: 'none', border: 'none', padding: 0, color: 'var(--yellow)', fontSize: 12, fontWeight: 700, cursor: onOpenBills ? 'pointer' : 'default', fontFamily: 'inherit' }}>
@@ -634,7 +637,7 @@ export default function Feed({ members, knotName, knotEmoji, knotId, currentUser
               ) : (
                 <MemberAvatar name={p.author} avatarUrl={p.author_avatar_url} size={36} color={p.color} textColor={p.text} />
               )}
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13 }}>
                   {p.author_username ? (
                     <a href={`/${p.author_username}`} style={{ color: 'var(--text)', fontWeight: 700, textDecoration: 'none' }}>{p.author}</a>
@@ -662,7 +665,7 @@ export default function Feed({ members, knotName, knotEmoji, knotId, currentUser
             ) : (
               <MemberAvatar name={p.author} avatarUrl={p.author_avatar_url} size={36} color={p.color} textColor={p.text} />
             )}
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               {editingPostId === p.id ? (
                 <div>
                   <div style={{ fontSize: 13, marginBottom: 8 }}>
