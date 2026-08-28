@@ -946,6 +946,12 @@ export default function HangoutChatView({
               </span>
             </div>
           </div>
+          {isCreator && (
+            <button type="button" onClick={e => { e.stopPropagation(); setShowCoverPicker(true) }} aria-label="Change cover photo"
+              style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(0,0,0,0.06)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+              <i className="ti ti-camera" style={{ fontSize: 13, color: 'var(--text3)' }} />
+            </button>
+          )}
           <i className="ti ti-chevron-down" style={{ fontSize: 14, color: '#b38c00', flexShrink: 0 }} />
         </div>
         {boardExpanded && (
@@ -962,7 +968,13 @@ export default function HangoutChatView({
             </div>
           )}
           <div style={{ borderTop: '1px solid var(--border)', padding: 16, maxHeight: 360, overflowY: 'auto' }}>
-            <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>{hangout.brief || hangout.venue_address || ''}</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>{hangout.brief || ''}</div>
+            {hangout.venue_address && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>
+                <i className="ti ti-map-pin" style={{ fontSize: 13, color: 'var(--text3)' }} />
+                {hangout.venue_address}
+              </div>
+            )}
             {phase === 'planning' && isCreator && (
               <button type="button" onClick={lockPlan} disabled={!!pendingAction}
                 style={{ padding: '8px 14px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: pendingAction ? 'not-allowed' : 'pointer', fontFamily: 'inherit', marginBottom: 10 }}>
