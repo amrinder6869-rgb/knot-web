@@ -17,6 +17,12 @@ export function isUpcomingHangout(h: any): boolean {
   return phase === 'planning' || phase === 'confirmed'
 }
 
+/** Draft hangouts are author-only in attention/notifications. Other members never see them. */
+export function isHangoutVisibleToMember(h: any, userId: string): boolean {
+  if (!h || !userId) return false
+  return h.planning_status !== 'draft' || h.created_by === userId
+}
+
 export function cardStateKey(h: any): string {
   const phase = hangoutPhase(h)
   if (phase === 'planning') return 'voting'

@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { ICON_SIZE } from '@/lib/constants'
-import { isUpcomingHangout } from '@/lib/hangoutPhase'
+import { isUpcomingHangout, isHangoutVisibleToMember } from '@/lib/hangoutPhase'
 import {
   ATTENTION_STRIP_HEADER,
   TODO_RSVP_ACTION,
@@ -21,7 +21,8 @@ export type OpenChatOpts = {
 type AttentionItem = {
   key: string
   kind: 'rsvp' | 'poll' | 'bill'
-  hangoutId: string
+  hangoutId?: string
+  knotId?: string
   icon: string
   label: string
   sub: string
@@ -29,14 +30,21 @@ type AttentionItem = {
   scrollTarget?: 'poll' | 'bill' | null
 }
 
+function nestedBill(row: any) {
+  const b = row?.bills
+  return Array.isArray(b) ? b[0] : b
+}
+
 export default function AttentionStrip({
   currentUser,
   knots,
   onOpenChat,
+  onOpenBills,
 }: {
   currentUser: any
   knots: any[]
   onOpenChat: (opts: OpenChatOpts) => void
+  onOpenBills?: (knotId: string) => void
 }) {
   const [items, setItems] = useState<AttentionItem[]>([])
   const [loaded, setLoaded] = useState(false)
@@ -50,8 +58,11 @@ export default function AttentionStrip({
       .from('hangouts')
       .select('id, title, created_by, planning_status, status, knot_id, profiles:created_by(name)')
       .in('knot_id', knotIds)
+      .or(`planning_status.neq.draft,created_by.eq.${currentUser.id}`)
 
-    const upcoming = (hangouts || []).filter((h: any) => isUpcomingHangout(h))
+    const upcoming = (hangouts || []).filter((h: any) =>
+      isHangoutVisibleToMember(h, currentUser.id) && isUpcomingHangout(h)
+    )
     const hangoutIds = upcoming.map((h: any) => h.id)
     const next: AttentionItem[] = []
 
@@ -105,33 +116,26 @@ export default function AttentionStrip({
       }
     }
 
-    const { data: knotBills } = await supabase
-      .from('bills')
-      .select('id, description, hangout_id, total_amount, knot_id')
-      .in('knot_id', knotIds)
-    if (knotBills && knotBills.length > 0) {
-      const billIds = knotBills.map((b: any) => b.id)
-      const { data: mySplits } = await supabase
-        .from('bill_splits')
-        .select('id, bill_id, amount, settled')
-        .eq('user_id', currentUser.id)
-        .eq('settled', false)
-        .in('bill_id', billIds)
-      const billById = new Map(knotBills.map((b: any) => [b.id, b]))
-      for (const s of mySplits || []) {
-        const bill = billById.get(s.bill_id)
-        if (!bill?.hangout_id) continue
-        next.push({
-          key: `bill-${s.id}`,
-          kind: 'bill',
-          hangoutId: bill.hangout_id,
-          icon: 'ti-receipt',
-          label: `Settle · ${bill.description || 'Bill'} · $${parseFloat(s.amount).toFixed(2)}`,
-          sub: 'Balance still open',
-          action: TODO_SETTLE_ACTION,
-          scrollTarget: 'bill',
-        })
-      }
+    const { data: unsettledBills } = await supabase
+      .from('bill_splits')
+      .select('*, bills(id, description, total_amount, knot_id, hangout_id, added_by)')
+      .eq('user_id', currentUser.id)
+      .eq('settled', false)
+    const knotIdSet = new Set(knotIds)
+    for (const s of unsettledBills || []) {
+      const bill = nestedBill(s)
+      if (!bill || !knotIdSet.has(bill.knot_id)) continue
+      next.push({
+        key: `bill-${s.id}`,
+        kind: 'bill',
+        hangoutId: bill.hangout_id || undefined,
+        knotId: bill.knot_id,
+        icon: 'ti-receipt',
+        label: `Settle · ${bill.description || 'Bill'} · $${parseFloat(s.amount).toFixed(2)}`,
+        sub: 'Balance still open',
+        action: TODO_SETTLE_ACTION,
+        scrollTarget: bill.hangout_id ? 'bill' : null,
+      })
     }
 
     setItems(next)
@@ -162,11 +166,17 @@ export default function AttentionStrip({
             </div>
             <button
               type="button"
-              onClick={() => onOpenChat({
-                hangoutId: item.hangoutId,
-                scrollToBottom: item.kind === 'rsvp' ? true : false,
-                scrollTarget: item.scrollTarget || null,
-              })}
+              onClick={() => {
+                if (item.hangoutId) {
+                  onOpenChat({
+                    hangoutId: item.hangoutId,
+                    scrollToBottom: item.kind === 'rsvp',
+                    scrollTarget: item.scrollTarget || null,
+                  })
+                  return
+                }
+                if (item.knotId) onOpenBills?.(item.knotId)
+              }}
               style={{ padding: '5px 10px', background: 'var(--yellow)', border: 'none', borderRadius: 6, color: '#111', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
             >
               {item.action}

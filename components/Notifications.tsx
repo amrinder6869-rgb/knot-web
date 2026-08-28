@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { ICON_SIZE } from '@/lib/constants'
-import { isUpcomingHangout } from '@/lib/hangoutPhase'
+import { isUpcomingHangout, isHangoutVisibleToMember } from '@/lib/hangoutPhase'
 import { type OpenChatOpts } from '@/components/AttentionStrip'
 import KnotIcon from '@/components/KnotIcon'
 import {
@@ -57,7 +57,8 @@ const TYPE_LABEL: Record<string, string> = {
 type AttentionItem = {
   key: string
   kind: 'rsvp' | 'poll' | 'bill'
-  hangoutId: string
+  hangoutId?: string
+  knotId?: string
   icon: string
   label: string
   sub: string
@@ -65,11 +66,17 @@ type AttentionItem = {
   scrollTarget?: 'poll' | 'bill' | null
 }
 
-export default function Notifications({ userId, onSelectKnot, knots, onOpenChat }: {
+function nestedBill(row: any) {
+  const b = row?.bills
+  return Array.isArray(b) ? b[0] : b
+}
+
+export default function Notifications({ userId, onSelectKnot, knots, onOpenChat, onOpenBills }: {
   userId: string
   onSelectKnot: (knot: any) => void
   knots: any[]
   onOpenChat: (opts: OpenChatOpts) => void
+  onOpenBills?: (knotId: string) => void
 }) {
   const router = useRouter()
   const [open, setOpen]           = useState(false)
@@ -190,8 +197,11 @@ export default function Notifications({ userId, onSelectKnot, knots, onOpenChat 
       .from('hangouts')
       .select('id, title, created_by, planning_status, status, knot_id, profiles:created_by(name)')
       .in('knot_id', knotIds)
+      .or(`planning_status.neq.draft,created_by.eq.${userId}`)
 
-    const upcoming = (hangouts || []).filter((h: any) => isUpcomingHangout(h))
+    const upcoming = (hangouts || []).filter((h: any) =>
+      isHangoutVisibleToMember(h, userId) && isUpcomingHangout(h)
+    )
     const hangoutIds = upcoming.map((h: any) => h.id)
     const next: AttentionItem[] = []
 
@@ -245,33 +255,26 @@ export default function Notifications({ userId, onSelectKnot, knots, onOpenChat 
       }
     }
 
-    const { data: knotBills } = await supabase
-      .from('bills')
-      .select('id, description, hangout_id, total_amount, knot_id')
-      .in('knot_id', knotIds)
-    if (knotBills && knotBills.length > 0) {
-      const billIds = knotBills.map((b: any) => b.id)
-      const { data: mySplits } = await supabase
-        .from('bill_splits')
-        .select('id, bill_id, amount, settled')
-        .eq('user_id', userId)
-        .eq('settled', false)
-        .in('bill_id', billIds)
-      const billById = new Map(knotBills.map((b: any) => [b.id, b]))
-      for (const s of mySplits || []) {
-        const bill = billById.get(s.bill_id)
-        if (!bill?.hangout_id) continue
-        next.push({
-          key: `bill-${s.id}`,
-          kind: 'bill',
-          hangoutId: bill.hangout_id,
-          icon: 'ti-receipt',
-          label: `Settle · ${bill.description || 'Bill'} · $${parseFloat(s.amount).toFixed(2)}`,
-          sub: 'Balance still open',
-          action: TODO_SETTLE_ACTION,
-          scrollTarget: 'bill',
-        })
-      }
+    const { data: unsettledBills } = await supabase
+      .from('bill_splits')
+      .select('*, bills(id, description, total_amount, knot_id, hangout_id, added_by)')
+      .eq('user_id', userId)
+      .eq('settled', false)
+    const knotIdSet = new Set(knotIds)
+    for (const s of unsettledBills || []) {
+      const bill = nestedBill(s)
+      if (!bill || !knotIdSet.has(bill.knot_id)) continue
+      next.push({
+        key: `bill-${s.id}`,
+        kind: 'bill',
+        hangoutId: bill.hangout_id || undefined,
+        knotId: bill.knot_id,
+        icon: 'ti-receipt',
+        label: `Settle · ${bill.description || 'Bill'} · $${parseFloat(s.amount).toFixed(2)}`,
+        sub: 'Balance still open',
+        action: TODO_SETTLE_ACTION,
+        scrollTarget: bill.hangout_id ? 'bill' : null,
+      })
     }
 
     setAttentionItems(next)
@@ -281,11 +284,15 @@ export default function Notifications({ userId, onSelectKnot, knots, onOpenChat 
 
   function handleAttentionAction(item: AttentionItem) {
     setOpen(false)
-    onOpenChat({
-      hangoutId: item.hangoutId,
-      scrollToBottom: item.kind === 'rsvp',
-      scrollTarget: item.scrollTarget || null,
-    })
+    if (item.hangoutId) {
+      onOpenChat({
+        hangoutId: item.hangoutId,
+        scrollToBottom: item.kind === 'rsvp',
+        scrollTarget: item.scrollTarget || null,
+      })
+      return
+    }
+    if (item.knotId) onOpenBills?.(item.knotId)
   }
 
   async function load() {

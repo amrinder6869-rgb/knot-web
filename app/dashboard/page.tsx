@@ -583,7 +583,16 @@ export default function Dashboard() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
           <VibesCounter userId={user?.id} userName={profile?.name} />
-          <Notifications userId={user?.id || ''} knots={knots} onSelectKnot={(k) => switchKnot(k)} onOpenChat={openHangoutChat} />
+          <Notifications
+            userId={user?.id || ''}
+            knots={knots}
+            onSelectKnot={(k) => switchKnot(k)}
+            onOpenChat={openHangoutChat}
+            onOpenBills={(knotId) => {
+              const k = knots.find(x => x.id === knotId)
+              if (k) { switchKnot(k); setActive('split') }
+            }}
+          />
           <button onClick={() => setShowProfile(true)}
             style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#111', border: profile?.equipped_ring_color ? `3px solid ${profile.equipped_ring_color}` : 'none', cursor: 'pointer', overflow: 'hidden', flexShrink: 0, boxSizing: 'border-box' }}>
             {profile?.avatar_url
@@ -811,7 +820,7 @@ export default function Dashboard() {
               <HomeFeed knots={knots} onSelectKnot={(k) => switchKnot(k)} />
             )}
             {homeTab === 'events' && (
-              <HomeEvents knots={knots} onOpenKnotTab={(k, tabId) => { switchKnot(k); setActive(tabId) }} />
+              <HomeEvents knots={knots} onOpenChat={({ hangoutId }) => openHangoutChat({ hangoutId })} />
             )}
             {homeTab === 'bills' && (
               <HomeBills

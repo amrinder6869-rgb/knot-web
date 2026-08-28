@@ -23,13 +23,13 @@ function EventsSection({
   items,
   color,
   knotById,
-  onOpenKnotTab,
+  onOpenChat,
 }: {
   title: string
   items: any[]
   color: string
   knotById: Map<string, KnotRef>
-  onOpenKnotTab: (knot: KnotRef, tabId: string) => void
+  onOpenChat: (opts: { hangoutId: string }) => void
 }) {
   if (items.length === 0) return null
   return (
@@ -39,7 +39,7 @@ function EventsSection({
         {items.map(h => {
           const knot = knotById.get(h.knot_id)
           return (
-            <div key={h.id} onClick={() => knot && onOpenKnotTab(knot, 'hangout')}
+            <div key={h.id} onClick={() => onOpenChat({ hangoutId: h.id })}
               style={{ background: 'var(--bg2)', border: `1px solid ${color}`, borderRadius: 12, padding: 14, cursor: 'pointer' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                 <KnotIcon value={knot?.emoji} size={18} iconSize={10} />
@@ -56,7 +56,7 @@ function EventsSection({
   )
 }
 
-export default function HomeEvents({ knots, onOpenKnotTab }: { knots: KnotRef[]; onOpenKnotTab: (knot: KnotRef, tabId: string) => void }) {
+export default function HomeEvents({ knots, onOpenChat }: { knots: KnotRef[]; onOpenChat: (opts: { hangoutId: string }) => void }) {
   const [hangouts, setHangouts] = useState<any[]>([])
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState('')
@@ -102,9 +102,9 @@ export default function HomeEvents({ knots, onOpenKnotTab }: { knots: KnotRef[];
 
   return (
     <div>
-      <EventsSection title={HOME_EVENTS_LIVE} items={live} color="#4ade80" knotById={knotById} onOpenKnotTab={onOpenKnotTab} />
-      <EventsSection title={HOME_EVENTS_UPCOMING} items={upcoming} color="var(--sage)" knotById={knotById} onOpenKnotTab={onOpenKnotTab} />
-      <EventsSection title={HOME_EVENTS_SUGGESTED} items={suggested} color="var(--yellow)" knotById={knotById} onOpenKnotTab={onOpenKnotTab} />
+      <EventsSection title={HOME_EVENTS_LIVE} items={live} color="#4ade80" knotById={knotById} onOpenChat={onOpenChat} />
+      <EventsSection title={HOME_EVENTS_UPCOMING} items={upcoming} color="var(--sage)" knotById={knotById} onOpenChat={onOpenChat} />
+      <EventsSection title={HOME_EVENTS_SUGGESTED} items={suggested} color="var(--yellow)" knotById={knotById} onOpenChat={onOpenChat} />
     </div>
   )
 }
