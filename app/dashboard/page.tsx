@@ -9,7 +9,6 @@ import Feed from '@/components/Feed'
 import VibesCounter from '@/components/VibesCounter'
 import HangoutChatView from '@/components/HangoutChatView'
 import { type OpenChatOpts } from '@/components/AttentionStrip'
-import PlanningView from '@/components/PlanningView'
 import BillSplit from '@/components/BillSplit'
 import Members from '@/components/Members'
 import Memories from '@/components/Memories'
@@ -27,7 +26,6 @@ import { track } from '@/lib/track'
 
 const TABS = [
   { id: 'feed',     label: 'Feed' },
-  { id: 'hangout',  label: 'Plans' },
   { id: 'memories', label: 'Photos' },
   { id: 'members',  label: 'People' },
   { id: 'discover', label: 'Discover' },
@@ -36,9 +34,9 @@ const TABS = [
 // icon holds a Tabler ti-* class suffix, not raw glyph content — see AGENTS.md icon audit notes.
 const BOTTOM_NAV = [
   { id: 'feed',     label: 'Feed',    icon: 'ti-message-circle' },
-  { id: 'hangout',  label: 'Plans',   icon: 'ti-calendar' },
   { id: 'memories', label: 'Photos',  icon: 'ti-photo' },
   { id: 'members',  label: 'People',  icon: 'ti-users' },
+  { id: 'discover', label: 'Discover', icon: 'ti-compass' },
   { id: 'more',     label: 'More',    icon: 'ti-dots' },
 ]
 
@@ -180,7 +178,7 @@ export default function Dashboard() {
       if (savedShowHome === 'false' && savedKnot) {
         setShowHome(false)
         setActiveKnot(startKnot)
-        if (savedActiveTab) setActive(savedActiveTab)
+        if (savedActiveTab) setActive(savedActiveTab === 'hangout' ? 'feed' : savedActiveTab)
       } else {
         setActiveKnot(startKnot)
       }
@@ -675,15 +673,6 @@ export default function Dashboard() {
                   <i className="ti ti-message-circle" style={{ fontSize: 22, color: '#F8BD03' }} />
                 </button>
               )}
-              {active === 'hangout'   && (
-                <PlanningView
-                  knotId={activeKnot?.id}
-                  currentUser={profile}
-                  members={knotMembers}
-                  onNavigateToFeed={() => setActive('feed')}
-                  onOpenChat={openHangoutChat}
-                />
-              )}
               {active === 'split'     && <BillSplit members={knotMembers} knotId={activeKnot?.id} currentUser={profile} />}
               {active === 'members'   && <Members   members={knotMembers} knotId={activeKnot?.id} />}
               {active === 'memories'  && <Memories  members={knotMembers} knotId={activeKnot?.id} />}
@@ -866,7 +855,6 @@ export default function Dashboard() {
                   { id: 'home', label: 'Home', icon: 'ti-home' },
                   { id: 'split', label: 'Bills', icon: 'ti-receipt' },
                   { id: 'games', label: 'Games', icon: 'ti-device-gamepad-2' },
-                  { id: 'discover', label: 'Discover', icon: 'ti-compass' },
                 ].map(n => (
                   <button key={n.id} onClick={() => {
                     if (n.id === 'home') {
