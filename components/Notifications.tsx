@@ -1,7 +1,17 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useCallback, useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { ICON_SIZE } from '@/lib/constants'
+import { isUpcomingHangout } from '@/lib/hangoutPhase'
+import { type OpenChatOpts } from '@/components/AttentionStrip'
+import {
+  ATTENTION_STRIP_HEADER,
+  TODO_RSVP_ACTION,
+  TODO_VOTE_ACTION,
+  TODO_SETTLE_ACTION,
+  TODO_RSVP_SUB,
+} from '@/lib/copy'
 
 function timeAgo(date: string) {
   const s = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
@@ -42,15 +52,28 @@ const TYPE_LABEL: Record<string, string> = {
   connection_accepted:     'Connection',
 }
 
-export default function Notifications({ userId, onSelectKnot, knots }: {
+type AttentionItem = {
+  key: string
+  kind: 'rsvp' | 'poll' | 'bill'
+  hangoutId: string
+  icon: string
+  label: string
+  sub: string
+  action: string
+  scrollTarget?: 'poll' | 'bill' | null
+}
+
+export default function Notifications({ userId, onSelectKnot, knots, onOpenChat }: {
   userId: string
   onSelectKnot: (knot: any) => void
   knots: any[]
+  onOpenChat: (opts: OpenChatOpts) => void
 }) {
   const router = useRouter()
   const [open, setOpen]           = useState(false)
   const [items, setItems]         = useState<any[]>([])
   const [unread, setUnread]       = useState(0)
+  const [attentionItems, setAttentionItems] = useState<AttentionItem[]>([])
   const ref                       = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -74,6 +97,113 @@ export default function Notifications({ userId, onSelectKnot, knots }: {
     document.addEventListener('mousedown', handleOutsideClick)
     return () => document.removeEventListener('mousedown', handleOutsideClick)
   }, [])
+
+  const loadAttention = useCallback(async () => {
+    if (!userId || knots.length === 0) { setAttentionItems([]); return }
+    const knotIds = knots.map((k: any) => k.id).filter(Boolean)
+    if (knotIds.length === 0) { setAttentionItems([]); return }
+
+    const { data: hangouts } = await supabase
+      .from('hangouts')
+      .select('id, title, created_by, planning_status, status, knot_id, profiles:created_by(name)')
+      .in('knot_id', knotIds)
+
+    const upcoming = (hangouts || []).filter((h: any) => isUpcomingHangout(h))
+    const hangoutIds = upcoming.map((h: any) => h.id)
+    const next: AttentionItem[] = []
+
+    if (hangoutIds.length > 0) {
+      const { data: myRsvps } = await supabase
+        .from('hangout_rsvps')
+        .select('hangout_id')
+        .eq('user_id', userId)
+        .in('hangout_id', hangoutIds)
+      const rsvped = new Set((myRsvps || []).map((r: any) => r.hangout_id))
+      for (const h of upcoming) {
+        if (rsvped.has(h.id)) continue
+        const organiser = (h.profiles as any)?.name || (Array.isArray(h.profiles) ? (h.profiles[0] as any)?.name : null)
+        next.push({
+          key: `rsvp-${h.id}`,
+          kind: 'rsvp',
+          hangoutId: h.id,
+          icon: 'ti-calendar-event',
+          label: `RSVP · ${h.title || 'Plan'}`,
+          sub: `${organiser || 'Organiser'} ${TODO_RSVP_SUB}`,
+          action: TODO_RSVP_ACTION,
+        })
+      }
+
+      const { data: openPolls } = await supabase
+        .from('availability_polls')
+        .select('id, hangout_id, title')
+        .in('hangout_id', hangoutIds)
+        .eq('status', 'open')
+      if (openPolls && openPolls.length > 0) {
+        const pollIds = openPolls.map((p: any) => p.id)
+        const { data: myResponses } = await supabase
+          .from('availability_poll_responses')
+          .select('poll_id')
+          .eq('user_id', userId)
+          .in('poll_id', pollIds)
+        const voted = new Set((myResponses || []).map((r: any) => r.poll_id))
+        for (const p of openPolls) {
+          if (voted.has(p.id)) continue
+          next.push({
+            key: `poll-${p.id}`,
+            kind: 'poll',
+            hangoutId: p.hangout_id,
+            icon: 'ti-list-check',
+            label: `Vote · ${(p.title || 'Poll').slice(0, 30)}`,
+            sub: 'Poll is still open',
+            action: TODO_VOTE_ACTION,
+            scrollTarget: 'poll',
+          })
+        }
+      }
+    }
+
+    const { data: knotBills } = await supabase
+      .from('bills')
+      .select('id, description, hangout_id, total_amount, knot_id')
+      .in('knot_id', knotIds)
+    if (knotBills && knotBills.length > 0) {
+      const billIds = knotBills.map((b: any) => b.id)
+      const { data: mySplits } = await supabase
+        .from('bill_splits')
+        .select('id, bill_id, amount, settled')
+        .eq('user_id', userId)
+        .eq('settled', false)
+        .in('bill_id', billIds)
+      const billById = new Map(knotBills.map((b: any) => [b.id, b]))
+      for (const s of mySplits || []) {
+        const bill = billById.get(s.bill_id)
+        if (!bill?.hangout_id) continue
+        next.push({
+          key: `bill-${s.id}`,
+          kind: 'bill',
+          hangoutId: bill.hangout_id,
+          icon: 'ti-receipt',
+          label: `Settle · ${bill.description || 'Bill'} · $${parseFloat(s.amount).toFixed(2)}`,
+          sub: 'Balance still open',
+          action: TODO_SETTLE_ACTION,
+          scrollTarget: 'bill',
+        })
+      }
+    }
+
+    setAttentionItems(next)
+  }, [userId, knots])
+
+  useEffect(() => { loadAttention() }, [loadAttention])
+
+  function handleAttentionAction(item: AttentionItem) {
+    setOpen(false)
+    onOpenChat({
+      hangoutId: item.hangoutId,
+      scrollToBottom: item.kind === 'rsvp',
+      scrollTarget: item.scrollTarget || null,
+    })
+  }
 
   async function load() {
     const { data } = await supabase
@@ -111,9 +241,10 @@ export default function Notifications({ userId, onSelectKnot, knots }: {
 
   const todayItems   = items.filter(n => isToday(n.created_at))
   const earlierItems = items.filter(n => !isToday(n.created_at))
+  const badgeCount   = unread + attentionItems.length
 
   function renderList() {
-    if (items.length === 0) {
+    if (items.length === 0 && attentionItems.length === 0) {
       return (
         <div style={{ padding: '32px 20px', textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>
           You are all caught up
@@ -122,6 +253,27 @@ export default function Notifications({ userId, onSelectKnot, knots }: {
     }
     return (
       <>
+        {attentionItems.length > 0 && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px 4px', background: 'var(--yellow-soft)' }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#8a6500', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{ATTENTION_STRIP_HEADER}</span>
+              <span style={{ padding: '1px 7px', borderRadius: 20, background: 'var(--yellow)', color: '#111', fontSize: 10, fontWeight: 700 }}>{attentionItems.length}</span>
+            </div>
+            {attentionItems.map(item => (
+              <div key={item.key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'var(--yellow-soft)', borderBottom: '1px solid var(--border)' }}>
+                <i className={`ti ${item.icon}`} style={{ fontSize: ICON_SIZE.card, color: '#8a6500', flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>{item.sub}</div>
+                </div>
+                <button type="button" onClick={() => handleAttentionAction(item)}
+                  style={{ padding: '5px 10px', background: 'var(--yellow)', border: 'none', borderRadius: 6, color: '#111', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+                  {item.action}
+                </button>
+              </div>
+            ))}
+          </>
+        )}
         {todayItems.length > 0 && (
           <>
             <div style={{ padding: '10px 16px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Today</div>
@@ -147,9 +299,9 @@ export default function Notifications({ userId, onSelectKnot, knots }: {
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
           <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
         </svg>
-        {unread > 0 && (
+        {badgeCount > 0 && (
           <span style={{ position: 'absolute', top: -3, right: -3, minWidth: 16, height: 16, borderRadius: 8, background: '#DC2626', color: '#fff', fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', border: '2px solid var(--bg)' }}>
-            {unread > 9 ? '9+' : unread}
+            {badgeCount > 9 ? '9+' : badgeCount}
           </span>
         )}
       </button>

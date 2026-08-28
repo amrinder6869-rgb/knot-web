@@ -8,7 +8,7 @@ import { supabase, getSignedUrl } from '@/lib/supabase'
 import Feed from '@/components/Feed'
 import VibesCounter from '@/components/VibesCounter'
 import HangoutChatView from '@/components/HangoutChatView'
-import AttentionStrip, { type OpenChatOpts } from '@/components/AttentionStrip'
+import { type OpenChatOpts } from '@/components/AttentionStrip'
 import PlanningView from '@/components/PlanningView'
 import BillSplit from '@/components/BillSplit'
 import Members from '@/components/Members'
@@ -601,7 +601,7 @@ export default function Dashboard() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
           <VibesCounter userId={user?.id} userName={profile?.name} />
-          <Notifications userId={user?.id || ''} knots={knots} onSelectKnot={(k) => switchKnot(k)} />
+          <Notifications userId={user?.id || ''} knots={knots} onSelectKnot={(k) => switchKnot(k)} onOpenChat={openHangoutChat} />
           <button onClick={() => setShowProfile(true)}
             style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#111', border: profile?.equipped_ring_color ? `3px solid ${profile.equipped_ring_color}` : 'none', cursor: 'pointer', overflow: 'hidden', flexShrink: 0, boxSizing: 'border-box' }}>
             {profile?.avatar_url
@@ -726,22 +726,15 @@ export default function Dashboard() {
             <div>
               {active === 'discover'  && <Discover  members={knotMembers} currentUser={profile} />}
               {active === 'feed'      && (
-                <>
-                  <AttentionStrip
-                    currentUser={profile}
-                    knots={knots}
-                    onOpenChat={openHangoutChat}
-                  />
-                  <Feed
-                    members={knotMembers}
-                    knotName={activeKnot.name}
-                    knotEmoji={activeKnot.emoji}
-                    knotId={activeKnot?.id}
-                    currentUser={profile}
-                    onOpenBills={() => setActive('split')}
-                    onOpenChat={openHangoutChat}
-                  />
-                </>
+                <Feed
+                  members={knotMembers}
+                  knotName={activeKnot.name}
+                  knotEmoji={activeKnot.emoji}
+                  knotId={activeKnot?.id}
+                  currentUser={profile}
+                  onOpenBills={() => setActive('split')}
+                  onOpenChat={openHangoutChat}
+                />
               )}
               {active === 'hangout'   && (
                 <PlanningView
@@ -854,14 +847,7 @@ export default function Dashboard() {
             </div>
 
             {homeTab === 'feed' && (
-              <>
-                <AttentionStrip
-                  currentUser={profile}
-                  knots={knots}
-                  onOpenChat={openHangoutChat}
-                />
-                <HomeFeed knots={knots} onSelectKnot={(k) => switchKnot(k)} />
-              </>
+              <HomeFeed knots={knots} onSelectKnot={(k) => switchKnot(k)} />
             )}
             {homeTab === 'events' && (
               <HomeEvents knots={knots} onOpenKnotTab={(k, tabId) => { switchKnot(k); setActive(tabId) }} />
