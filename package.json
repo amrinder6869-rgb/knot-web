@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed:demo": "node scripts/seed-demo-account.js"
   },
   "dependencies": {
     "@daily-co/daily-js": "^0.91.0",
