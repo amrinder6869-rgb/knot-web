@@ -3,8 +3,9 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { compressImage } from '@/lib/compressImage'
 import { getFlag } from '@/lib/flags'
+import MemberAvatar from '@/components/MemberAvatar'
 
-type Member = { id: string; name: string }
+type Member = { id: string; name: string; avatar_url?: string | null }
 type SplitLine = { user_id: string; amount: number }
 
 export type BillCategory = 'dinner' | 'drinks' | 'transport' | 'accommodation' | 'activities' | 'other'
@@ -46,10 +47,6 @@ type BillSplitFormProps = {
   ) => void
   onCancel?: () => void
   theme?: 'light' | 'dark'
-}
-
-function getInitials(name: string) {
-  return (name || 'U').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()
 }
 
 // Simple djb2-style hash over the OCR'd item list plus total, used to flag
@@ -348,9 +345,7 @@ export default function BillSplitForm({
                 style={{ width: 18, height: 18, borderRadius: 4, flexShrink: 0, border: `1.5px solid ${isSelected ? 'var(--yellow)' : borderCol}`, background: isSelected ? 'var(--yellow)' : 'transparent', color: '#111', fontSize: 11, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit', padding: 0 }}>
                 {isSelected ? '\u2713' : ''}
               </button>
-              <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                {getInitials(m.name)}
-              </div>
+              <MemberAvatar name={m.name} avatarUrl={m.avatar_url || null} size={22} />
               <span style={{ flex: 1, fontSize: 12, color: textColor }}>{m.name}</span>
               {mode === 'percentage' && isSelected ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>

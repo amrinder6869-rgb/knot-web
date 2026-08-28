@@ -33,6 +33,7 @@ export type Settlement = {
 export type Member = {
   id: string
   name: string
+  avatar_url?: string | null
 }
 
 export type SimplifiedDebt = {

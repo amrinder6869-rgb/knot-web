@@ -7,6 +7,7 @@ import { useToast } from '@/components/ToastProvider'
 import { getRandom, COMPOSER_PLACEHOLDER, PLAN_UNTITLED, TOAST_ERROR } from '@/lib/copy'
 import { ICON_SIZE } from '@/lib/constants'
 import { track } from '@/lib/track'
+import MemberAvatar from '@/components/MemberAvatar'
 
 export default function Composer({
   knotId,
@@ -253,7 +254,6 @@ export default function Composer({
   }
 
   const userName  = currentUser?.name || 'You'
-  const userInitials = userName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()
 
   const btnYellow: React.CSSProperties = {
     background: 'var(--yellow)', border: 'none', borderRadius: 10,
@@ -264,9 +264,7 @@ export default function Composer({
   return (
     <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, marginBottom: 20, overflow: 'hidden', maxWidth: '100%', minWidth: 0 }}>
       <div style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(12px)', borderTop: '0.5px solid var(--border)', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-        <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          {userInitials}
-        </div>
+        <MemberAvatar name={userName} avatarUrl={currentUser?.avatar_url || null} size={26} />
         <button type="button" onClick={() => setSheet('plus')} aria-label="More options"
           style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--bg3)', border: '1px solid var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, fontFamily: 'inherit' }}>
           <i className="ti ti-plus" style={{ fontSize: ICON_SIZE.nav, color: 'var(--text3)' }} />

@@ -701,9 +701,7 @@ export default function Dashboard() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {knotMembers.slice(0, 5).map(m => (
                     <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        {m.initials}
-                      </div>
+                      <MemberAvatar name={m.name} avatarUrl={m.avatar_url || null} size={32} />
                       <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{m.name}{m.you ? ' (you)' : ''}</div>
                     </div>
                   ))}

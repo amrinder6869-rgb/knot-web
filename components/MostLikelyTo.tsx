@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getRandom, LOADING } from '@/lib/copy'
 import { ICON_SIZE } from '@/lib/constants'
+import MemberAvatar from '@/components/MemberAvatar'
 
 const QUESTIONS = [
   "Most likely to show up late tonight?",
@@ -221,9 +222,7 @@ export default function MostLikelyTo({ game, members, currentUser, onEnd }: any)
             return (
               <button key={m.id} onClick={() => !myVoteThisQ && castVote(m.id)} disabled={!!myVoteThisQ}
                 style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', border: `1px solid ${isVoted ? 'var(--indigo)' : 'var(--border2)'}`, borderRadius: 10, background: isVoted ? 'var(--indigo-dim)' : 'var(--bg3)', cursor: myVoteThisQ ? 'default' : 'pointer', fontFamily: 'inherit', textAlign: 'left', transition: 'all 0.15s' }}>
-                <div style={{ width: 32, height: 32, borderRadius: '50%', background: m.color, color: m.text, fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  {m.initials}
-                </div>
+                <MemberAvatar name={m.name} avatarUrl={m.avatar_url || null} size={32} color={m.color} textColor={m.text} />
                 <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{m.name}</span>
                 {isVoted && (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--indigo)' }}>

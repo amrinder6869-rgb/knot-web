@@ -238,7 +238,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, onRefresh
         <div style={{ display: 'flex', flex: 1, minWidth: 0, alignItems: 'center' }}>
           {going.slice(0, 4).map((r: any, i: number) => (
             <div key={r.user_id} style={{ marginLeft: i > 0 ? -6 : 0, border: '2px solid #fff', borderRadius: '50%', lineHeight: 0 }}>
-              <MemberAvatar name={r.profiles?.name || 'Someone'} avatarUrl={r.profiles?.avatar_url || null} size={22} />
+              <MemberAvatar name={r.profiles?.name || 'Someone'} avatarUrl={r.profiles?.avatar_url || null} size={24} />
             </div>
           ))}
           {goingCount > 4 && (

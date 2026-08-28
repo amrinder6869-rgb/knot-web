@@ -6,10 +6,7 @@ import { track } from '@/lib/track'
 import { createNotification } from '@/lib/notify'
 import { useToast } from '@/components/ToastProvider'
 import { TOAST_ERROR, TOAST_NUDGED } from '@/lib/copy'
-
-function getInitials(name: string) {
-  return (name || 'U').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()
-}
+import MemberAvatar from '@/components/MemberAvatar'
 
 type LedgerViewProps = {
   debts: SimplifiedDebt[]
@@ -146,9 +143,7 @@ export default function LedgerView({ debts, currentUser, knotId, bills = [], onS
               background: 'var(--bg2)', border: `1px solid ${isMine ? 'var(--yellow-dim)' : 'var(--border)'}`, borderRadius: 12,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  {getInitials(debt.from.name)}
-                </div>
+                <MemberAvatar name={debt.from.name} avatarUrl={debt.from.avatar_url || null} size={32} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, color: 'var(--text)' }}>
                     <strong>{isMine ? 'You' : debt.from.name}</strong>

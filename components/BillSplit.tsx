@@ -8,6 +8,7 @@ import { createNotification } from '@/lib/notify'
 import { useToast } from '@/components/ToastProvider'
 import { getRandom, LOADING, EMPTY, EMPTY_BILLS_SUB, TOAST_ERROR, TOAST_NUDGED } from '@/lib/copy'
 import { track } from '@/lib/track'
+import MemberAvatar from '@/components/MemberAvatar'
 import { ICON_SIZE } from '@/lib/constants'
 
 // icon holds a Tabler ti-* class suffix, not raw glyph content — see AGENTS.md icon audit notes.
@@ -31,10 +32,6 @@ function timeAgo(date: string) {
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
   return `${Math.floor(seconds / 86400)}d ago`
-}
-
-function getInitials(name: string) {
-  return (name || 'U').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()
 }
 
 function BalanceCard({ myBalance, myDebts, currentUserId, onSettleUp }: {
@@ -136,7 +133,7 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
     const withSplits = await Promise.all((billData || []).map(async (bill: any) => {
       const { data: splitData } = await supabase
         .from('bill_splits')
-        .select('*, profiles:user_id(name), last_reminded_at, reminder_sent_at')
+        .select('*, profiles:user_id(name, avatar_url), last_reminded_at, reminder_sent_at')
         .eq('bill_id', bill.id)
       return { ...bill, splits: splitData || [] }
     }))
@@ -354,7 +351,7 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
     await loadAll()
   }
 
-  const memberList: Member[] = useMemo(() => members.map(m => ({ id: m.id, name: m.name })), [members])
+  const memberList: Member[] = useMemo(() => members.map(m => ({ id: m.id, name: m.name, avatar_url: m.avatar_url || null })), [members])
 
   const dietarySummary = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -594,9 +591,7 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
                           const canRemind = isCreditor && !split.settled && !isMe
                           return (
                             <div key={split.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-                              <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--yellow)', color: '#111', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                {getInitials(split.profiles?.name || 'U')}
-                              </div>
+                              <MemberAvatar name={split.profiles?.name || 'Unknown'} avatarUrl={split.profiles?.avatar_url || null} size={28} />
                               <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{split.profiles?.name || 'Unknown'}{isMe ? ' (you)' : ''}</span>
                               {split.settled && <span style={{ fontSize: 10, color: 'var(--sage)', fontWeight: 700 }}>Settled</span>}
                               <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text3)' }}>
