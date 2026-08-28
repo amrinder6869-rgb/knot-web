@@ -11,6 +11,7 @@ import VenuePoll from '@/components/VenuePoll'
 import { ACTIVITY_ICONS, ICON_SIZE } from '@/lib/constants'
 import { createNotification } from '@/lib/notify'
 import { insertAgentMessage } from '@/lib/insertAgentMessage'
+import BillItemiser from '@/components/BillItemiser'
 import { track } from '@/lib/track'
 import { hangoutPhase, cardStateKey } from '@/lib/hangoutPhase'
 import {
@@ -245,6 +246,7 @@ export default function HangoutChatView({
   const [billPosting, setBillPosting] = useState(false)
   const [billError, setBillError] = useState('')
   const [remindingId, setRemindingId] = useState<string | null>(null)
+  const [itemiserBillId, setItemiserBillId] = useState<string | null>(null)
 
   const [editTitle, setEditTitle] = useState('')
   const [editScheduledFor, setEditScheduledFor] = useState<Date | null>(null)
@@ -267,6 +269,13 @@ export default function HangoutChatView({
   const isVenuePoll = options.some((o: any) => o.venue_name || o.is_none_of_these)
   const isTreasurer = roles.includes('treasurer')
   const checkedIn = messages.some(m => m.author_id === currentUser?.id && m.content === HERE_MESSAGE)
+
+  const latestHangoutBill = useMemo(() => {
+    if (!bills.length) return null
+    return [...bills].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0]
+  }, [bills])
+
+  const itemiserBill = itemiserBillId ? bills.find(b => b.id === itemiserBillId) : null
   const showRsvpPills = (phase === 'planning' || phase === 'confirmed') && myRsvpStatus !== 'yes'
   const dateChipLabel = hangout?.scheduled_for
     ? new Date(hangout.scheduled_for).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
@@ -679,9 +688,44 @@ export default function HangoutChatView({
     await loadMessages()
   }
 
+  async function applyEqualSplitToLatestBill() {
+    const latest = latestHangoutBill
+    if (!latest || !knotId) return
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const splitIds = (latest.bill_splits || []).length > 0
+      ? (latest.bill_splits || []).map((s: any) => s.user_id)
+      : members.map(m => m.id)
+    if (splitIds.length === 0) return
+    const amount = parseFloat(latest.total_amount)
+    const share = amount / splitIds.length
+    await supabase.from('bill_splits').delete().eq('bill_id', latest.id)
+    await supabase.from('bill_splits').insert(
+      splitIds.map((uid: string) => ({
+        bill_id: latest.id,
+        user_id: uid,
+        amount: parseFloat(share.toFixed(2)),
+        settled: uid === user.id,
+      })),
+    )
+    await supabase.from('bills').update({ split_type: 'equal' }).eq('id', latest.id)
+    await loadHangout()
+    onChanged?.()
+  }
+
   async function tapChip(chip: { label: string; action?: string; value?: any }) {
     setPendingChips(null)
     setPendingRevenue(null)
+    const label = chip.label?.toLowerCase() || ''
+    if (chip.action === 'by_item' || label.includes('by item')) {
+      const latest = latestHangoutBill
+      if (latest) setItemiserBillId(latest.id)
+      return
+    }
+    if (chip.action === 'split_equal' || label.includes('equally')) {
+      await applyEqualSplitToLatestBill()
+      return
+    }
     if (chip.action === 'camera') {
       setSheet('moment')
       photoInputRef.current?.click()
@@ -1407,6 +1451,21 @@ export default function HangoutChatView({
           currentUser={currentUser}
           onClose={() => setShowCoverPicker(false)}
           onSet={url => setHangout((h: any) => ({ ...h, cover_image_url: url }))}
+        />
+      )}
+
+      {itemiserBillId && itemiserBill && (
+        <BillItemiser
+          billId={itemiserBillId}
+          totalAmount={parseFloat(itemiserBill.total_amount)}
+          members={members}
+          currentUser={currentUser}
+          onCancel={() => setItemiserBillId(null)}
+          onComplete={async () => {
+            setItemiserBillId(null)
+            await loadHangout()
+            onChanged?.()
+          }}
         />
       )}
     </div>

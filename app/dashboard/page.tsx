@@ -3,6 +3,7 @@
 import HomeFeed from '@/components/HomeFeed'
 import HomeEvents from '@/components/HomeEvents'
 import HomeBills from '@/components/HomeBills'
+import CrossKnotBalances from '@/components/CrossKnotBalances'
 import { useState, useEffect } from 'react'
 import { supabase, getSignedUrl } from '@/lib/supabase'
 import Feed from '@/components/Feed'
@@ -112,6 +113,7 @@ export default function Dashboard() {
   const [createdEventLink, setCreatedEventLink]   = useState<string | null>(null)
   const [activeChat, setActiveChat]               = useState<OpenChatOpts | null>(null)
   const [showGroupChat, setShowGroupChat]         = useState(false)
+  const [showCrossKnotBalances, setShowCrossKnotBalances] = useState(false)
 
   function openHangoutChat(opts: OpenChatOpts | string) {
     setActiveChat(typeof opts === 'string' ? { hangoutId: opts } : opts)
@@ -779,7 +781,12 @@ export default function Dashboard() {
               <HomeEvents knots={knots} onOpenKnotTab={(k, tabId) => { switchKnot(k); setActive(tabId) }} />
             )}
             {homeTab === 'bills' && (
-              <HomeBills knots={knots} currentUser={profile} onOpenKnotTab={(k, tabId) => { switchKnot(k); setActive(tabId) }} />
+              <HomeBills
+                knots={knots}
+                currentUser={profile}
+                onOpenKnotTab={(k, tabId) => { switchKnot(k); setActive(tabId) }}
+                onOpenCrossKnot={() => setShowCrossKnotBalances(true)}
+              />
             )}
           </div>
           <div className="desktop-only" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -1242,6 +1249,19 @@ export default function Dashboard() {
             />
           </div>
         </>
+      )}
+
+      {showCrossKnotBalances && profile && (
+        <CrossKnotBalances
+          currentUser={profile}
+          knots={knots}
+          onClose={() => setShowCrossKnotBalances(false)}
+          onOpenKnot={(k) => {
+            setShowCrossKnotBalances(false)
+            switchKnot(k)
+            setActive('split')
+          }}
+        />
       )}
     </div>
   )

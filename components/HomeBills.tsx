@@ -9,7 +9,12 @@ function getInitials(name: string) {
 
 type KnotRef = { id: string; name: string; emoji?: string }
 
-export default function HomeBills({ knots, currentUser, onOpenKnotTab }: { knots: KnotRef[]; currentUser: any; onOpenKnotTab: (knot: KnotRef, tabId: string) => void }) {
+export default function HomeBills({ knots, currentUser, onOpenKnotTab, onOpenCrossKnot }: {
+  knots: KnotRef[]
+  currentUser: any
+  onOpenKnotTab: (knot: KnotRef, tabId: string) => void
+  onOpenCrossKnot?: () => void
+}) {
   const [rows, setRows]     = useState<{ knot: KnotRef; debts: any[] }[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError]   = useState('')
@@ -70,7 +75,13 @@ export default function HomeBills({ knots, currentUser, onOpenKnotTab }: { knots
 
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+      <div
+        onClick={onOpenCrossKnot}
+        style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20, cursor: onOpenCrossKnot ? 'pointer' : 'default' }}
+        role={onOpenCrossKnot ? 'button' : undefined}
+        tabIndex={onOpenCrossKnot ? 0 : undefined}
+        onKeyDown={onOpenCrossKnot ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenCrossKnot() } } : undefined}
+      >
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--sage)', borderRadius: 12, padding: '14px 16px' }}>
           <div style={{ fontSize: 11, color: 'var(--sage)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>You are owed</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--sage)' }}>${totalOwed.toFixed(2)}</div>

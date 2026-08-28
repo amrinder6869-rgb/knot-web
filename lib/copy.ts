@@ -397,3 +397,16 @@ export const CARD_STATE_COPY: Record<string, { title: string; subtitle: string }
   cancelled: { title: 'Called off', subtitle: 'Next time.' },
   abandoned: { title: 'Called off', subtitle: 'Next time.' },
 }
+
+export const BILLS_SIMPLIFIED_HEADER = 'Settle up'
+export const BILLS_SIMPLIFIED_EMPTY = 'Financial peace.'
+export const BILLS_PAY_CTA = (name: string, amount: string) => `Pay ${name} $${amount}`
+export const BILLS_MARK_RECEIVED = 'Mark received'
+export const BILLS_ITEMISER_TITLE = 'Split by item'
+export const BILLS_ITEMISER_ADD = 'Add item'
+export const BILLS_ITEMISER_CONFIRM = 'Confirm split'
+export const BILLS_ITEMISER_TOTAL_MATCH = 'Total matches'
+export const BILLS_ITEMISER_TOTAL_MISMATCH = 'Items do not add up to total'
+export const BILLS_CROSS_KNOT_TITLE = 'All balances'
+export const BILLS_CROSS_KNOT_TOTAL_OWED = 'You are owed'
+export const BILLS_CROSS_KNOT_TOTAL_OWE = 'You owe'

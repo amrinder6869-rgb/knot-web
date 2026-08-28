@@ -42,6 +42,45 @@ export type SimplifiedDebt = {
   amount: number
 }
 
+export type DebtPair = {
+  debtorId: string
+  creditorId: string
+  amount: number
+}
+
+export type SimplifiedTransaction = {
+  from: string
+  to: string
+  amount: number
+}
+
+/**
+ * Greedy debt minimisation from pairwise net balances (e.g. knot_net_balances view).
+ */
+export function simplifyDebtsFromPairs(balances: DebtPair[]): SimplifiedTransaction[] {
+  const net: Record<string, number> = {}
+  for (const { debtorId, creditorId, amount } of balances) {
+    net[debtorId] = (net[debtorId] || 0) - amount
+    net[creditorId] = (net[creditorId] || 0) + amount
+  }
+
+  const creditors = Object.entries(net).filter(([, v]) => v > 0).map(([id, v]) => ({ id, amount: v }))
+  const debtors = Object.entries(net).filter(([, v]) => v < 0).map(([id, v]) => ({ id, amount: -v }))
+
+  const transactions: SimplifiedTransaction[] = []
+  let ci = 0
+  let di = 0
+  while (ci < creditors.length && di < debtors.length) {
+    const settle = Math.min(creditors[ci].amount, debtors[di].amount)
+    transactions.push({ from: debtors[di].id, to: creditors[ci].id, amount: Math.round(settle * 100) / 100 })
+    creditors[ci].amount -= settle
+    debtors[di].amount -= settle
+    if (creditors[ci].amount < 0.01) ci++
+    if (debtors[di].amount < 0.01) di++
+  }
+  return transactions
+}
+
 /**
  * Computes each member's net balance across all bills and settlements in a knot.
  * Positive = owed money. Negative = owes money.

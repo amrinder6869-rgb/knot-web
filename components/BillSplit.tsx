@@ -3,10 +3,10 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import BillSplitForm, { BillCategory } from '@/components/BillSplitForm'
 import LedgerView from '@/components/LedgerView'
-import { computeNetBalances, simplifyDebts, Bill, BillSplit as BillSplitRow, Settlement, Member, SimplifiedDebt } from '@/lib/ledger'
+import { computeNetBalances, simplifyDebts, simplifyDebtsFromPairs, Bill, BillSplit as BillSplitRow, Settlement, Member, SimplifiedDebt, SimplifiedTransaction } from '@/lib/ledger'
 import { createNotification } from '@/lib/notify'
 import { useToast } from '@/components/ToastProvider'
-import { getRandom, LOADING, EMPTY, EMPTY_BILLS_SUB, TOAST_ERROR, TOAST_NUDGED } from '@/lib/copy'
+import { getRandom, LOADING, EMPTY, EMPTY_BILLS_SUB, TOAST_ERROR, TOAST_NUDGED, BILLS_SIMPLIFIED_HEADER, BILLS_SIMPLIFIED_EMPTY, BILLS_PAY_CTA, BILLS_MARK_RECEIVED } from '@/lib/copy'
 import { track } from '@/lib/track'
 import MemberAvatar from '@/components/MemberAvatar'
 import { ICON_SIZE } from '@/lib/constants'
@@ -102,6 +102,8 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
   const [deleteError, setDeleteError]         = useState('')
   const [remindingId, setRemindingId]         = useState<string | null>(null)
   const [remindError, setRemindError]         = useState('')
+  const [netBalanceRows, setNetBalanceRows]   = useState<{ debtor_id: string; creditor_id: string; total_owed: number }[]>([])
+  const [settlingPair, setSettlingPair]       = useState<string | null>(null)
 
   // Filters
   const [search, setSearch]         = useState('')
@@ -111,7 +113,7 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
     if (!knotId) return
     setLoadError('')
 
-    const [{ data: billData, error: billsErr }, { data: settlementData, error: settlementsErr }] = await Promise.all([
+    const [{ data: billData, error: billsErr }, { data: settlementData, error: settlementsErr }, { data: netRows }] = await Promise.all([
       supabase
         .from('bills')
         .select('*, profiles:added_by(name), hangouts:hangout_id(title, venue_name)')
@@ -122,6 +124,10 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
         .select('*, from_profile:from_user_id(name), to_profile:to_user_id(name)')
         .eq('knot_id', knotId)
         .order('created_at', { ascending: false }),
+      supabase
+        .from('knot_net_balances')
+        .select('debtor_id, creditor_id, total_owed')
+        .eq('knot_id', knotId),
     ])
 
     if (billsErr || settlementsErr) {
@@ -140,6 +146,11 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
 
     setBills(withSplits)
     setSettlements(settlementData || [])
+    setNetBalanceRows((netRows || []).map((r: any) => ({
+      debtor_id: r.debtor_id,
+      creditor_id: r.creditor_id,
+      total_owed: parseFloat(r.total_owed),
+    })))
     setLoading(false)
   }, [knotId])
 
@@ -370,6 +381,15 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
 
   const balances = useMemo(() => computeNetBalances(billsForLedger, splitsForLedger, settlementsForLedger, memberList), [billsForLedger, splitsForLedger, settlementsForLedger, memberList])
   const simplified = useMemo(() => simplifyDebts(balances, memberList) ?? [], [balances, memberList])
+  const simplifiedFromView = useMemo(() => {
+    const pairs = netBalanceRows.map(r => ({
+      debtorId: r.debtor_id,
+      creditorId: r.creditor_id,
+      amount: r.total_owed,
+    }))
+    return simplifyDebtsFromPairs(pairs)
+  }, [netBalanceRows])
+  const memberById = useMemo(() => new Map(memberList.map(m => [m.id, m])), [memberList])
   const myBalance = balances.get(currentUser?.id) || 0
   const myDebts = (simplified ?? []).filter(d => d.from.id === currentUser?.id || d.to.id === currentUser?.id)
   const undoableIds = latestSettlementIdsByPair(settlements)
@@ -383,6 +403,23 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
       return matchCat && matchSearch
     })
   }, [bills, filterCat, search])
+
+  async function settleSimplifiedTransaction(tx: SimplifiedTransaction) {
+    if (!knotId) return
+    const key = `${tx.from}->${tx.to}`
+    setSettlingPair(key)
+    const { error } = await supabase.from('settlements').insert({
+      knot_id: knotId,
+      from_user_id: tx.from,
+      to_user_id: tx.to,
+      amount: tx.amount,
+      note: 'Settled up',
+    })
+    setSettlingPair(null)
+    if (error) { toast.error(TOAST_ERROR); return }
+    track(supabase, 'settlement_sent', { amount: tx.amount }, knotId)
+    await loadAll()
+  }
 
   if (loading) return <div style={{ color: 'var(--text2)', fontSize: 13, padding: '20px 0' }}>{getRandom(LOADING.bills.pool, LOADING.bills.rare)}</div>
 
@@ -441,6 +478,60 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
 
       {view === 'activity' && (
         <div>
+          <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, marginBottom: 20 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: 'var(--text)' }}>{BILLS_SIMPLIFIED_HEADER}</div>
+            {simplifiedFromView.length === 0 ? (
+              <div style={{ fontSize: 13, color: 'var(--sage)', fontWeight: 600 }}>{BILLS_SIMPLIFIED_EMPTY}</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {simplifiedFromView.map((tx, i) => {
+                  const fromMember = memberById.get(tx.from)
+                  const toMember = memberById.get(tx.to)
+                  if (!fromMember || !toMember) return null
+                  const isDebtor = tx.from === currentUser?.id
+                  const isCreditor = tx.to === currentUser?.id
+                  const pairKey = `${tx.from}->${tx.to}`
+                  return (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--bg3)', borderRadius: 10 }}>
+                      <MemberAvatar name={fromMember.name} avatarUrl={fromMember.avatar_url || null} size={28} />
+                      <span style={{ fontSize: 12, color: 'var(--text3)' }}>→</span>
+                      <MemberAvatar name={toMember.name} avatarUrl={toMember.avatar_url || null} size={28} />
+                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
+                        {fromMember.name} → {toMember.name}
+                      </span>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>${tx.amount.toFixed(2)}</span>
+                      {(isDebtor || isCreditor) && (
+                        <button
+                          type="button"
+                          onClick={() => settleSimplifiedTransaction(tx)}
+                          disabled={settlingPair === pairKey}
+                          style={{
+                            padding: '8px 12px',
+                            background: isDebtor ? 'var(--yellow)' : 'var(--bg3)',
+                            border: isDebtor ? 'none' : '1px solid var(--border2)',
+                            borderRadius: 8,
+                            color: isDebtor ? '#111' : 'var(--text2)',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            fontFamily: 'inherit',
+                            whiteSpace: 'nowrap',
+                            opacity: settlingPair === pairKey ? 0.6 : 1,
+                          }}>
+                          {settlingPair === pairKey
+                            ? '...'
+                            : isDebtor
+                              ? BILLS_PAY_CTA(toMember.name, tx.amount.toFixed(2))
+                              : BILLS_MARK_RECEIVED}
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
           {/* Search and filter */}
           <input
             value={search} onChange={e => setSearch(e.target.value)}
