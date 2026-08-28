@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { supabase, getSignedUrl } from '@/lib/supabase'
 import { compressImage } from '@/lib/compressImage'
+import { insertAgentMessage } from '@/lib/insertAgentMessage'
 import { useToast } from '@/components/ToastProvider'
 import { ICON_SIZE } from '@/lib/constants'
 import {
@@ -451,11 +452,7 @@ const loadHangouts = useCallback(async () => {
   async function lockPlan(hangout: any) {
     if (!hangout || hangout.post_id || pendingAction || !currentUser?.id) return
     if (!hangout.title?.trim()) {
-      await supabase.from('hangout_messages').insert({
-        hangout_id: hangout.id,
-        author_id: agentId,
-        content: AGENT_TITLE_PROMPT,
-      })
+      await insertAgentMessage(hangout.id, AGENT_TITLE_PROMPT)
       setSelectedPlanId(hangout.id)
       return
     }
@@ -536,11 +533,7 @@ const loadHangouts = useCallback(async () => {
     setConfirmingVenueId(null)
     if (error) { toast.error(TOAST_ERROR); return }
     setPendingVenues(null)
-    await supabase.from('hangout_messages').insert({
-      hangout_id: activeHangout.id,
-      author_id: agentId,
-      content: getRandom(AGENT_MESSAGES.VENUE_CONFIRMED),
-    })
+    await insertAgentMessage(activeHangout.id, getRandom(AGENT_MESSAGES.VENUE_CONFIRMED))
     // Re-fetch immediately so the collapsed plan board pill and title reflect
     // the new venue within the same tick — never wait for the next realtime event.
     await loadHangouts()

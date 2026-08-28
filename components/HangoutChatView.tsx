@@ -10,6 +10,7 @@ import CoverImagePicker from '@/components/CoverImagePicker'
 import VenuePoll from '@/components/VenuePoll'
 import { ACTIVITY_ICONS, ICON_SIZE } from '@/lib/constants'
 import { createNotification } from '@/lib/notify'
+import { insertAgentMessage } from '@/lib/insertAgentMessage'
 import { track } from '@/lib/track'
 import { hangoutPhase, cardStateKey } from '@/lib/hangoutPhase'
 import {
@@ -447,8 +448,8 @@ export default function HangoutChatView({
     const hasReceipt = messages.some(m => m.author_id === agentId && m.content === LIVE_RECEIPT_PROMPT)
     livePromptedRef.current = true
     ;(async () => {
-      if (!hasPhoto) await supabase.from('hangout_messages').insert({ hangout_id: hangoutId, author_id: agentId, content: LIVE_PHOTO_PROMPT })
-      if (!hasReceipt) await supabase.from('hangout_messages').insert({ hangout_id: hangoutId, author_id: agentId, content: LIVE_RECEIPT_PROMPT })
+      if (!hasPhoto) await insertAgentMessage(hangoutId, LIVE_PHOTO_PROMPT)
+      if (!hasReceipt) await insertAgentMessage(hangoutId, LIVE_RECEIPT_PROMPT)
     })()
   }, [phase, agentId, hangoutId, loadingMessages, messages])
 
@@ -567,7 +568,7 @@ export default function HangoutChatView({
   async function lockPlan() {
     if (!hangout || pendingAction || !currentUser?.id) return
     if (!hangout.title?.trim() || hangout.title === PLAN_UNTITLED) {
-      await supabase.from('hangout_messages').insert({ hangout_id: hangoutId, author_id: agentId, content: AGENT_TITLE_PROMPT })
+      await insertAgentMessage(hangoutId, AGENT_TITLE_PROMPT)
       return
     }
     setPendingAction('lock')
@@ -665,13 +666,9 @@ export default function HangoutChatView({
       delete next[triggerMessageId]
       return next
     })
-    await supabase.from('hangout_messages').insert({
-      hangout_id: hangout.id,
-      author_id: agentId,
-      content: `${getRandom(AGENT_MESSAGES.VENUE_CONFIRMED)} ${venue.name} locked in.`,
-    })
+    await insertAgentMessage(hangout.id, `${getRandom(AGENT_MESSAGES.VENUE_CONFIRMED)} ${venue.name} locked in.`)
     if (wasDateOpen) {
-      await supabase.from('hangout_messages').insert({ hangout_id: hangout.id, author_id: agentId, content: AGENT_WHEN_PROMPT })
+      await insertAgentMessage(hangout.id, AGENT_WHEN_PROMPT)
       setPendingChips([
         { label: CHIP_WHEN_TODAY, action: 'when', value: 'today' },
         { label: CHIP_WHEN_FRIDAY, action: 'when', value: 'friday' },
@@ -820,11 +817,7 @@ export default function HangoutChatView({
       message: `You owe ${creditorName} $${amount} from ${title}. Settle up in Knot.`,
     })
     if (agentId) {
-      await supabase.from('hangout_messages').insert({
-        hangout_id: hangoutId,
-        author_id: agentId,
-        content: getRandom(AGENT_MESSAGES.BILL_REMINDER),
-      })
+      await insertAgentMessage(hangoutId, getRandom(AGENT_MESSAGES.BILL_REMINDER))
     }
     setRemindingId(null)
     await loadHangout()
