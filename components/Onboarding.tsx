@@ -18,16 +18,16 @@ const RESERVED_USERNAMES = new Set([
 ])
 
 const TASTE_CATEGORIES = [
-  { id: 'restaurants', label: 'Restaurants',      icon: String.fromCodePoint(0x1F37D) },
-  { id: 'bars',         label: 'Bars and drinks',  icon: String.fromCodePoint(0x1F378) },
-  { id: 'coffee',       label: 'Coffee shops',     icon: String.fromCodePoint(0x2615) },
-  { id: 'outdoors',     label: 'Outdoors',         icon: String.fromCodePoint(0x1F333) },
-  { id: 'arts',         label: 'Arts and culture', icon: String.fromCodePoint(0x1F3A8) },
-  { id: 'sports',       label: 'Sports',           icon: String.fromCodePoint(0x26BD) },
-  { id: 'live_music',   label: 'Live music',       icon: String.fromCodePoint(0x1F3B5) },
-  { id: 'movies',       label: 'Movies',           icon: String.fromCodePoint(0x1F3AC) },
-  { id: 'gaming',       label: 'Gaming',           icon: String.fromCodePoint(0x1F3AE) },
-  { id: 'fitness',      label: 'Fitness',          icon: String.fromCodePoint(0x1F4AA) },
+  { id: 'restaurants', label: 'Restaurants',      icon: 'ti-tools-kitchen-2' },
+  { id: 'bars',         label: 'Bars and drinks',  icon: 'ti-beer' },
+  { id: 'coffee',       label: 'Coffee shops',     icon: 'ti-coffee' },
+  { id: 'outdoors',     label: 'Outdoors',         icon: 'ti-tree' },
+  { id: 'arts',         label: 'Arts and culture', icon: 'ti-masks-theater' },
+  { id: 'sports',       label: 'Sports',           icon: 'ti-ball-football' },
+  { id: 'live_music',   label: 'Live music',       icon: 'ti-music' },
+  { id: 'movies',       label: 'Movies',           icon: 'ti-movie' },
+  { id: 'gaming',       label: 'Gaming',           icon: 'ti-device-gamepad-2' },
+  { id: 'fitness',      label: 'Fitness',          icon: 'ti-run' },
 ]
 
 const ONBOARDING_DIETARY_OPTIONS = DIETARY_OPTIONS.filter(o => o.id !== 'other')
@@ -293,7 +293,7 @@ export default function Onboarding({ profile, onComplete }: { profile: any, onCo
                       cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
                       opacity: disabled ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: 6,
                     }}>
-                    <span>{t.icon}</span>
+                    <i className={`ti ${t.icon}`} style={{ fontSize: 14, color: selected ? '#111' : 'var(--text3)' }} />
                     <span>{t.label}</span>
                   </button>
                 )

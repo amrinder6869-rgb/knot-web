@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import KnotIcon from '@/components/KnotIcon'
 
 const BULLETS = [
   'Plan hangouts together',
@@ -11,7 +12,7 @@ const BULLETS = [
 export default function OrientCard({ knotId, knotName, knotEmoji, userId, onDismiss }: {
   knotId: string
   knotName: string
-  knotEmoji: string
+  knotEmoji?: string
   userId: string
   onDismiss: () => void
 }) {
@@ -26,7 +27,7 @@ export default function OrientCard({ knotId, knotName, knotEmoji, userId, onDism
   return (
     <div style={{ background: 'var(--bg2)', border: '1px solid var(--yellow-dim)', borderRadius: 14, padding: 18, marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-        <span style={{ fontSize: 26 }}>{knotEmoji}</span>
+        <KnotIcon value={knotEmoji} size={32} iconSize={16} />
         <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
           You are in. Here is how {knotName} works.
         </div>

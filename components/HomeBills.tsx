@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { computeNetBalances, simplifyDebts, Bill, BillSplit as BillSplitRow, Settlement, Member } from '@/lib/ledger'
+import KnotIcon from '@/components/KnotIcon'
 
 function getInitials(name: string) {
   return (name || 'U').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()
@@ -95,7 +96,10 @@ export default function HomeBills({ knots, currentUser, onOpenKnotTab, onOpenCro
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {rows.map(({ knot, debts }) => (
           <div key={knot.id}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text2)', marginBottom: 8 }}>{knot.emoji} {knot.name}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text2)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <KnotIcon value={knot.emoji} size={20} iconSize={11} />
+              {knot.name}
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {debts.map((debt, i) => {
                 const isMine = debt.from.id === currentUser?.id

@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { hangoutPhase } from '@/lib/hangoutPhase'
 import { HOME_EVENTS_EMPTY, HOME_EVENTS_EMPTY_SUB, HOME_EVENTS_LIVE, HOME_EVENTS_LOADING, HOME_EVENTS_SUGGESTED, HOME_EVENTS_UPCOMING } from '@/lib/copy'
+import KnotIcon from '@/components/KnotIcon'
 
 function formatDate(d: string) {
   const date = new Date(d)
@@ -41,7 +42,8 @@ function EventsSection({
             <div key={h.id} onClick={() => knot && onOpenKnotTab(knot, 'hangout')}
               style={{ background: 'var(--bg2)', border: `1px solid ${color}`, borderRadius: 12, padding: 14, cursor: 'pointer' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color, letterSpacing: '0.04em' }}>{knot?.emoji} {knot?.name}</span>
+                <KnotIcon value={knot?.emoji} size={18} iconSize={10} />
+                <span style={{ fontSize: 11, fontWeight: 700, color, letterSpacing: '0.04em' }}>{knot?.name}</span>
               </div>
               <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{h.venue_name || h.title}</div>
               {h.venue_address && <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{h.venue_address}</div>}

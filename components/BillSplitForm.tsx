@@ -303,7 +303,7 @@ export default function BillSplitForm({
               cursor: 'pointer', fontFamily: 'inherit',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
             }}>
-            <span style={{ fontSize: 22 }}>{String.fromCodePoint(0x1F4F7)}</span>
+            <i className="ti ti-camera" style={{ fontSize: 22, color: subColor }} />
             <div style={{ textAlign: 'left' }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: textColor }}>Scan receipt to autofill</div>
               <div style={{ fontSize: 11, color: subColor, marginTop: 1 }}>Or fill in the details below manually</div>
@@ -389,7 +389,7 @@ export default function BillSplitForm({
             <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', opacity: isSelected ? 1 : 0.4 }}>
               <button onClick={() => toggleMember(m.id)}
                 style={{ width: 18, height: 18, borderRadius: 4, flexShrink: 0, border: `1.5px solid ${isSelected ? 'var(--yellow)' : borderCol}`, background: isSelected ? 'var(--yellow)' : 'transparent', color: '#111', fontSize: 11, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit', padding: 0 }}>
-                {isSelected ? '\u2713' : ''}
+                {isSelected ? <i className="ti ti-check" style={{ fontSize: 12, color: '#111' }} /> : ''}
               </button>
               <MemberAvatar name={m.name} avatarUrl={m.avatar_url || null} size={22} />
               <span style={{ flex: 1, fontSize: 12, color: textColor }}>{m.name}</span>

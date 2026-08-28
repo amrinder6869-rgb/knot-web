@@ -513,7 +513,7 @@ export default function Feed({ members, knotName, knotEmoji, knotId, currentUser
         <OrientCard
           knotId={knotId}
           knotName={knotName}
-          knotEmoji={knotEmoji || String.fromCodePoint(0x1F517)}
+          knotEmoji={knotEmoji}
           userId={currentUser.id}
           onDismiss={() => setShowOrientCard(false)}
         />

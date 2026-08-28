@@ -20,8 +20,9 @@ import KnotGroupChat from '@/components/KnotGroupChat'
 import { useToast } from '@/components/ToastProvider'
 import DateTimePicker from '@/components/DateTimePicker'
 import { CONFIRM, TOAST } from '@/lib/copy'
-import { DIETARY_OPTIONS, ACCESSIBILITY_OPTIONS, ICON_SIZE } from '@/lib/constants'
+import { DIETARY_OPTIONS, ACCESSIBILITY_OPTIONS, ICON_SIZE, KNOT_ICONS, DEFAULT_KNOT_ICON, getKnotIcon } from '@/lib/constants'
 import MemberAvatar from '@/components/MemberAvatar'
+import KnotIcon from '@/components/KnotIcon'
 import Onboarding from '@/components/Onboarding'
 import { track } from '@/lib/track'
 
@@ -66,6 +67,31 @@ const MEMBER_COLORS = [
   { bg: '#1E1E1E', text: '#F8BD03' },
 ]
 
+function KnotIconPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8, margin: '10px 0' }}>
+      {KNOT_ICONS.map(k => (
+        <button
+          key={k.id}
+          type="button"
+          onClick={() => onChange(k.id)}
+          title={k.label}
+          style={{
+            width: 44, height: 44, borderRadius: 10,
+            background: value === k.id ? k.bg : 'var(--bg3)',
+            border: value === k.id ? `2px solid ${k.color}` : '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', flexShrink: 0,
+            transition: 'all 0.12s',
+          }}
+        >
+          <i className={`ti ${k.icon}`} style={{ fontSize: 18, color: value === k.id ? k.color : 'var(--text3)' }} />
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const toast = useToast()
   const [active, setActive]                 = useState(() => {
@@ -84,7 +110,7 @@ export default function Dashboard() {
   const [showMore, setShowMore]             = useState(false)
   const [showKnotList, setShowKnotList]     = useState(false)
   const [newKnotName, setNewKnotName]       = useState('')
-  const [newKnotEmoji, setNewKnotEmoji]     = useState('🔗')
+  const [newKnotEmoji, setNewKnotEmoji]     = useState(DEFAULT_KNOT_ICON)
   const [knots, setKnots]                   = useState<any[]>([])
   const [knotMembers, setKnotMembers]       = useState<any[]>([])
   const [recentMedia, setRecentMedia]       = useState<{ id: string; url: string; media_type: string }[]>([])
@@ -307,7 +333,7 @@ export default function Dashboard() {
         setCoverSignedUrl(null)
         await loadKnotMembers(newK.id)
         setNewKnotName('')
-        setNewKnotEmoji('🔗')
+        setNewKnotEmoji(DEFAULT_KNOT_ICON)
         setShowNewKnot(false)
       }
     } catch { setKnotError('Could not create Knot. Please try again.') }
@@ -521,7 +547,14 @@ export default function Dashboard() {
         <div style={{ position: 'relative', flex: 1 }}>
           <button onClick={() => setShowKnotList(!showKnotList)}
             style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--text)', fontSize: 13, fontWeight: 500 }}>
-            <span style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeKnot ? `${activeKnot.emoji} ${activeKnot.name}` : 'Select a Knot'}</span>
+            <span style={{ maxWidth: 180, overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+              {activeKnot ? (
+                <>
+                  <KnotIcon value={activeKnot.emoji} size={22} iconSize={12} />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeKnot.name}</span>
+                </>
+              ) : 'Select a Knot'}
+            </span>
             <i className="ti ti-chevron-down" style={{ fontSize: ICON_SIZE.inline, color: 'var(--text3)' }} />
           </button>
           {showKnotList && (
@@ -532,7 +565,7 @@ export default function Dashboard() {
                 return (
                   <div key={k.id} onClick={() => switchKnot(k)}
                     style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 999, cursor: 'pointer', background: isActiveKnot ? 'var(--pill-bg)' : 'transparent', marginBottom: 2 }}>
-                    <span style={{ fontSize: 16 }}>{k.emoji}</span>
+                    <KnotIcon value={k.emoji} size={24} iconSize={13} />
                     <span style={{ flex: 1, fontSize: 13, fontWeight: isActiveKnot ? 600 : 400, color: isActiveKnot ? 'var(--pill-text)' : 'var(--text)' }}>{k.name}</span>
                     <span style={{ fontSize: 11, color: isActiveKnot ? 'rgba(255,255,255,0.6)' : 'var(--text3)' }}>{k.count}</span>
                   </div>
@@ -573,7 +606,7 @@ export default function Dashboard() {
                 <>
                   <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 30% 50%, rgba(248,189,3,0.2) 0%, transparent 60%)' }} />
                   <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 70% 50%, rgba(248,189,3,0.1) 0%, transparent 60%)' }} />
-                  <span style={{ fontSize: 64, position: 'relative', zIndex: 1 }}>{activeKnot.emoji}</span>
+                  <span style={{ position: 'relative', zIndex: 1 }}><KnotIcon value={activeKnot.emoji} size={72} iconSize={36} /></span>
                 </>
               )}
               {activeKnot.created_by === user.id && (
@@ -624,7 +657,7 @@ export default function Dashboard() {
                     </button>
                     {showKnotMenu && (
                       <div style={{ position: 'absolute', right: 0, top: '110%', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 6, minWidth: 180, zIndex: 50, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
-                        <div onClick={() => { setShowKnotMenu(false); setShowRenameKnot(true); setNewKnotName(activeKnot.name); setNewKnotEmoji(activeKnot.emoji) }}
+                        <div onClick={() => { setShowKnotMenu(false); setShowRenameKnot(true); setNewKnotName(activeKnot.name); setNewKnotEmoji(getKnotIcon(activeKnot.emoji).id) }}
                           style={{ padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text)' }}
                           onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg3)')}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
@@ -681,7 +714,7 @@ export default function Dashboard() {
                 <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: 'var(--text)' }}>About</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13, color: 'var(--text2)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 20 }}>{activeKnot.emoji}</span>
+                    <KnotIcon value={activeKnot.emoji} size={28} iconSize={14} />
                     <span style={{ fontWeight: 600, color: 'var(--text)' }}>{activeKnot.name}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -797,7 +830,7 @@ export default function Dashboard() {
                   style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, cursor: 'pointer', marginBottom: 4 }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg3)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                  <span style={{ fontSize: 18 }}>{k.emoji}</span>
+                  <KnotIcon value={k.emoji} size={28} iconSize={14} />
                   <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{k.name}</span>
                   <span style={{ fontSize: 11, color: 'var(--text3)' }}>{k.count}</span>
                 </div>
@@ -892,15 +925,8 @@ export default function Dashboard() {
           <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 360 }}>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, color: 'var(--text)' }}>Create a new Knot</div>
             <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20 }}>Invite only. Your friends need a vote to join.</div>
-            <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Choose an emoji</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-              {['🍻','🏀','💼','🎮','🎵','🌍','🏕️','🎉','❤️','🔗'].map(e => (
-                <span key={e} onClick={() => setNewKnotEmoji(e)}
-                  style={{ fontSize: 20, padding: '6px 8px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${newKnotEmoji === e ? 'var(--yellow)' : 'var(--border)'}`, background: newKnotEmoji === e ? 'var(--yellow-soft)' : 'transparent' }}>
-                  {e}
-                </span>
-              ))}
-            </div>
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Choose an icon</div>
+            <KnotIconPicker value={newKnotEmoji} onChange={setNewKnotEmoji} />
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Knot name</div>
             <input value={newKnotName} onChange={e => setNewKnotName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && createKnot()}
@@ -996,15 +1022,8 @@ export default function Dashboard() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 360 }}>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, color: 'var(--text)' }}>Rename Knot</div>
-            <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Choose an emoji</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-              {['🍻','🏀','💼','🎮','🎵','🌍','🏕️','🎉','❤️','🔗'].map(e => (
-                <span key={e} onClick={() => setNewKnotEmoji(e)}
-                  style={{ fontSize: 20, padding: '6px 8px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${newKnotEmoji === e ? 'var(--yellow)' : 'var(--border)'}`, background: newKnotEmoji === e ? 'var(--yellow-soft)' : 'transparent' }}>
-                  {e}
-                </span>
-              ))}
-            </div>
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Choose an icon</div>
+            <KnotIconPicker value={newKnotEmoji} onChange={setNewKnotEmoji} />
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Knot name</div>
             <input value={newKnotName} onChange={e => setNewKnotName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && renameKnot()}

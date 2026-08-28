@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import MemberAvatar from '@/components/MemberAvatar'
+import KnotIcon from '@/components/KnotIcon'
 import {
   BILLS_CROSS_KNOT_TITLE,
   BILLS_CROSS_KNOT_TOTAL_OWED,
@@ -188,7 +189,10 @@ export default function CrossKnotBalances({ currentUser, knots, onClose, onOpenK
                             background: tag.direction === 'owed' ? 'var(--sage-soft)' : 'var(--yellow-soft)',
                             color: tag.direction === 'owed' ? 'var(--sage)' : 'var(--yellow)',
                           }}>
-                          {tag.knot.emoji} {tag.knot.name} · ${tag.amount.toFixed(2)}
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <KnotIcon value={tag.knot.emoji} size={16} iconSize={9} />
+                            {tag.knot.name} · ${tag.amount.toFixed(2)}
+                          </span>
                         </button>
                       ))}
                     </div>

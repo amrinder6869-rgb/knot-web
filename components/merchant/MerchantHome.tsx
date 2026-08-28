@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import MerchantSpecials from './MerchantSpecials'
 import MerchantMenu from './MerchantMenu'
 import { supabase } from '@/lib/supabase'
+import KnotIcon from '@/components/KnotIcon'
 
 interface Props {
   merchant: any
@@ -121,8 +122,9 @@ export default function MerchantHome({ merchant }: Props) {
                 <div key={b.id} style={{ background: 'var(--bg2)', border: '1.5px solid var(--yellow)', borderRadius: 12, padding: '16px', marginBottom: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                     <div>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
-                        {b.knot?.emoji} {b.knot?.name || 'Group booking'}
+                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <KnotIcon value={b.knot?.emoji} size={28} iconSize={14} />
+                        {b.knot?.name || 'Group booking'}
                       </div>
                       <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>
                         {b.group_size} people {b.scheduled_for ? '· ' + formatDate(b.scheduled_for) : ''}
@@ -152,8 +154,9 @@ export default function MerchantHome({ merchant }: Props) {
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--sage)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>Confirmed upcoming</div>
               {confirmed.map(b => (
                 <div key={b.id} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px', marginBottom: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
-                    {b.knot?.emoji} {b.knot?.name || 'Group booking'}
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <KnotIcon value={b.knot?.emoji} size={28} iconSize={14} />
+                    {b.knot?.name || 'Group booking'}
                   </div>
                   <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>
                     {b.group_size} people {b.scheduled_for ? '· ' + formatDate(b.scheduled_for) : ''}

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { supabase, getSignedUrl } from '@/lib/supabase'
 import MemberAvatar from '@/components/MemberAvatar'
+import KnotIcon from '@/components/KnotIcon'
 
 function timeAgo(date: string) {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
@@ -279,7 +280,7 @@ export default function HomeFeed({ knots, onSelectKnot }: { knots: any[], onSele
 function KnotBadge({ knot }: { knot: any }) {
   return (
     <div style={{ padding: '3px 10px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow-dim)', borderRadius: 20, fontSize: 11, fontWeight: 700, color: 'var(--yellow)', display: 'flex', alignItems: 'center', gap: 4 }}>
-      <span>{knot?.emoji}</span>
+      <KnotIcon value={knot?.emoji} size={18} iconSize={10} />
       <span>{knot?.name}</span>
     </div>
   )

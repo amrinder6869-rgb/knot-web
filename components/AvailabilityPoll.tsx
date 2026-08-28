@@ -18,10 +18,10 @@ type PollResponse = {
   available: 'yes' | 'maybe' | 'no'
 }
 
-const STATUS_STYLE: Record<'yes' | 'maybe' | 'no', { symbol: string; color: string; bg: string }> = {
-  yes:   { symbol: '✓', color: 'var(--sage)',   bg: 'var(--sage-soft)' },
-  maybe: { symbol: '–', color: 'var(--amber)',  bg: 'var(--amber-soft)' },
-  no:    { symbol: '✕', color: 'var(--danger)', bg: 'var(--danger-soft)' },
+const STATUS_STYLE: Record<'yes' | 'maybe' | 'no', { icon: string | null; symbol: string; color: string; bg: string }> = {
+  yes:   { icon: 'ti-check', symbol: '',  color: 'var(--sage)',   bg: 'var(--sage-soft)' },
+  maybe: { icon: null,       symbol: '–', color: 'var(--amber)',  bg: 'var(--amber-soft)' },
+  no:    { icon: 'ti-x',     symbol: '',  color: 'var(--danger)', bg: 'var(--danger-soft)' },
 }
 
 function formatOptionDate(dateStr: string) {
@@ -153,7 +153,7 @@ export default function AvailabilityPoll({ pollId, knotId: _knotId, currentUser,
                               cursor: pollStatus === 'open' ? 'pointer' : 'default',
                               fontFamily: 'inherit',
                             }}>
-                            {style ? style.symbol : '?'}
+                            {style?.icon ? <i className={`ti ${style.icon}`} style={{ fontSize: 13, color: style.color }} /> : (style ? style.symbol : '?')}
                           </button>
                         ) : (
                           <span style={{
@@ -163,7 +163,7 @@ export default function AvailabilityPoll({ pollId, knotId: _knotId, currentUser,
                             color: style ? style.color : 'var(--border2)',
                             background: style ? style.bg : 'transparent',
                           }}>
-                            {style ? style.symbol : '·'}
+                            {style?.icon ? <i className={`ti ${style.icon}`} style={{ fontSize: 13, color: style.color }} /> : (style ? style.symbol : '·')}
                           </span>
                         )}
                       </td>

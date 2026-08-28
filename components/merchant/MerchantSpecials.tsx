@@ -164,7 +164,7 @@ export default function MerchantSpecials({ merchant }: Props) {
 
       {!loading && specials.length === 0 && !showForm && (
         <div style={{ textAlign: 'center', padding: '48px 20px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>🎯</div>
+          <div style={{ fontSize: 32, marginBottom: 12, color: 'var(--text3)' }}><i className="ti ti-target" /></div>
           <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>No Specials yet</div>
           <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 20 }}>Create your first Knot Special to attract group bookings on your slow nights.</div>
           <button onClick={() => setShowForm(true)}

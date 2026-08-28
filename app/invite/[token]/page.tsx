@@ -5,6 +5,7 @@ import { useEffect, useState, use } from 'react'
 import { AlertCircle, Clock, ShieldCheck } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { track } from '@/lib/track'
+import KnotIcon from '@/components/KnotIcon'
 
 // Carries the invite through to whichever auth path the user takes next:
 // localStorage for the client-side sign-in flow in app/page.tsx, and a
@@ -163,7 +164,9 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
 
         {status === 'valid' && invite && knot && (
           <>
-            <div style={{ fontSize: 48, marginBottom: 8 }}>{knot.emoji}</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+              <KnotIcon value={knot.emoji} size={64} iconSize={32} />
+            </div>
             <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 6, letterSpacing: '-0.5px' }}>{knot.name}</div>
             {invite.inviter_name && (
               <div style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 20 }}>

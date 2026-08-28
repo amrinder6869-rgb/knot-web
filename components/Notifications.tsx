@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { ICON_SIZE } from '@/lib/constants'
 import { isUpcomingHangout } from '@/lib/hangoutPhase'
 import { type OpenChatOpts } from '@/components/AttentionStrip'
+import KnotIcon from '@/components/KnotIcon'
 import {
   ATTENTION_STRIP_HEADER,
   TODO_RSVP_ACTION,
@@ -461,7 +462,8 @@ function NotificationRow({ n, onClick }: { n: any; onClick: () => void }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.4 }}>
           {n.knot && (
-            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--yellow)', marginRight: 4 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--yellow)', marginRight: 4, display: 'inline-flex', alignItems: 'center', gap: 4, verticalAlign: 'middle' }}>
+              <KnotIcon value={n.knot.emoji} size={16} iconSize={9} />
               {n.knot.name}
             </span>
           )}

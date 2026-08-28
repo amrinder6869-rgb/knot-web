@@ -3,13 +3,17 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
 function StarRating({ rating }: { rating: number }) {
-  const full  = Math.floor(rating)
-  const half  = rating % 1 >= 0.5 ? 1 : 0
-  const empty = 5 - full - half
+  const stars = []
+  for (let i = 1; i <= 5; i++) {
+    const filled = rating >= i
+    const half = !filled && rating >= i - 0.5
+    const cls = filled ? 'ti-star-filled' : half ? 'ti-star-half-filled' : 'ti-star'
+    const color = filled || half ? 'var(--amber)' : 'var(--border2)'
+    stars.push(<i key={i} className={`ti ${cls}`} style={{ fontSize: 11, color }} />)
+  }
   return (
-    <span style={{ fontSize: 11, letterSpacing: 1 }}>
-      <span style={{ color: 'var(--amber)' }}>{String.fromCodePoint(0x2605).repeat(full)}{half ? String.fromCodePoint(0xBD) : ''}</span>
-      <span style={{ color: 'var(--border2)' }}>{String.fromCodePoint(0x2606).repeat(empty)}</span>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+      {stars}
     </span>
   )
 }

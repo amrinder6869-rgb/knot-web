@@ -320,7 +320,7 @@ export default function AmongUsLite({ game, members, currentUser, knotId, onEnd,
               <button key={t.id} onClick={() => toggleTask(t.id)} disabled={myCompletions.has(t.id)}
                 style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--bg2)', border: `1px solid ${myCompletions.has(t.id) ? 'var(--sage-dim)' : 'var(--border)'}`, borderRadius: 10, textAlign: 'left', cursor: myCompletions.has(t.id) ? 'default' : 'pointer', fontFamily: 'inherit' }}>
                 <span style={{ width: 18, height: 18, borderRadius: 4, border: `1.5px solid ${myCompletions.has(t.id) ? 'var(--sage)' : 'var(--border2)'}`, background: myCompletions.has(t.id) ? 'var(--sage)' : 'transparent', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#111' }}>
-                  {myCompletions.has(t.id) ? '\u2713' : ''}
+                  {myCompletions.has(t.id) ? <i className="ti ti-check" style={{ fontSize: 12, color: '#111' }} /> : ''}
                 </span>
                 <span style={{ fontSize: 13, color: myCompletions.has(t.id) ? 'var(--text3)' : 'var(--text)', textDecoration: myCompletions.has(t.id) ? 'line-through' : 'none' }}>{t.prompt}</span>
               </button>

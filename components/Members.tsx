@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import MemberAvatar from '@/components/MemberAvatar'
 import { QRCodeSVG } from 'qrcode.react'
+import { DEFAULT_KNOT_ICON } from '@/lib/constants'
 
 function getInitials(name: string) {
   return name?.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase() || '?'
@@ -169,7 +170,7 @@ export default function Members({ members: _members, knotId }: { members: any[],
       : 'New Knot'
     const { data: newKnot, error } = await supabase
       .from('knots')
-      .insert({ name: knotName, emoji: '🔗', created_by: user.id })
+      .insert({ name: knotName, emoji: DEFAULT_KNOT_ICON, created_by: user.id })
       .select()
       .single()
 

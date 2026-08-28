@@ -67,6 +67,30 @@ export const ICON_SIZE = {
   input: 16,
 } as const
 
+export const KNOT_ICONS: { id: string; icon: string; label: string; color: string; bg: string }[] = [
+  { id: 'ti-users',              label: 'Friends',   icon: 'ti-users',              color: '#b38c00', bg: 'rgba(248,189,3,0.12)' },
+  { id: 'ti-music',              label: 'Music',     icon: 'ti-music',              color: '#7c3aed', bg: 'rgba(124,58,237,0.1)' },
+  { id: 'ti-device-gamepad-2',   label: 'Gaming',    icon: 'ti-device-gamepad-2',   color: '#1d4ed8', bg: 'rgba(29,78,216,0.1)' },
+  { id: 'ti-ball-football',      label: 'Sports',    icon: 'ti-ball-football',      color: '#15803d', bg: 'rgba(21,128,61,0.1)' },
+  { id: 'ti-plane',              label: 'Travel',    icon: 'ti-plane',              color: '#0369a1', bg: 'rgba(3,105,161,0.1)' },
+  { id: 'ti-glass-full',         label: 'Food',      icon: 'ti-glass-full',         color: '#c2410c', bg: 'rgba(194,65,12,0.1)' },
+  { id: 'ti-mountain',           label: 'Outdoors',  icon: 'ti-mountain',           color: '#166534', bg: 'rgba(22,101,52,0.1)' },
+  { id: 'ti-briefcase',          label: 'Work',      icon: 'ti-briefcase',          color: '#475569', bg: 'rgba(71,85,105,0.1)' },
+  { id: 'ti-heart',              label: 'Family',    icon: 'ti-heart',              color: '#be123c', bg: 'rgba(190,18,60,0.1)' },
+  { id: 'ti-camera',             label: 'Photos',    icon: 'ti-camera',             color: '#0f766e', bg: 'rgba(15,118,110,0.1)' },
+  { id: 'ti-book',               label: 'Study',     icon: 'ti-book',               color: '#7c2d12', bg: 'rgba(124,45,18,0.1)' },
+  { id: 'ti-link',               label: 'General',   icon: 'ti-link',               color: '#111',    bg: 'rgba(0,0,0,0.08)' },
+]
+
+export const DEFAULT_KNOT_ICON = 'ti-link'
+
+export function getKnotIcon(value: string | null | undefined) {
+  if (!value) return KNOT_ICONS.find(k => k.id === DEFAULT_KNOT_ICON)!
+  // Support legacy emoji values — fall back to default
+  const found = KNOT_ICONS.find(k => k.id === value)
+  return found ?? KNOT_ICONS.find(k => k.id === DEFAULT_KNOT_ICON)!
+}
+
 export const PUSH_TITLES: Record<string, string> = {
   new_moment: 'New moment',
   bill_reminder: 'Bill reminder',

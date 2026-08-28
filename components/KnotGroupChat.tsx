@@ -14,6 +14,7 @@ import {
   CHAT_LOADING,
 } from '@/lib/copy'
 import { ICON_SIZE } from '@/lib/constants'
+import KnotIcon from '@/components/KnotIcon'
 
 interface KnotGroupChatProps {
   knotId: string
@@ -215,7 +216,7 @@ export default function KnotGroupChat({ knotId, knotName, knotEmoji, members, cu
           style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--bg3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
           <i className="ti ti-arrow-left" style={{ fontSize: ICON_SIZE.nav, color: 'var(--text2)' }} />
         </button>
-        <span style={{ fontSize: 18 }}>{knotEmoji}</span>
+        <KnotIcon value={knotEmoji} size={32} iconSize={16} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{knotName}</div>
           <div style={{ fontSize: 11, color: 'var(--text3)' }}>{members.length} member{members.length !== 1 ? 's' : ''}</div>
