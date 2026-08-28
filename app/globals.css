@@ -111,6 +111,13 @@ body {
   gap: 20px;
 }
 
+.feed-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: stretch;
+}
+
 @media (max-width: 768px) {
   .sidebar-hidden { display: none !important; }
   .bottom-nav { display: flex !important; }
@@ -122,6 +129,7 @@ body {
   .desktop-layout > div:last-child { display: none !important; }
   .cat-grid { grid-template-columns: repeat(2, 1fr) !important; }
   .members-grid { grid-template-columns: 1fr !important; }
+  .feed-quick-grid { grid-template-columns: 1fr !important; }
 }
 
 @media (min-width: 769px) {
