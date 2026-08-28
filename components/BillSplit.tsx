@@ -17,13 +17,13 @@ const CATEGORIES: { id: string; label: string; icon: string }[] = [
   { id: 'dinner',        label: 'Dinner',        icon: 'ti-glass-full' },
   { id: 'drinks',        label: 'Drinks',        icon: 'ti-beer' },
   { id: 'transport',     label: 'Transport',     icon: 'ti-car' },
-  { id: 'accommodation', label: 'Stay',          icon: 'ti-bed' },
-  { id: 'activities',    label: 'Activities',    icon: 'ti-palette' },
-  { id: 'other',         label: 'Other',         icon: 'ti-clipboard' },
+  { id: 'accommodation', label: 'Stay',          icon: 'ti-building' },
+  { id: 'activities',    label: 'Activities',    icon: 'ti-run' },
+  { id: 'other',         label: 'Other',         icon: 'ti-dots' },
 ]
 
 function getCatIcon(cat: string) {
-  return CATEGORIES.find(c => c.id === cat)?.icon || 'ti-clipboard'
+  return CATEGORIES.find(c => c.id === cat)?.icon || 'ti-dots'
 }
 
 function timeAgo(date: string) {
@@ -362,6 +362,65 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
     await loadAll()
   }
 
+  async function createBillForItemiser(
+    desc: string,
+    amount: number,
+    category: BillCategory,
+    note: string,
+    photoUrl: string,
+    isRecurring: boolean,
+    recurringInterval: string,
+    receiptHash: string | undefined,
+    memberIds: string[],
+  ): Promise<string | null> {
+    if (!knotId || !currentUser || memberIds.length === 0) return null
+
+    const { data: bill, error: billInsertError } = await supabase
+      .from('bills')
+      .insert({
+        knot_id: knotId,
+        added_by: currentUser.id,
+        total_amount: amount,
+        description: desc,
+        split_type: 'itemised',
+        category,
+        note: note || null,
+        photo_url: photoUrl || null,
+        is_recurring: isRecurring,
+        recurring_interval: isRecurring ? recurringInterval : null,
+        receipt_hash: receiptHash || null,
+      })
+      .select()
+      .single()
+
+    if (billInsertError || !bill) return null
+
+    await supabase.from('bill_splits').insert(
+      memberIds.map(uid => ({
+        bill_id: bill.id,
+        user_id: uid,
+        amount: 0,
+        settled: uid === currentUser.id,
+      })),
+    )
+
+    return bill.id
+  }
+
+  async function finishItemisedBill(desc: string, amount: number, splitCount: number) {
+    if (!knotId || !currentUser) return
+    await supabase.from('posts').insert({
+      knot_id: knotId,
+      author_id: currentUser.id,
+      content: `added a bill ${String.fromCodePoint(0x2014)} $${amount.toFixed(2)} for ${desc}, split by item (${splitCount} people)`,
+      post_type: 'bill',
+    })
+    track(supabase, 'bill_added', { hangout_id: hangoutId ?? null, amount }, knotId)
+    setShowAdd(false)
+    setAddError('')
+    await loadAll()
+  }
+
   const memberList: Member[] = useMemo(() => members.map(m => ({ id: m.id, name: m.name, avatar_url: m.avatar_url || null })), [members])
 
   const dietarySummary = useMemo(() => {
@@ -464,6 +523,9 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
             restrictionsNote={dietarySummary}
             submitting={adding}
             error={addError}
+            currentUser={currentUser}
+            onItemisedStart={createBillForItemiser}
+            onItemisedFinished={finishItemisedBill}
             onSubmit={(desc, amount, splits, category, note, photoUrl, isRecurring, recurringInterval, receiptHash) =>
               handleAddBill(desc, amount, splits, category, note, photoUrl, isRecurring, recurringInterval, receiptHash)
             }

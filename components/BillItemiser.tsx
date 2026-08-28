@@ -18,10 +18,11 @@ type LineItem = {
 }
 
 export interface BillItemiserProps {
-  billId: string
+  billId?: string
   totalAmount: number
   members: any[]
   currentUser: any
+  initialItems?: { description: string; amount: number }[]
   onComplete: () => void
   onCancel: () => void
 }
@@ -35,10 +36,18 @@ export default function BillItemiser({
   totalAmount,
   members,
   currentUser,
+  initialItems,
   onComplete,
   onCancel,
 }: BillItemiserProps) {
-  const [items, setItems] = useState<LineItem[]>([])
+  const [items, setItems] = useState<LineItem[]>(() =>
+    (initialItems || []).map(item => ({
+      id: newItemId(),
+      description: item.description,
+      amount: item.amount,
+      assignedUserIds: [],
+    })),
+  )
   const [descInput, setDescInput] = useState('')
   const [amountInput, setAmountInput] = useState('')
   const [saving, setSaving] = useState(false)
@@ -89,7 +98,7 @@ export default function BillItemiser({
   }
 
   async function confirmSplit() {
-    if (!canConfirm || !currentUser?.id) return
+    if (!canConfirm || !currentUser?.id || !billId) return
     setSaving(true)
     setError('')
 

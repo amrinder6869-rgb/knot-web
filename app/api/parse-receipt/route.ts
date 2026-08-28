@@ -57,7 +57,7 @@ export async function POST(request: Request) {
   "total": <number, the final total amount to pay, not subtotal>,
   "description": <string, 2-5 word summary of what the receipt is for e.g. "Dinner at Kasa" or "Uber ride" or "Groceries at Loblaws">,
   "category": <one of: "dinner", "drinks", "transport", "accommodation", "activities", "other">,
-  "items": [<array of strings, the main line items, max 5>]
+  "items": [<array of objects: { "description": string, "amount": number }, one per line item on the receipt, max 10>]
 }
 If you cannot read the receipt clearly, return { "total": null, "description": "", "category": "other", "items": [] }`,
               },

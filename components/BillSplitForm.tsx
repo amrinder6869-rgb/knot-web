@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { compressImage } from '@/lib/compressImage'
 import { getFlag } from '@/lib/flags'
 import MemberAvatar from '@/components/MemberAvatar'
+import BillItemiser from '@/components/BillItemiser'
 
 type Member = { id: string; name: string; avatar_url?: string | null }
 type SplitLine = { user_id: string; amount: number }
@@ -11,13 +12,28 @@ type SplitLine = { user_id: string; amount: number }
 export type BillCategory = 'dinner' | 'drinks' | 'transport' | 'accommodation' | 'activities' | 'other'
 
 const CATEGORIES: { id: BillCategory; label: string; icon: string }[] = [
-  { id: 'dinner',        label: 'Dinner',        icon: String.fromCodePoint(0x1F37D) },
-  { id: 'drinks',        label: 'Drinks',        icon: String.fromCodePoint(0x1F37A) },
-  { id: 'transport',     label: 'Transport',     icon: String.fromCodePoint(0x1F697) },
-  { id: 'accommodation', label: 'Stay',          icon: String.fromCodePoint(0x1F3E8) },
-  { id: 'activities',    label: 'Activities',    icon: String.fromCodePoint(0x1F3A8) },
-  { id: 'other',         label: 'Other',         icon: String.fromCodePoint(0x1F4CB) },
+  { id: 'dinner',        label: 'Dinner',        icon: 'ti-glass-full' },
+  { id: 'drinks',        label: 'Drinks',        icon: 'ti-beer' },
+  { id: 'transport',     label: 'Transport',     icon: 'ti-car' },
+  { id: 'accommodation', label: 'Stay',          icon: 'ti-building' },
+  { id: 'activities',    label: 'Activities',    icon: 'ti-run' },
+  { id: 'other',         label: 'Other',         icon: 'ti-dots' },
 ]
+
+export type ScannedItem = { description: string; amount: number }
+
+function normalizeOcrItems(raw: unknown[]): ScannedItem[] {
+  return raw.map(item => {
+    if (item && typeof item === 'object' && 'description' in item && 'amount' in item) {
+      const row = item as { description: string; amount: number }
+      return { description: String(row.description).trim(), amount: Number(row.amount) }
+    }
+    const str = String(item).trim()
+    const match = str.match(/^(.+?)\s+[\$]?(\d+(?:\.\d{1,2})?)\s*$/)
+    if (match) return { description: match[1].trim(), amount: parseFloat(match[2]) }
+    return { description: str, amount: 0 }
+  }).filter(row => row.description)
+}
 
 type BillSplitFormProps = {
   members: Member[]
@@ -47,13 +63,26 @@ type BillSplitFormProps = {
   ) => void
   onCancel?: () => void
   theme?: 'light' | 'dark'
+  currentUser?: any
+  onItemisedStart?: (
+    desc: string,
+    amount: number,
+    category: BillCategory,
+    note: string,
+    photoUrl: string,
+    isRecurring: boolean,
+    recurringInterval: string,
+    receiptHash: string | undefined,
+    memberIds: string[],
+  ) => Promise<string | null>
+  onItemisedFinished?: (desc: string, amount: number, splitCount: number) => void
 }
 
 // Simple djb2-style hash over the OCR'd item list plus total, used to flag
 // likely-duplicate receipts. Not cryptographic — just needs to be stable and
 // cheap to compute client-side.
-function computeReceiptHash(items: string[], total: number): string {
-  const input = items.join('|') + '|' + total.toFixed(2)
+function computeReceiptHash(items: ScannedItem[], total: number): string {
+  const input = items.map(i => `${i.description}:${i.amount.toFixed(2)}`).join('|') + '|' + total.toFixed(2)
   let hash = 5381
   for (let i = 0; i < input.length; i++) {
     hash = ((hash << 5) + hash + input.charCodeAt(i)) | 0
@@ -79,6 +108,9 @@ export default function BillSplitForm({
   onSubmit,
   onCancel,
   theme = 'light',
+  currentUser,
+  onItemisedStart,
+  onItemisedFinished,
 }: BillSplitFormProps) {
   const [desc, setDesc]         = useState(defaultDesc)
   const [amount, setAmount]     = useState(defaultAmount !== undefined ? String(defaultAmount) : '')
@@ -89,11 +121,13 @@ export default function BillSplitForm({
   const [uploading, setUploading]     = useState(false)
   const [scanning, setScanning]       = useState(false)
   const [uploadError, setUploadError] = useState('')
-  const [ocrItems, setOcrItems]       = useState<string[]>([])
+  const [ocrItems, setOcrItems]       = useState<ScannedItem[]>([])
   const [receiptHash, setReceiptHash] = useState<string>('')
   const [isRecurring, setIsRecurring] = useState(defaultIsRecurring)
   const [recurringInterval, setRecurringInterval] = useState(defaultRecurringInterval)
-  const [mode, setMode]         = useState<'equal' | 'percentage'>('equal')
+  const [mode, setMode]         = useState<'equal' | 'percentage' | 'item'>('equal')
+  const [itemiserBillId, setItemiserBillId] = useState<string | null>(null)
+  const [itemiserStarting, setItemiserStarting] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(
     new Set(defaultSelectedIds && defaultSelectedIds.length > 0 ? defaultSelectedIds : members.map(m => m.id))
   )
@@ -147,11 +181,33 @@ export default function BillSplitForm({
   }, [mode, parsedAmount, validAmount, selectedMembers, percentages])
 
   const canSubmit = desc.trim() && validAmount && selectedMembers.length > 0 &&
-    (mode === 'equal' || percentageValid) && !submitting && !uploading && !scanning
+    (mode === 'equal' || mode === 'item' || percentageValid) && !submitting && !uploading && !scanning && !itemiserStarting
 
   function handleSubmit() {
     if (!canSubmit) return
+    if (mode === 'item') {
+      void startItemisedSplit()
+      return
+    }
     onSubmit(desc.trim(), parsedAmount, splits, category, note.trim(), photoUrl, isRecurring, recurringInterval, receiptHash || undefined)
+  }
+
+  async function startItemisedSplit() {
+    if (!onItemisedStart || !currentUser) return
+    setItemiserStarting(true)
+    const billId = await onItemisedStart(
+      desc.trim(),
+      parsedAmount,
+      category,
+      note.trim(),
+      photoUrl,
+      isRecurring,
+      recurringInterval,
+      receiptHash || undefined,
+      selectedMembers.map(m => m.id),
+    )
+    setItemiserStarting(false)
+    if (billId) setItemiserBillId(billId)
   }
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -187,8 +243,10 @@ export default function BillSplitForm({
           if (parsed.description && !desc) setDesc(parsed.description)
           if (parsed.category) setCategory(parsed.category as BillCategory)
           if (parsed.items?.length) {
-            setOcrItems(parsed.items)
-            setReceiptHash(computeReceiptHash(parsed.items, parsed.total && !isNaN(parsed.total) ? parsed.total : 0))
+            const normalized = normalizeOcrItems(parsed.items)
+            setOcrItems(normalized)
+            const totalForHash = parsed.total && !isNaN(parsed.total) ? parsed.total : 0
+            setReceiptHash(computeReceiptHash(normalized, totalForHash))
           }
         }
       } catch { /* silent */ }
@@ -238,7 +296,7 @@ export default function BillSplitForm({
               <div style={{ fontSize: 12, fontWeight: 600, color: textColor }}>Receipt attached</div>
               {ocrItems.length > 0 && (
                 <div style={{ fontSize: 11, color: subColor, marginTop: 2 }}>
-                  {String.fromCodePoint(0x2728)} {ocrItems.slice(0, 2).join(', ')}{ocrItems.length > 2 ? ` +${ocrItems.length - 2} more` : ''}
+                  {ocrItems.length} scanned item{ocrItems.length === 1 ? '' : 's'} ready for split by item
                 </div>
               )}
             </div>
@@ -279,7 +337,7 @@ export default function BillSplitForm({
                 fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
                 display: 'flex', alignItems: 'center', gap: 4,
               }}>
-              <span>{cat.icon}</span>
+              <i className={`ti ${cat.icon}`} style={{ fontSize: 13, color: category === cat.id ? 'var(--yellow)' : subColor }} />
               <span style={{ fontWeight: category === cat.id ? 700 : 400 }}>{cat.label}</span>
             </button>
           ))}
@@ -292,12 +350,9 @@ export default function BillSplitForm({
       <input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Total amount"
         style={{ width: '100%', padding: '9px 12px', background: inputBg, border: `1px solid ${borderCol}`, borderRadius: 8, color: textColor, fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 8 }} />
 
-      {ocrItems.length > 0 && (
-        <div style={{ padding: '8px 12px', background: inputBg, border: `1px solid ${borderCol}`, borderRadius: 8, marginBottom: 8 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: subColor, marginBottom: 6, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{String.fromCodePoint(0x2728)} Scanned items</div>
-          {ocrItems.map((item, i) => (
-            <div key={i} style={{ fontSize: 12, color: textColor, padding: '2px 0' }}>{item}</div>
-          ))}
+      {ocrItems.length > 0 && mode === 'item' && (
+        <div style={{ fontSize: 12, color: subColor, marginBottom: 8 }}>
+          {ocrItems.length} scanned item{ocrItems.length === 1 ? '' : 's'} will be pre-filled in the itemiser.
         </div>
       )}
 
@@ -320,8 +375,8 @@ export default function BillSplitForm({
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-        {(['equal', 'percentage'] as const).map(m => (
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+        {(['equal', 'percentage', ...(onItemisedStart && currentUser ? ['item'] as const : [])] as const).map(m => (
           <button key={m} onClick={() => setMode(m)}
             style={{
               padding: '6px 12px', borderRadius: 6,
@@ -330,11 +385,12 @@ export default function BillSplitForm({
               color: mode === m ? 'var(--yellow)' : subColor,
               fontSize: 12, fontWeight: mode === m ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit',
             }}>
-            {m === 'equal' ? 'Split equally' : 'Split by percentage'}
+            {m === 'equal' ? 'Split equally' : m === 'percentage' ? 'Split by percentage' : 'Split by item'}
           </button>
         ))}
       </div>
 
+      {mode !== 'item' && (
       <div style={{ marginBottom: 10 }}>
         {members.map(m => {
           const isSelected = selected.has(m.id)
@@ -360,6 +416,7 @@ export default function BillSplitForm({
           )
         })}
       </div>
+      )}
 
       {mode === 'percentage' && (
         <div style={{ fontSize: 11, color: percentageValid ? subColor : 'var(--yellow)', marginBottom: 10 }}>
@@ -369,6 +426,11 @@ export default function BillSplitForm({
       {mode === 'equal' && validAmount && selectedMembers.length > 0 && (
         <div style={{ fontSize: 11, color: subColor, marginBottom: 10 }}>
           ${(parsedAmount / selectedMembers.length).toFixed(2)} each {String.fromCodePoint(0x00B7)} {selectedMembers.length} people
+        </div>
+      )}
+      {mode === 'item' && (
+        <div style={{ fontSize: 11, color: subColor, marginBottom: 10 }}>
+          Assign each line item to who ordered it. {ocrItems.length > 0 ? 'Scanned items will be pre-filled.' : 'You can add items manually in the next step.'}
         </div>
       )}
       {expectedHeadcount !== undefined && expectedHeadcount > members.length && (
@@ -385,9 +447,24 @@ export default function BillSplitForm({
         )}
         <button onClick={handleSubmit} disabled={!canSubmit}
           style={{ flex: 1, padding: '8px', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 13, fontWeight: 700, cursor: canSubmit ? 'pointer' : 'not-allowed', fontFamily: 'inherit', opacity: canSubmit ? 1 : 0.5 }}>
-          {submitting ? 'Posting...' : submitLabel}
+          {itemiserStarting ? 'Opening…' : submitting ? 'Posting...' : mode === 'item' ? 'Assign items' : submitLabel}
         </button>
       </div>
+
+      {itemiserBillId && currentUser && (
+        <BillItemiser
+          billId={itemiserBillId}
+          totalAmount={parsedAmount}
+          members={members}
+          currentUser={currentUser}
+          initialItems={ocrItems.length > 0 ? ocrItems : undefined}
+          onCancel={() => setItemiserBillId(null)}
+          onComplete={() => {
+            onItemisedFinished?.(desc.trim(), parsedAmount, selectedMembers.length)
+            setItemiserBillId(null)
+          }}
+        />
+      )}
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
