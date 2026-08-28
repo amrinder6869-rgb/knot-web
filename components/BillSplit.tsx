@@ -384,7 +384,14 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
     receiptHash: string | undefined,
     memberIds: string[],
   ): Promise<string | null> {
-    if (!knotId || !currentUser || memberIds.length === 0) return null
+    if (!knotId || !currentUser || memberIds.length === 0) {
+      console.error('[BillItemiser] placeholder bill creation skipped:', {
+        knotId,
+        currentUserId: currentUser?.id,
+        memberCount: memberIds.length,
+      })
+      return null
+    }
 
     const { data: bill, error: billInsertError } = await supabase
       .from('bills')
@@ -401,10 +408,13 @@ export default function BillSplit({ members, knotId, currentUser, hangoutId }: {
         recurring_interval: isRecurring ? recurringInterval : null,
         receipt_hash: receiptHash || null,
       })
-      .select()
+      .select('id')
       .single()
 
-    if (billInsertError || !bill) return null
+    if (billInsertError || !bill) {
+      console.error('[BillItemiser] placeholder bill creation failed:', billInsertError)
+      return null
+    }
 
     await supabase.from('bill_splits').insert(
       memberIds.map(uid => ({
