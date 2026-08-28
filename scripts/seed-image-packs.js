@@ -6,7 +6,7 @@ const path = require('path')
 const { createClient } = require('@supabase/supabase-js')
 
 const envPath = path.join(__dirname, '..', '.env.local')
-for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
+for (const line of fs.readFileSync(envPath, 'utf8').split(/\r?\n/)) {
   const match = line.match(/^([A-Z0-9_]+)=(.*)$/)
   if (match) process.env[match[1]] = match[2]
 }
