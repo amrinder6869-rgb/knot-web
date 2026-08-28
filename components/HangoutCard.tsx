@@ -143,11 +143,11 @@ export default function HangoutCard({ post, data, currentUser, knotId, onRefresh
       tabIndex={0}
       onClick={() => openChat()}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openChat() } }}
-      style={{ background: '#fff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 10, cursor: 'pointer', overflow: 'hidden', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}
+      style={{ background: '#fff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 10, cursor: 'pointer', overflow: 'visible', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}
     >
       {hangout.cover_image_url && (
-        <div style={{ position: 'relative', width: '100%', height: 160 }}>
-          <img src={hangout.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: '14px 14px 0 0' }} />
+        <div style={{ position: 'relative', width: '100%', height: 160, overflow: 'hidden', borderRadius: '12px 12px 0 0' }}>
+          <img src={hangout.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           {isCreator && (
             <button type="button" onClick={e => { e.stopPropagation(); setShowCoverPicker(true) }} aria-label="Change cover photo"
               style={{ position: 'absolute', bottom: 8, right: 8, width: 32, height: 32, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
@@ -179,7 +179,7 @@ export default function HangoutCard({ post, data, currentUser, knotId, onRefresh
             <i className="ti ti-dots" style={{ fontSize: ICON_SIZE.card, color: 'var(--text3)' }} />
           </button>
           {menuOpen && (
-            <div style={{ position: 'absolute', right: 0, top: '110%', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 6, minWidth: 168, zIndex: 40, boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}>
+            <div style={{ position: 'absolute', right: 0, top: '100%', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 6, minWidth: 168, zIndex: 300, boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}>
               {isCreator && (
                 <button type="button" onClick={e => { e.stopPropagation(); setMenuOpen(false); openChat() }}
                   style={{ width: '100%', textAlign: 'left', padding: '8px 10px', background: 'none', border: 'none', borderRadius: 8, color: 'var(--text)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
