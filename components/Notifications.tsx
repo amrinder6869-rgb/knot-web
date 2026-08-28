@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
@@ -51,7 +52,21 @@ export default function Notifications({ userId, onSelectKnot, knots }: {
   const [open, setOpen]           = useState(false)
   const [items, setItems]         = useState<any[]>([])
   const [unread, setUnread]       = useState(0)
+  const [mounted, setMounted]     = useState(false)
+  const [isMobile, setIsMobile]   = useState(false)
   const ref                       = useRef<HTMLDivElement>(null)
+  const mobileRef                 = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { setMounted(true) }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mq = window.matchMedia('(max-width: 768px)')
+    const update = () => setIsMobile(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
 
   useEffect(() => {
     if (userId) {
@@ -69,11 +84,21 @@ export default function Notifications({ userId, onSelectKnot, knots }: {
 
   useEffect(() => {
     function handleOutsideClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      const target = e.target as Node
+      if (ref.current?.contains(target)) return
+      if (mobileRef.current?.contains(target)) return
+      setOpen(false)
     }
     document.addEventListener('mousedown', handleOutsideClick)
     return () => document.removeEventListener('mousedown', handleOutsideClick)
   }, [])
+
+  useEffect(() => {
+    if (!open || !isMobile) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [open, isMobile])
 
   async function load() {
     const { data } = await supabase
@@ -138,6 +163,26 @@ export default function Notifications({ userId, onSelectKnot, knots }: {
     )
   }
 
+  const mobileSheet = open && mounted && isMobile ? createPortal(
+    <div ref={mobileRef} style={{ position: 'fixed', inset: 0, zIndex: 450, background: '#FFFFFF', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--border)', height: 52, boxSizing: 'border-box', background: '#FFFFFF', flexShrink: 0 }}>
+        <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Notifications</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          {unread > 0 && (
+            <button onClick={markAllRead} style={{ fontSize: 12, color: 'var(--yellow)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>
+              Mark all as read
+            </button>
+          )}
+          <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', fontSize: 20, color: 'var(--text3)', cursor: 'pointer', lineHeight: 1, padding: 4 }}>×</button>
+        </div>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', background: '#FFFFFF' }}>
+        {renderList()}
+      </div>
+    </div>,
+    document.body
+  ) : null
+
   return (
     <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
       <button
@@ -155,41 +200,22 @@ export default function Notifications({ userId, onSelectKnot, knots }: {
       </button>
 
       {open && (
-        <>
-          {/* Desktop: dropdown */}
-          <div className="desktop-only" style={{ position: 'absolute', top: '110%', right: 0, width: 340, background: '#ffffff', border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.14)', borderRadius: 12, zIndex: 300, overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 10px', borderBottom: '1px solid var(--border)' }}>
-              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Notifications</span>
-              {unread > 0 && (
-                <button onClick={markAllRead} style={{ fontSize: 11, color: 'var(--yellow)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>
-                  Mark all as read
-                </button>
-              )}
-            </div>
-            <div style={{ maxHeight: 420, overflowY: 'auto' }}>
-              {renderList()}
-            </div>
+        <div className="desktop-only" style={{ position: 'absolute', top: '110%', right: 0, width: 340, background: '#ffffff', border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.14)', borderRadius: 12, zIndex: 300, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 10px', borderBottom: '1px solid var(--border)' }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Notifications</span>
+            {unread > 0 && (
+              <button onClick={markAllRead} style={{ fontSize: 11, color: 'var(--yellow)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>
+                Mark all as read
+              </button>
+            )}
           </div>
-
-          {/* Mobile: full-screen sheet */}
-          <div className="mobile-only" style={{ display: 'none', position: 'fixed', inset: 0, zIndex: 300, background: 'var(--bg2)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--border)', height: 52, boxSizing: 'border-box' }}>
-              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Notifications</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                {unread > 0 && (
-                  <button onClick={markAllRead} style={{ fontSize: 12, color: 'var(--yellow)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>
-                    Mark all as read
-                  </button>
-                )}
-                <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', fontSize: 20, color: 'var(--text3)', cursor: 'pointer', lineHeight: 1, padding: 4 }}>×</button>
-              </div>
-            </div>
-            <div style={{ height: 'calc(100vh - 52px)', overflowY: 'auto' }}>
-              {renderList()}
-            </div>
+          <div style={{ maxHeight: 420, overflowY: 'auto' }}>
+            {renderList()}
           </div>
-        </>
+        </div>
       )}
+
+      {mobileSheet}
     </div>
   )
 }
@@ -198,7 +224,7 @@ function NotificationRow({ n, onClick }: { n: any; onClick: () => void }) {
   const initials = n.actor?.name ? getInitials(n.actor.name) : (TYPE_LABEL[n.type]?.substring(0, 2).toUpperCase() || 'N')
   return (
     <div onClick={onClick}
-      style={{ display: 'flex', gap: 10, padding: '12px 16px', cursor: 'pointer', background: n.read ? 'transparent' : 'var(--yellow-soft)', borderBottom: '1px solid var(--border)' }}>
+      style={{ display: 'flex', gap: 10, padding: '12px 16px', cursor: 'pointer', background: n.read ? '#FFFFFF' : 'var(--yellow-soft)', borderBottom: '1px solid var(--border)' }}>
       <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--bg3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'var(--text3)', flexShrink: 0 }}>
         {initials}
       </div>

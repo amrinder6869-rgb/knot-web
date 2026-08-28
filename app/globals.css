@@ -50,11 +50,30 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+html, body {
+  overflow-x: hidden;
+}
+
 body {
   background: var(--bg);
   color: var(--text);
   font-family: 'Manrope', sans-serif;
   min-height: 100vh;
+  width: 100%;
+  max-width: 100vw;
+}
+
+.page-shell {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.feed-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: stretch;
 }
 
 ::-webkit-scrollbar { width: 6px; }
@@ -108,6 +127,7 @@ body {
   .desktop-layout > div:last-child { display: none !important; }
   .cat-grid { grid-template-columns: repeat(2, 1fr) !important; }
   .members-grid { grid-template-columns: 1fr !important; }
+  .feed-quick-grid { grid-template-columns: 1fr !important; }
 }
 
 @media (min-width: 769px) {

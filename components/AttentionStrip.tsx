@@ -145,14 +145,14 @@ export default function AttentionStrip({
   if (items.length === 0) return null
 
   return (
-    <div style={{ marginBottom: 16 }}>
+    <div style={{ marginBottom: 16, minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
         <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
           {ATTENTION_STRIP_HEADER}
         </span>
         <span style={{ padding: '1px 7px', borderRadius: 20, background: 'var(--yellow)', color: '#111', fontSize: 10, fontWeight: 700 }}>{items.length}</span>
       </div>
-      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
+      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2, maxWidth: '100%' }}>
         {items.map(item => (
           <div key={item.key} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: '#fff', border: '1px solid var(--border)', borderRadius: 10, minWidth: 200 }}>
             <i className={`ti ${item.icon}`} style={{ fontSize: ICON_SIZE.card, color: 'var(--text3)', flexShrink: 0 }} />

@@ -544,7 +544,7 @@ export default function Dashboard() {
   const isFounder = activeKnot?.created_by === user.id
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', fontFamily: 'Manrope, sans-serif' }}>
+    <div className="page-shell" style={{ minHeight: '100vh', background: 'var(--bg)', fontFamily: 'Manrope, sans-serif' }}>
 
       {profile && profile.onboarding_completed === false && (
         <Onboarding
@@ -632,8 +632,8 @@ export default function Dashboard() {
         <>
           {/* COVER BANNER */}
           <div style={{ borderBottom: '1px solid var(--border)' }}>
-            <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px 20px 0 20px' }}>
-            <div style={{ height: 180, background: coverSignedUrl ? 'transparent' : 'linear-gradient(135deg, var(--bg2) 0%, var(--bg3) 50%, var(--bg4) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', borderRadius: 12 }}>
+            <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px 20px 0 20px', width: '100%', boxSizing: 'border-box' }}>
+            <div style={{ width: '100%', height: 180, background: coverSignedUrl ? 'transparent' : 'linear-gradient(135deg, var(--bg2) 0%, var(--bg3) 50%, var(--bg4) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', borderRadius: 12, boxSizing: 'border-box' }}>
               {coverSignedUrl ? (
                 <img src={coverSignedUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', position: 'absolute', top: 0, left: 0 }} />
               ) : (
@@ -722,8 +722,8 @@ export default function Dashboard() {
           </div>
 
           {/* TWO COLUMN CONTENT */}
-          <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px', paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 0px))', display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, alignItems: 'start' }} className="desktop-layout">
-            <div>
+          <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px', paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 0px))', display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, alignItems: 'start', width: '100%', boxSizing: 'border-box' }} className="desktop-layout">
+            <div style={{ minWidth: 0, maxWidth: '100%' }}>
               {active === 'discover'  && <Discover  members={knotMembers} currentUser={profile} />}
               {active === 'feed'      && (
                 <>
@@ -830,8 +830,8 @@ export default function Dashboard() {
 
       ) : showHome ? (
         /* HOME FEED */
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px', display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, alignItems: 'start' }} className="desktop-layout">
-          <div>
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px', display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, alignItems: 'start', width: '100%', boxSizing: 'border-box' }} className="desktop-layout">
+          <div style={{ minWidth: 0, maxWidth: '100%' }}>
             
             <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
               {([

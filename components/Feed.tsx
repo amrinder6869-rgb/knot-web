@@ -503,7 +503,7 @@ export default function Feed({ members, knotName, knotEmoji, knotId, currentUser
   if (!knotId) return null
 
   return (
-    <div style={{ maxWidth: 640 }}>
+    <div style={{ maxWidth: 640, width: '100%', minWidth: 0 }}>
 
       {showOrientCard && currentUser?.id && (
         <OrientCard
@@ -515,7 +515,7 @@ export default function Feed({ members, knotName, knotEmoji, knotId, currentUser
         />
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 24, alignItems: 'stretch' }}>
+      <div className="feed-quick-grid" style={{ marginBottom: 24 }}>
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--yellow)', borderRadius: 12, padding: '14px 16px', alignSelf: 'stretch' }}>
           <div style={{ fontSize: 11, color: 'var(--yellow)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Tonight</div>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Plan a hangout</div>
