@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Manrope } from 'next/font/google'
 import { ToastProvider } from '@/components/ToastProvider'
 import { ServiceWorkerRegistration } from '@/lib/ServiceWorkerRegistration'
@@ -9,6 +9,12 @@ const manrope = Manrope({ subsets: ['latin'], weight: ['400','500','600','700','
 export const metadata: Metadata = {
   title: 'Knot – Your Private Circle',
   description: 'The private social layer for people who actually know each other.',
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
 }
 
 export default function RootLayout({

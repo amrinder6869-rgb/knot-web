@@ -901,7 +901,7 @@ export default function Dashboard() {
       {/* BOTTOM NAV + MORE DRAWER — only inside a Knot on mobile */}
       {activeKnot && !showHome && (
         <>
-          <nav className="bottom-nav" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: 64, background: 'var(--glass-bg)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderTop: '1px solid var(--border)', zIndex: 100, alignItems: 'center', justifyContent: 'space-around', padding: '6px 8px', paddingBottom: 'env(safe-area-inset-bottom, 6px)' }}>
+          <nav className="bottom-nav" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, width: '100%', height: 64, background: 'var(--glass-bg)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderTop: '1px solid var(--border)', zIndex: 100, alignItems: 'center', justifyContent: 'space-around', padding: '6px 8px', paddingBottom: 'env(safe-area-inset-bottom, 6px)' }}>
             {BOTTOM_NAV.map(n => {
               const isActive = n.id === 'more' ? showMore : active === n.id
               return (

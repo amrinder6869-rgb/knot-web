@@ -324,7 +324,7 @@ export default function Notifications({ userId, onSelectKnot, knots, onOpenChat 
           </div>
 
           {/* Mobile: full-screen sheet */}
-          <div className="mobile-only" style={{ display: 'none', position: 'fixed', inset: 0, zIndex: 300, background: 'var(--bg2)' }}>
+          <div className="mobile-only" style={{ display: 'none', position: 'fixed', inset: 0, zIndex: 500, background: '#fff' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--border)', height: 52, boxSizing: 'border-box' }}>
               <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Notifications</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
