@@ -136,7 +136,7 @@ body {
   .sidebar-hidden { display: none !important; }
   .bottom-nav { display: flex !important; }
   .desktop-only { display: none !important; }
-  .mobile-only { display: block !important; }
+  .mobile-only { display: flex !important; }
   .grid-2col { grid-template-columns: 1fr !important; }
   .content-pad { padding: 16px !important; }
   .desktop-layout { grid-template-columns: minmax(0, 1fr) !important; min-width: 0; overflow-x: hidden; }

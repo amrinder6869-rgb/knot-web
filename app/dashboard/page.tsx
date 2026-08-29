@@ -140,6 +140,7 @@ export default function Dashboard() {
   const [activeChat, setActiveChat]               = useState<OpenChatOpts | null>(null)
   const [showGroupChat, setShowGroupChat]         = useState(false)
   const [showCrossKnotBalances, setShowCrossKnotBalances] = useState(false)
+  const [showMobileNav, setShowMobileNav]         = useState(false)
 
   function openHangoutChat(opts: OpenChatOpts | string) {
     setActiveChat(typeof opts === 'string' ? { hangoutId: opts } : opts)
@@ -545,40 +546,68 @@ export default function Dashboard() {
         </div>
 
         <div style={{ position: 'relative', flex: 1 }}>
-          <button onClick={() => setShowKnotList(!showKnotList)}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--text)', fontSize: 13, fontWeight: 500 }}>
-            <span style={{ maxWidth: 180, overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-              {activeKnot ? (
-                <>
-                  <KnotIcon value={activeKnot.emoji} size={22} iconSize={12} />
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeKnot.name}</span>
-                </>
-              ) : 'Select a Knot'}
-            </span>
-            <i className="ti ti-chevron-down" style={{ fontSize: ICON_SIZE.inline, color: 'var(--text3)' }} />
-          </button>
-          {showKnotList && (
-            <div style={{ position: 'absolute', top: '110%', left: 0, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 8, minWidth: 220, zIndex: 200, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '4px 8px', marginBottom: 4 }}>Your Knots</div>
-              {knots.map(k => {
-                const isActiveKnot = activeKnot?.id === k.id
-                return (
-                  <div key={k.id} onClick={() => switchKnot(k)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 999, cursor: 'pointer', background: isActiveKnot ? 'var(--pill-bg)' : 'transparent', marginBottom: 2 }}>
-                    <KnotIcon value={k.emoji} size={24} iconSize={13} />
-                    <span style={{ flex: 1, fontSize: 13, fontWeight: isActiveKnot ? 600 : 400, color: isActiveKnot ? 'var(--pill-text)' : 'var(--text)' }}>{k.name}</span>
-                    <span style={{ fontSize: 11, color: isActiveKnot ? 'rgba(255,255,255,0.6)' : 'var(--text3)' }}>{k.count}</span>
+          {/* Desktop header - Knot name dropdown as before */}
+          <div className="desktop-only">
+            <button onClick={() => setShowKnotList(!showKnotList)}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--text)', fontSize: 13, fontWeight: 500 }}>
+              <span style={{ maxWidth: 180, overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                {activeKnot ? (
+                  <>
+                    <KnotIcon value={activeKnot.emoji} size={22} iconSize={12} />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeKnot.name}</span>
+                  </>
+                ) : 'Select a Knot'}
+              </span>
+              <i className="ti ti-chevron-down" style={{ fontSize: ICON_SIZE.inline, color: 'var(--text3)' }} />
+            </button>
+            {showKnotList && (
+              <div style={{ position: 'absolute', top: '110%', left: 0, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 8, minWidth: 220, zIndex: 200, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
+                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '4px 8px', marginBottom: 4 }}>Your Knots</div>
+                {knots.map(k => {
+                  const isActiveKnot = activeKnot?.id === k.id
+                  return (
+                    <div key={k.id} onClick={() => switchKnot(k)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 999, cursor: 'pointer', background: isActiveKnot ? 'var(--pill-bg)' : 'transparent', marginBottom: 2 }}>
+                      <KnotIcon value={k.emoji} size={24} iconSize={13} />
+                      <span style={{ flex: 1, fontSize: 13, fontWeight: isActiveKnot ? 600 : 400, color: isActiveKnot ? 'var(--pill-text)' : 'var(--text)' }}>{k.name}</span>
+                      <span style={{ fontSize: 11, color: isActiveKnot ? 'rgba(255,255,255,0.6)' : 'var(--text3)' }}>{k.count}</span>
+                    </div>
+                  )
+                })}
+                <div style={{ borderTop: '1px solid var(--border)', marginTop: 6, paddingTop: 6 }}>
+                  <div onClick={() => { setShowKnotList(false); setShowNewKnot(true) }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--yellow)', fontWeight: 600 }}>
+                    <i className="ti ti-plus" style={{ fontSize: ICON_SIZE.inline, color: 'var(--yellow)' }} /> New Knot
                   </div>
-                )
-              })}
-              <div style={{ borderTop: '1px solid var(--border)', marginTop: 6, paddingTop: 6 }}>
-                <div onClick={() => { setShowKnotList(false); setShowNewKnot(true) }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--yellow)', fontWeight: 600 }}>
-                  <i className="ti ti-plus" style={{ fontSize: ICON_SIZE.inline, color: 'var(--yellow)' }} /> New Knot
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+
+          {/* Mobile header - hamburger only */}
+          <div className="mobile-only" style={{ alignItems: 'center', gap: 8 }}>
+            <button
+              onClick={() => setShowMobileNav(true)}
+              style={{
+                width: 36, height: 36, borderRadius: 8,
+                background: 'var(--bg3)', border: '1px solid var(--border)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer',
+              }}
+              aria-label="Open navigation"
+            >
+              <i className="ti ti-menu-2" style={{ fontSize: 18, color: 'var(--text2)' }} />
+            </button>
+            {activeKnot && (
+              <span style={{
+                fontSize: 13, fontWeight: 700, color: '#111',
+                maxWidth: 140, overflow: 'hidden',
+                textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {activeKnot.name}
+              </span>
+            )}
+          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
@@ -1290,6 +1319,143 @@ export default function Dashboard() {
             setActive('split')
           }}
         />
+      )}
+
+      {showMobileNav && (
+        <>
+          {/* Backdrop */}
+          <div
+            onClick={() => setShowMobileNav(false)}
+            style={{
+              position: 'fixed', inset: 0,
+              background: 'rgba(0,0,0,0.4)',
+              zIndex: 499,
+            }}
+          />
+          {/* Drawer */}
+          <div style={{
+            position: 'fixed',
+            top: 0, left: 0, bottom: 0,
+            width: 280,
+            background: '#fff',
+            zIndex: 500,
+            display: 'flex',
+            flexDirection: 'column',
+            overflowY: 'auto',
+            boxShadow: '4px 0 24px rgba(0,0,0,0.12)',
+          }}>
+            {/* Drawer header */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '16px 16px 12px',
+              borderBottom: '0.5px solid var(--border)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <svg width="20" height="20" viewBox="0 0 44 44" fill="none">
+                  <circle cx="17" cy="17" r="10" stroke="var(--yellow)" strokeWidth="3" fill="none"/>
+                  <circle cx="27" cy="27" r="10" stroke="var(--yellow)" strokeWidth="3" fill="none" opacity="0.5"/>
+                </svg>
+                <span style={{ fontSize: 15, fontWeight: 800, color: '#111' }}>
+                  kn<span style={{ color: 'var(--yellow)' }}>o</span>t
+                </span>
+              </div>
+              <button
+                onClick={() => setShowMobileNav(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+                aria-label="Close navigation"
+              >
+                <i className="ti ti-x" style={{ fontSize: 18, color: 'var(--text3)' }} />
+              </button>
+            </div>
+
+            {/* Current Knot name - truncated safely */}
+            {activeKnot && (
+              <div style={{ padding: '12px 16px', borderBottom: '0.5px solid var(--border)' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+                  Current circle
+                </div>
+                <div style={{
+                  fontSize: 15, fontWeight: 800, color: '#111',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {activeKnot.name}
+                </div>
+              </div>
+            )}
+
+            {/* Knot list */}
+            <div style={{ padding: '8px 0' }}>
+              <div style={{ padding: '6px 16px 4px', fontSize: 10, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Your circles
+              </div>
+              {knots.map(knot => (
+                <button
+                  key={knot.id}
+                  onClick={() => { switchKnot(knot); setShowMobileNav(false) }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    width: '100%', padding: '10px 16px',
+                    background: activeKnot?.id === knot.id ? 'var(--bg3)' : 'transparent',
+                    border: 'none', cursor: 'pointer', textAlign: 'left',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <KnotIcon value={knot.emoji} size={28} iconSize={13} />
+                  <span style={{
+                    fontSize: 13, fontWeight: activeKnot?.id === knot.id ? 700 : 500,
+                    color: '#111',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    flex: 1,
+                  }}>
+                    {knot.name}
+                  </span>
+                  {activeKnot?.id === knot.id && (
+                    <i className="ti ti-check" style={{ fontSize: 14, color: 'var(--yellow)', flexShrink: 0 }} />
+                  )}
+                </button>
+              ))}
+
+              {/* Create new Knot */}
+              <button
+                onClick={() => { setShowNewKnot(true); setShowMobileNav(false) }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  width: '100%', padding: '10px 16px',
+                  background: 'transparent', border: 'none', cursor: 'pointer',
+                  textAlign: 'left', fontFamily: 'inherit',
+                  borderTop: '0.5px solid var(--border)', marginTop: 4,
+                }}
+              >
+                <div style={{
+                  width: 28, height: 28, borderRadius: 8,
+                  background: 'var(--bg3)', border: '1px dashed var(--border2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <i className="ti ti-plus" style={{ fontSize: 14, color: 'var(--text3)' }} />
+                </div>
+                <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text2)' }}>
+                  New circle
+                </span>
+              </button>
+            </div>
+
+            {/* Profile and settings at bottom */}
+            <div style={{ marginTop: 'auto', borderTop: '0.5px solid var(--border)', padding: '12px 0' }}>
+              <button
+                onClick={() => { setShowProfile(true); setShowMobileNav(false) }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  width: '100%', padding: '10px 16px',
+                  background: 'transparent', border: 'none', cursor: 'pointer',
+                  textAlign: 'left', fontFamily: 'inherit',
+                }}
+              >
+                <i className="ti ti-user" style={{ fontSize: 16, color: 'var(--text3)' }} />
+                <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text2)' }}>Profile</span>
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   )
