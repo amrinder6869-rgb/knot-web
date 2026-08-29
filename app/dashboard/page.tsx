@@ -141,6 +141,11 @@ export default function Dashboard() {
   const [showGroupChat, setShowGroupChat]         = useState(false)
   const [showCrossKnotBalances, setShowCrossKnotBalances] = useState(false)
   const [showMobileNav, setShowMobileNav]         = useState(false)
+  const [avatarLoadError, setAvatarLoadError]     = useState(false)
+
+  useEffect(() => {
+    setAvatarLoadError(false)
+  }, [profile?.avatar_url])
 
   function openHangoutChat(opts: OpenChatOpts | string) {
     setActiveChat(typeof opts === 'string' ? { hangoutId: opts } : opts)
@@ -624,8 +629,8 @@ export default function Dashboard() {
           />
           <button onClick={() => setShowProfile(true)}
             style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#111', border: profile?.equipped_ring_color ? `3px solid ${profile.equipped_ring_color}` : 'none', cursor: 'pointer', overflow: 'hidden', flexShrink: 0, boxSizing: 'border-box' }}>
-            {profile?.avatar_url
-              ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            {profile?.avatar_url && !avatarLoadError
+              ? <img src={profile.avatar_url} alt="" onError={() => setAvatarLoadError(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               : initials}
           </button>
         </div>
@@ -641,11 +646,11 @@ export default function Dashboard() {
               {coverSignedUrl ? (
                 <img src={coverSignedUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', position: 'absolute', top: 0, left: 0 }} />
               ) : (
-                <>
-                  <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 30% 50%, rgba(248,189,3,0.2) 0%, transparent 60%)' }} />
-                  <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 70% 50%, rgba(248,189,3,0.1) 0%, transparent 60%)' }} />
-                  <span style={{ position: 'relative', zIndex: 1 }}><KnotIcon value={activeKnot.emoji} size={72} iconSize={36} /></span>
-                </>
+                <div style={{
+                  width: '100%',
+                  height: '100%',
+                  background: 'linear-gradient(135deg, #F5F3EE 0%, #EDE9E3 100%)',
+                }} />
               )}
               {activeKnot.created_by === user.id && (
                 <label style={{ position: 'absolute', bottom: 10, right: 10, zIndex: 2, padding: '6px 12px', background: 'rgba(0,0,0,0.5)', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -1090,8 +1095,8 @@ export default function Dashboard() {
 
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
               <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => document.getElementById('avatar-upload')?.click()}>
-                {profile?.avatar_url ? (
-                  <img src={profile.avatar_url} alt="avatar" style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--yellow)' }} />
+                {profile?.avatar_url && !avatarLoadError ? (
+                  <img src={profile.avatar_url} alt="avatar" onError={() => setAvatarLoadError(true)} style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--yellow)' }} />
                 ) : (
                   <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, color: '#111' }}>
                     {editName ? editName.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase() : initials}

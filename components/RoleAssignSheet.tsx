@@ -6,6 +6,7 @@ import {
   CalendarCheck, UtensilsCrossed, Camera, Music, X, Check
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import MemberAvatar from '@/components/MemberAvatar'
 import {
   HangoutRoleType,
   ROLE_LABELS,
@@ -149,10 +150,7 @@ export function RoleAssignSheet({
         <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 16px' }} />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {member.avatar_url
-              ? <img src={member.avatar_url} alt={member.name} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
-              : <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#111', fontWeight: 700, fontSize: 14 }}>{member.name[0]?.toUpperCase()}</div>
-            }
+            <MemberAvatar name={member.name} avatarUrl={member.avatar_url || null} size={36} />
             <div>
               <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>{member.name}</div>
               <div style={{ fontSize: 12, color: 'var(--text3)' }}>Assign roles for this hangout</div>

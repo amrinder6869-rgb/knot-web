@@ -220,7 +220,7 @@ export default function Onboarding({ profile, onComplete }: { profile: any, onCo
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
               <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => document.getElementById('onboarding-avatar-upload')?.click()}>
                 {avatarSignedUrl ? (
-                  <img src={avatarSignedUrl} alt="avatar" style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--yellow)' }} />
+                  <img src={avatarSignedUrl} alt="avatar" onError={() => setAvatarSignedUrl(null)} style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--yellow)' }} />
                 ) : (
                   <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 700, color: '#111' }}>
                     {initials}

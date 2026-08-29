@@ -8,6 +8,7 @@ import { DailyCall } from '@/components/DailyCall'
 import AvailabilityPoll from '@/components/AvailabilityPoll'
 import CoverImagePicker from '@/components/CoverImagePicker'
 import VenuePoll from '@/components/VenuePoll'
+import MemberAvatar from '@/components/MemberAvatar'
 import { ACTIVITY_ICONS, ICON_SIZE } from '@/lib/constants'
 import { createNotification } from '@/lib/notify'
 import { insertAgentMessage } from '@/lib/insertAgentMessage'
@@ -104,10 +105,6 @@ function KnotMark({ size = 20 }: { size?: number }) {
       <circle cx="27" cy="27" r="10" stroke="var(--yellow)" strokeWidth="3" fill="none" opacity="0.5" />
     </svg>
   )
-}
-
-function getInitials(name: string) {
-  return (name || 'U').split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()
 }
 
 function timeAgo(date: string) {
@@ -1181,12 +1178,8 @@ export default function HangoutChatView({
                       <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#FFFBEE', border: '1px solid rgba(248,189,3,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <KnotMark size={14} />
                       </div>
-                    ) : avatarUrl ? (
-                      <img src={avatarUrl} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                     ) : (
-                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--yellow)', color: 'var(--text)', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        {getInitials(name)}
-                      </div>
+                      <MemberAvatar name={name} avatarUrl={avatarUrl} size={28} textColor="var(--text)" />
                     )}
                     <div style={{ maxWidth: '76%', display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start' }}>
                       {!isMine && <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', marginBottom: 2 }}>{name}</span>}
