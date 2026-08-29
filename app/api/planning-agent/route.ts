@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import https from 'https'
 import { createClient } from '@supabase/supabase-js'
 import { getRandom, AGENT_MESSAGES, PLANNER_NUDGE, AGENT_VENUE_PROMPT, PLAN_UNTITLED, CTA_CONFIRM } from '@/lib/copy'
+import { biasVenueQuery, parseScheduledFor, timeZoneForCity } from '@/lib/parseScheduledFor'
 
 const NUDGE_THRESHOLD_MS = 48 * 60 * 60 * 1000
 
@@ -32,11 +33,14 @@ Respond only with valid JSON:
 
 Rules:
 - agent_message null only when the message has zero planning relevance. Never null when venueSearchQuery is set.
+- Weak planning intent with no extractable fields (for example "thinking about a hangout") is still planning. Produce a short clarifying question, never a null agent_message. Example: "What are we doing?" plus chips of activity types.
 - chips maximum three. Labels maximum three words each.
 - plan_updates only when a chip has been tapped confirming a value, or the user explicitly states a confirmed value. Never from inference alone. Exception: plan_updates.title on the first message that introduces a plan.
+- scheduled_for may be ISO 8601 or a natural phrase like "Saturday 7pm" or "Friday at 8pm". Prefer ISO when you can.
+- When asked who is coming, answer from the RSVP list in the context. Do not ask a generic headcount question if RSVP data is present.
 - revenue_suggestion only when directly relevant to what was just discussed. One per message maximum. Never unsolicited.
 - If two members propose conflicting values, return agent_message describing the conflict and plan_updates as null.
-- venueSearchQuery: set whenever the message contains a named venue, a venue type or category, a phrase asking for suggestions, or an activity implying a venue. Format: "[venue type or name] near [city]". Use the sender city provided. Whenever venueSearchQuery is set, agent_message must be exactly "Here are some options nearby." Never set venueSearchQuery alongside plan_updates.venue_name in the same reply.
+- venueSearchQuery: set whenever the message contains a named venue, a venue type or category, a phrase asking for suggestions, or an activity implying a venue. Format: "[venue type or name] near [city]". Always include the sender city after near. Whenever venueSearchQuery is set, agent_message must be exactly "Here are some options nearby." Never set venueSearchQuery alongside plan_updates.venue_name in the same reply.
 
 Title rules (plan_updates.title) — the only field you may infer on the opening message of a new plan:
 - Named venue mentioned: title is the venue name.
@@ -50,13 +54,40 @@ const ALLOWED_PLAN_FIELDS = new Set([
   'brief', 'brief_vibe', 'brief_budget',
 ])
 
-function filterPlanUpdates(updates: Record<string, any> | null): Record<string, any> | null {
+const ALLOWED_HANGOUT_STATUS = new Set(['voting', 'confirmed', 'live', 'ended', 'locked', 'cancelled'])
+
+function filterPlanUpdates(
+  updates: Record<string, any> | null,
+  existingScheduledFor: string | null | undefined,
+  timeZone: string,
+): Record<string, any> | null {
   if (!updates) return null
   const out: Record<string, any> = {}
   for (const key of Object.keys(updates)) {
     if (ALLOWED_PLAN_FIELDS.has(key)) out[key] = updates[key]
   }
+  if ('scheduled_for' in out) {
+    const iso = parseScheduledFor(out.scheduled_for, existingScheduledFor, timeZone)
+    if (iso) out.scheduled_for = iso
+    else delete out.scheduled_for
+  }
+  if ('status' in out && !ALLOWED_HANGOUT_STATUS.has(String(out.status))) {
+    delete out.status
+  }
   return Object.keys(out).length > 0 ? out : null
+}
+
+function formatRsvpContext(rows: { status: string; profiles?: { name?: string } | { name?: string }[] | null }[] | null): string {
+  if (!rows || rows.length === 0) return 'RSVPs: No responses yet.'
+  const nameOf = (row: { profiles?: { name?: string } | { name?: string }[] | null }) => {
+    const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles
+    return profile?.name?.trim() || ''
+  }
+  const names = (statuses: string[]) => {
+    const list = rows.map(r => statuses.includes(r.status) ? nameOf(r) : '').filter(Boolean)
+    return list.length ? list.join(', ') : 'none'
+  }
+  return `RSVPs: Going: ${names(['yes', 'going'])}. Maybe: ${names(['maybe'])}. Can't go: ${names(['no', 'declined'])}.`
 }
 
 function httpsGet(url: string): Promise<string> {
@@ -145,11 +176,12 @@ async function welcomeForHangout(
   }
 
   if (agentMessage) {
-    await serviceClient.from('hangout_messages').insert({
+    const { error: welcomeError } = await serviceClient.from('hangout_messages').insert({
       hangout_id: hangoutId,
       author_id: agentUserId,
       content: agentMessage,
     })
+    if (welcomeError) console.error('[planning-agent] welcome insert failed:', welcomeError)
   }
 
   return {
@@ -283,6 +315,15 @@ export async function POST(request: Request) {
       .join(', ')
     const memberCount = (memberRows || []).length
 
+    let rsvpContext = 'RSVPs: No responses yet.'
+    if (hangout_id) {
+      const { data: rsvpRows } = await serviceClient
+        .from('hangout_rsvps')
+        .select('status, profiles:user_id(name)')
+        .eq('hangout_id', hangout_id)
+      rsvpContext = formatRsvpContext(rsvpRows as any)
+    }
+
     // Fetch conversation history — last 12 messages for context window
     let conversationHistory: { role: 'user' | 'assistant'; content: string }[] = []
     if (hangout_id) {
@@ -308,6 +349,7 @@ export async function POST(request: Request) {
     const contextBlock = [
       `Current plan state: ${current_plan_state ? JSON.stringify(current_plan_state) : 'no active plan yet'}`,
       `Group members (${memberCount}): ${memberNames || 'unknown'}`,
+      rsvpContext,
       `Sender: ${senderName} (city: ${locationHint})`,
       `New message from ${senderName}: "${message.trim()}"`,
     ].join('\n')
@@ -352,7 +394,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ agent_message: null, chips: null, plan_updates: null, todo_updates: null, revenue_suggestion: null })
     }
 
-    const planUpdates = filterPlanUpdates(parsed.plan_updates ?? null)
+    const timeZone = timeZoneForCity(locationHint)
+    const planUpdates = filterPlanUpdates(
+      parsed.plan_updates ?? null,
+      current_plan_state?.scheduled_for ?? null,
+      timeZone,
+    )
     let resolvedHangoutId: string | null = hangout_id || null
     let agentMessage: string | null = parsed.agent_message ?? null
 
@@ -368,7 +415,8 @@ export async function POST(request: Request) {
       skipVenueSearch = !!(lastMsg && lastMsg.author_id === agentUserId && lastMsg.content?.includes(AGENT_VENUE_PROMPT))
     }
 
-    const venueSearchQuery: string | null = typeof parsed.venueSearchQuery === 'string' ? parsed.venueSearchQuery.trim() : null
+    const rawVenueQuery: string | null = typeof parsed.venueSearchQuery === 'string' ? parsed.venueSearchQuery.trim() : null
+    const venueSearchQuery = rawVenueQuery ? biasVenueQuery(rawVenueQuery, locationHint) : null
     let venueSuggestions: Awaited<ReturnType<typeof searchVenues>> = []
     if (venueSearchQuery && !skipVenueSearch) {
       venueSuggestions = await searchVenues(venueSearchQuery, token)
@@ -402,6 +450,7 @@ export async function POST(request: Request) {
           .select('id')
           .single()
         if (createError || !newHangout) {
+          console.error('[planning-agent] hangout insert failed:', createError)
           writeFailed = true
         } else {
           resolvedHangoutId = newHangout.id
@@ -411,7 +460,10 @@ export async function POST(request: Request) {
           .from('hangouts')
           .update(planUpdates)
           .eq('id', resolvedHangoutId)
-        if (updateError) writeFailed = true
+        if (updateError) {
+          console.error('[planning-agent] hangout update failed:', updateError, 'payload:', planUpdates)
+          writeFailed = true
+        }
       }
 
       if (writeFailed) {
@@ -425,18 +477,20 @@ export async function POST(request: Request) {
       if (nudgeMessage) agentMessage = agentMessage ? `${agentMessage} ${nudgeMessage}` : nudgeMessage
 
       if (resolvedHangoutId) {
-        await serviceClient
+        const { error: activityError } = await serviceClient
           .from('hangouts')
           .update({ last_planning_activity_at: new Date().toISOString() })
           .eq('id', resolvedHangoutId)
+        if (activityError) console.error('[planning-agent] last_planning_activity_at update failed:', activityError)
       }
 
       if (agentMessage && resolvedHangoutId) {
-        await serviceClient.from('hangout_messages').insert({
+        const { error: messageError } = await serviceClient.from('hangout_messages').insert({
           hangout_id: resolvedHangoutId,
           author_id: agentUserId,
           content: agentMessage,
         })
+        if (messageError) console.error('[planning-agent] agent message insert failed:', messageError)
       }
     }
 

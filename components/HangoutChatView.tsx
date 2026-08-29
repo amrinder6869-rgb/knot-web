@@ -690,9 +690,12 @@ export default function HangoutChatView({
       delete next[triggerMessageId]
       return next
     })
-    await insertAgentMessage(hangout.id, `${getRandom(AGENT_MESSAGES.VENUE_CONFIRMED)} ${venue.name} locked in.`)
+    const confirmLine = `${getRandom(AGENT_MESSAGES.VENUE_CONFIRMED)} ${venue.name} locked in.`
+    await insertAgentMessage(
+      hangout.id,
+      wasDateOpen ? `${confirmLine} ${AGENT_WHEN_PROMPT}` : confirmLine,
+    )
     if (wasDateOpen) {
-      await insertAgentMessage(hangout.id, AGENT_WHEN_PROMPT)
       setPendingChips([
         { label: CHIP_WHEN_TODAY, action: 'when', value: 'today' },
         { label: CHIP_WHEN_FRIDAY, action: 'when', value: 'friday' },
