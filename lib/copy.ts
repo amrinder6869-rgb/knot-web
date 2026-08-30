@@ -379,6 +379,12 @@ export const COVER_IMAGE_UPLOAD_TAB = 'Upload photo'
 export const COVER_IMAGE_SET_BUTTON = 'Set cover'
 export const COVER_IMAGE_PREMIUM_LABEL = 'Coming soon'
 
+export const DISCOVER_START_PLAN = 'Start a plan'
+export const DISCOVER_SUGGEST = 'Suggest to group'
+export const DISCOVER_SAVE = 'Save for later'
+export const DISCOVER_SAVED = 'Saved'
+export const DISCOVER_SUGGESTED = 'Suggested to the group.'
+
 export const GROUP_CHAT_PLACEHOLDER = 'Message the group...'
 export const AGENT_PLAN_DETECTED = 'Sounds like a plan. Want to make it official?'
 export const AGENT_START_PLAN = 'Start a plan'

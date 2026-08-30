@@ -2,7 +2,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/ToastProvider'
-import { getRandom, LOADING, EMPTY, DISCOVER_USE_LOCATION } from '@/lib/copy'
+import {
+  getRandom, LOADING, EMPTY, DISCOVER_USE_LOCATION,
+  DISCOVER_START_PLAN, DISCOVER_SUGGEST, DISCOVER_SAVE, DISCOVER_SAVED, DISCOVER_SUGGESTED,
+  TOAST_ERROR,
+} from '@/lib/copy'
 import { ICON_SIZE } from '@/lib/constants'
 
 // icon holds a Tabler ti-* class suffix, not raw glyph content — see AGENTS.md icon audit notes.
@@ -47,7 +51,14 @@ function StarRating({ rating }: { rating: number }) {
   )
 }
 
-export default function Discover({ onVenueSelect, currentUser }: { members: any[], onVenueSelect?: (venue: any) => void, currentUser?: any }) {
+export default function Discover({ onVenueSelect, currentUser, knotId, onOpenChat, onOpenGroupChat }: {
+  members: any[]
+  onVenueSelect?: (venue: any) => void
+  currentUser?: any
+  knotId?: string
+  onOpenChat?: (opts: { hangoutId: string }) => void
+  onOpenGroupChat?: () => void
+}) {
   const toast = useToast()
   const [category, setCategory] = useState<string|null>(null)
   const [budget, setBudget]     = useState<number|null>(2)
@@ -70,9 +81,29 @@ export default function Discover({ onVenueSelect, currentUser }: { members: any[
   const [suggestions, setSuggestions]           = useState<any[]>([])
   const [showSuggestions, setShowSuggestions]   = useState(false)
   const [, setFetchingSuggestions] = useState(false)
+  const [savedIds, setSavedIds]         = useState<Set<string>>(new Set())
+  const [startingPlanId, setStartingPlanId] = useState<string | null>(null)
+  const [suggestingId, setSuggestingId]     = useState<string | null>(null)
 
   // Keep locationRef in sync with location state
   useEffect(() => { locationRef.current = location }, [location])
+
+  // Which venues this Knot has already saved — the saved_venues table may not
+  // exist yet in every environment, so a failed fetch just leaves this empty
+  // rather than throwing.
+  useEffect(() => {
+    if (!knotId) { setSavedIds(new Set()); return }
+    let cancelled = false
+    supabase
+      .from('saved_venues')
+      .select('venue_place_id')
+      .eq('knot_id', knotId)
+      .then(({ data, error }) => {
+        if (cancelled || error) return
+        setSavedIds(new Set((data || []).map((r: any) => r.venue_place_id)))
+      })
+    return () => { cancelled = true }
+  }, [knotId])
 
   // Default location from profile city — no browser geolocation on mount.
   useEffect(() => {
@@ -262,6 +293,108 @@ export default function Discover({ onVenueSelect, currentUser }: { members: any[
     setSelected(venue)
     setLocked(true)
     if (onVenueSelect) onVenueSelect({ ...venue, category_id: category })
+  }
+
+  async function startPlanAtVenue(venue: any) {
+    if (!knotId || !currentUser?.id || startingPlanId) return
+    setStartingPlanId(venue.fsq_id)
+    const actorName = currentUser?.name || 'Someone'
+    const pInput: Record<string, any> = {
+      knot_id: knotId,
+      title: venue.name,
+      type: 'planned',
+      scheduled_for: null,
+      venue_name: venue.name,
+      venue_address: venue.location?.formatted_address || null,
+      venue_place_id: venue.fsq_id,
+      venue_lat: venue.lat ?? null,
+      venue_lng: venue.lng ?? null,
+      venue_category: venue.categories?.[0]?.name || null,
+      venue_maps_url: venue.google_maps_url || null,
+      venue_booking_url: null,
+      meeting_url: null,
+      brief: null,
+      brief_vibe: null,
+      brief_budget: null,
+      movie_title: null,
+      movie_showtime: null,
+      event_restrictions: [],
+      invite_mode: 'all',
+      is_surprise: false,
+      reveal_at: null,
+      poll_mode: false,
+      poll_title: venue.name,
+      is_standalone: false,
+      post_content: `${actorName} started a plan at ${venue.name}`,
+      post_type: 'hangout',
+      planning_status: 'planning',
+    }
+    try {
+      const { data, error } = await supabase.rpc('create_hangout', { p_input: pInput })
+      if (error || !data?.hangout_id) {
+        toast.error(TOAST_ERROR)
+        return
+      }
+      setSelected(null)
+      onOpenChat?.({ hangoutId: data.hangout_id })
+    } catch {
+      toast.error(TOAST_ERROR)
+    } finally {
+      setStartingPlanId(null)
+    }
+  }
+
+  async function suggestToGroup(venue: any) {
+    if (!knotId || !currentUser?.id || suggestingId) return
+    setSuggestingId(venue.fsq_id)
+    const address = venue.location?.formatted_address || ''
+    const content = `What does everyone think about ${venue.name}?${address ? ` ${address}` : ''}`
+
+    const { error } = await supabase.from('posts').insert({
+      knot_id: knotId,
+      author_id: currentUser.id,
+      content,
+      post_type: 'chat',
+    })
+    setSuggestingId(null)
+    if (error) { toast.error(TOAST_ERROR); return }
+
+    toast.success(DISCOVER_SUGGESTED)
+    setSelected(null)
+    onOpenGroupChat?.()
+  }
+
+  async function saveVenue(venue: any) {
+    if (!knotId || !currentUser?.id) return
+    const alreadySaved = savedIds.has(venue.fsq_id)
+    if (alreadySaved) {
+      const { error } = await supabase.from('saved_venues').delete()
+        .eq('knot_id', knotId).eq('venue_place_id', venue.fsq_id)
+      if (error) { toast.error(TOAST_ERROR); return }
+      setSavedIds(prev => {
+        const next = new Set(prev)
+        next.delete(venue.fsq_id)
+        return next
+      })
+      return
+    }
+
+    const { error } = await supabase.from('saved_venues').insert({
+      knot_id: knotId,
+      saved_by: currentUser.id,
+      venue_place_id: venue.fsq_id,
+      venue_name: venue.name,
+      venue_address: venue.location?.formatted_address || null,
+      venue_lat: venue.lat ?? null,
+      venue_lng: venue.lng ?? null,
+      venue_photo_url: venue.photo_url || null,
+      venue_rating: venue.rating ?? null,
+      venue_price: venue.price ?? null,
+      venue_category: venue.categories?.[0]?.name || null,
+      venue_maps_url: venue.google_maps_url || null,
+    })
+    if (error) { toast.error(TOAST_ERROR); return }
+    setSavedIds(prev => new Set(prev).add(venue.fsq_id))
   }
 
   const selectingForComposer = Boolean(onVenueSelect)
@@ -623,10 +756,106 @@ export default function Discover({ onVenueSelect, currentUser }: { members: any[
 
       {!loading && searched && venues.length === 0 && !error && (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text2)', fontSize: 14 }}>
-  
+
           <div style={{ fontWeight: 600, marginBottom: 6 }}>{EMPTY.DISCOVER}</div>
           <div style={{ fontSize: 13, color: 'var(--text3)' }}>Try a different category or expand your search area.</div>
         </div>
+      )}
+
+      {selected && !locked && (
+        <>
+          <div onClick={() => setSelected(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 410 }} />
+          <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', zIndex: 411, padding: '0 16px calc(16px + env(safe-area-inset-bottom, 0px))', maxWidth: 480, margin: '0 auto', maxHeight: '85vh', overflowY: 'auto' }}>
+            <div style={{ width: 36, height: 3, borderRadius: 100, background: 'rgba(0,0,0,0.12)', margin: '8px auto 0' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>Venue details</span>
+              <button
+                onClick={() => setSelected(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+                aria-label="Close"
+              >
+                <i className="ti ti-x" style={{ fontSize: 18, color: 'var(--text3)' }} />
+              </button>
+            </div>
+
+            {selected.photo_url ? (
+              <div style={{ width: '100%', height: 180, borderRadius: 12, overflow: 'hidden', background: 'var(--bg3)', marginBottom: 12 }}>
+                <img src={selected.photo_url} alt={selected.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              </div>
+            ) : (
+              <div style={{ width: '100%', height: 180, borderRadius: 12, background: 'var(--bg3)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                <i className={`ti ${catObj?.icon || 'ti-map-pin'}`} style={{ fontSize: ICON_SIZE.header, color: 'var(--text3)' }} />
+              </div>
+            )}
+
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>{selected.name}</div>
+            {selected.location?.formatted_address && (
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8 }}>{selected.location.formatted_address}</div>
+            )}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              {selected.rating != null && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 12, color: 'var(--text2)' }}>
+                  <i className="ti ti-star-filled" style={{ fontSize: 13, color: 'var(--yellow)' }} /> {selected.rating.toFixed(1)}
+                </span>
+              )}
+              {selected.closed_bucket === 'VeryLikelyOpen' && (
+                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--sage-soft)', color: 'var(--sage)' }}>Open now</span>
+              )}
+              {selected.distance != null && (
+                <span style={{ fontSize: 11, color: 'var(--text3)' }}>{selected.distance}</span>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, padding: '12px 0 4px' }}>
+              <button
+                onClick={() => startPlanAtVenue(selected)}
+                disabled={startingPlanId === selected.fsq_id}
+                style={{
+                  flex: 1, padding: '10px 8px',
+                  background: '#111', border: 'none', borderRadius: 10,
+                  color: '#F8BD03', fontSize: 12, fontWeight: 700,
+                  cursor: startingPlanId === selected.fsq_id ? 'wait' : 'pointer', fontFamily: 'inherit',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                  opacity: startingPlanId === selected.fsq_id ? 0.6 : 1,
+                }}
+              >
+                <i className="ti ti-calendar-plus" style={{ fontSize: 16 }} />
+                {DISCOVER_START_PLAN}
+              </button>
+
+              <button
+                onClick={() => suggestToGroup(selected)}
+                disabled={suggestingId === selected.fsq_id}
+                style={{
+                  flex: 1, padding: '10px 8px',
+                  background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10,
+                  color: 'var(--text)', fontSize: 12, fontWeight: 600,
+                  cursor: suggestingId === selected.fsq_id ? 'wait' : 'pointer', fontFamily: 'inherit',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                  opacity: suggestingId === selected.fsq_id ? 0.6 : 1,
+                }}
+              >
+                <i className="ti ti-send" style={{ fontSize: 16, color: 'var(--text3)' }} />
+                {DISCOVER_SUGGEST}
+              </button>
+
+              <button
+                onClick={() => saveVenue(selected)}
+                style={{
+                  flex: 1, padding: '10px 8px',
+                  background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10,
+                  color: 'var(--text)', fontSize: 12, fontWeight: 600,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                }}
+              >
+                <i className={`ti ${savedIds.has(selected.fsq_id) ? 'ti-bookmark-filled' : 'ti-bookmark'}`}
+                   style={{ fontSize: 16, color: savedIds.has(selected.fsq_id) ? 'var(--yellow)' : 'var(--text3)' }} />
+                {savedIds.has(selected.fsq_id) ? DISCOVER_SAVED : DISCOVER_SAVE}
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   )

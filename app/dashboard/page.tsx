@@ -739,7 +739,15 @@ export default function Dashboard() {
           {/* TWO COLUMN CONTENT */}
           <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px', paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 0px))', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 360px', gap: 20, alignItems: 'start', width: '100%', boxSizing: 'border-box', minWidth: 0, overflowX: 'hidden' }} className="desktop-layout">
             <div className="feed-shell">
-              {active === 'discover'  && <Discover  members={knotMembers} currentUser={profile} />}
+              {active === 'discover'  && (
+                <Discover
+                  members={knotMembers}
+                  currentUser={profile}
+                  knotId={activeKnot?.id}
+                  onOpenChat={openHangoutChat}
+                  onOpenGroupChat={() => setShowGroupChat(true)}
+                />
+              )}
               {active === 'feed'      && (
                 <Feed
                   members={knotMembers}
