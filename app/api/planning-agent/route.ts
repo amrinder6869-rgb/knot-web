@@ -407,11 +407,16 @@ export async function POST(request: Request) {
           resolvedHangoutId = newHangout.id
         }
       } else if (planUpdates) {
+        console.log('[planning-agent] attempting update:', JSON.stringify(planUpdates))
         const { error: updateError } = await serviceClient
           .from('hangouts')
           .update(planUpdates)
           .eq('id', resolvedHangoutId)
-        if (updateError) writeFailed = true
+        console.log('[planning-agent] update result:', updateError ? JSON.stringify(updateError) : 'success')
+        if (updateError) {
+          console.error('[planning-agent] hangout update failed:', JSON.stringify(updateError))
+          writeFailed = true
+        }
       }
 
       if (writeFailed) {
