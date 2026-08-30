@@ -304,8 +304,18 @@ export default function Composer({
       {sheet === 'plus' && (
         <>
           <div onClick={() => setSheet(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200 }} />
-          <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', zIndex: 201, padding: '10px 16px calc(16px + env(safe-area-inset-bottom, 0px))', maxWidth: 480, margin: '0 auto' }}>
-            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border2)', margin: '4px auto 12px' }} />
+          <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', zIndex: 201, padding: '0 16px calc(16px + env(safe-area-inset-bottom, 0px))', maxWidth: 480, margin: '0 auto' }}>
+            <div style={{ width: 36, height: 3, borderRadius: 100, background: 'rgba(0,0,0,0.12)', margin: '8px auto 0' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>More options</span>
+              <button
+                onClick={() => setSheet(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+                aria-label="Close"
+              >
+                <i className="ti ti-x" style={{ fontSize: 18, color: 'var(--text3)' }} />
+              </button>
+            </div>
             {[
               { icon: 'ti-camera', label: 'Moment', onClick: () => setSheet('moment') },
               { icon: 'ti-calendar', label: 'Plan a hangout', onClick: () => { void startPlan() } },
@@ -326,8 +336,18 @@ export default function Composer({
       {sheet === 'moment' && (
         <>
           <div onClick={() => setSheet(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200 }} />
-          <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', zIndex: 201, padding: '16px 16px calc(16px + env(safe-area-inset-bottom, 0px))', maxWidth: 480, margin: '0 auto', maxHeight: '80vh', overflowY: 'auto' }}>
-            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border2)', margin: '4px auto 12px' }} />
+          <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', zIndex: 201, padding: '0 16px calc(16px + env(safe-area-inset-bottom, 0px))', maxWidth: 480, margin: '0 auto', maxHeight: '80vh', overflowY: 'auto' }}>
+            <div style={{ width: 36, height: 3, borderRadius: 100, background: 'rgba(0,0,0,0.12)', margin: '8px auto 0' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>Moment</span>
+              <button
+                onClick={() => setSheet(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+                aria-label="Close"
+              >
+                <i className="ti ti-x" style={{ fontSize: 18, color: 'var(--text3)' }} />
+              </button>
+            </div>
             {momentError && <div className="error-banner" style={{ marginBottom: 10 }}>{momentError}</div>}
             {momentPhotoPreview && (
               <div style={{ position: 'relative', marginBottom: 10, borderRadius: 10, overflow: 'hidden', aspectRatio: '4/5', background: '#000', maxWidth: 320 }}>

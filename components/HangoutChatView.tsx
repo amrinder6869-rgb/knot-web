@@ -1393,8 +1393,18 @@ export default function HangoutChatView({
       {sheet === 'plus' && (
         <>
           <div onClick={() => setSheet(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 410 }} />
-          <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', zIndex: 411, padding: '10px 16px calc(16px + env(safe-area-inset-bottom, 0px))', maxWidth: 480, margin: '0 auto' }}>
-            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border2)', margin: '4px auto 12px' }} />
+          <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', zIndex: 411, padding: '0 16px calc(16px + env(safe-area-inset-bottom, 0px))', maxWidth: 480, margin: '0 auto' }}>
+            <div style={{ width: 36, height: 3, borderRadius: 100, background: 'rgba(0,0,0,0.12)', margin: '8px auto 0' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>More options</span>
+              <button
+                onClick={() => setSheet(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+                aria-label="Close"
+              >
+                <i className="ti ti-x" style={{ fontSize: 18, color: 'var(--text3)' }} />
+              </button>
+            </div>
             <div onClick={() => setSheet('moment')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 4px', cursor: 'pointer' }}>
               <i className="ti ti-camera" style={{ fontSize: ICON_SIZE.nav, color: 'var(--text3)' }} />
               <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{SHEET_PHOTO}</span>
@@ -1414,8 +1424,18 @@ export default function HangoutChatView({
       {sheet === 'moment' && (
         <>
           <div onClick={() => setSheet(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 410 }} />
-          <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', zIndex: 411, padding: '16px 16px calc(16px + env(safe-area-inset-bottom, 0px))', maxWidth: 480, margin: '0 auto', maxHeight: '80vh', overflowY: 'auto' }}>
-            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border2)', margin: '4px auto 12px' }} />
+          <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', zIndex: 411, padding: '0 16px calc(16px + env(safe-area-inset-bottom, 0px))', maxWidth: 480, margin: '0 auto', maxHeight: '80vh', overflowY: 'auto' }}>
+            <div style={{ width: 36, height: 3, borderRadius: 100, background: 'rgba(0,0,0,0.12)', margin: '8px auto 0' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>Moment</span>
+              <button
+                onClick={() => setSheet(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+                aria-label="Close"
+              >
+                <i className="ti ti-x" style={{ fontSize: 18, color: 'var(--text3)' }} />
+              </button>
+            </div>
             {momentPhotoPreview && (
               <div style={{ position: 'relative', marginBottom: 10, borderRadius: 10, overflow: 'hidden', aspectRatio: '4/5', background: '#000', maxWidth: 320 }}>
                 <img src={momentPhotoPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
@@ -1514,8 +1534,18 @@ export default function HangoutChatView({
       {sheet === 'carpool' && (
         <>
           <div onClick={() => setSheet(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 410 }} />
-          <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', zIndex: 411, padding: '16px 16px calc(16px + env(safe-area-inset-bottom, 0px))', maxWidth: 480, margin: '0 auto' }}>
-            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border2)', margin: '4px auto 12px' }} />
+          <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', zIndex: 411, padding: '0 16px calc(16px + env(safe-area-inset-bottom, 0px))', maxWidth: 480, margin: '0 auto' }}>
+            <div style={{ width: 36, height: 3, borderRadius: 100, background: 'rgba(0,0,0,0.12)', margin: '8px auto 0' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{SHEET_CARPOOL}</span>
+              <button
+                onClick={() => setSheet(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+                aria-label="Close"
+              >
+                <i className="ti ti-x" style={{ fontSize: 18, color: 'var(--text3)' }} />
+              </button>
+            </div>
             {(hangout.venue_name || hangout.venue_address) ? (
               <>
                 <a href={buildUberLink(hangout.venue_name || '', hangout.venue_address || '')} target="_blank" rel="noreferrer"
@@ -1533,8 +1563,18 @@ export default function HangoutChatView({
       {sheet === 'edit' && (
         <>
           <div onClick={() => setSheet(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 410 }} />
-          <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', zIndex: 411, padding: '16px 16px calc(16px + env(safe-area-inset-bottom, 0px))', maxWidth: 480, margin: '0 auto', maxHeight: '80vh', overflowY: 'auto' }}>
-            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>{SHEET_EDIT_TITLE}</div>
+          <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', zIndex: 411, padding: '0 16px calc(16px + env(safe-area-inset-bottom, 0px))', maxWidth: 480, margin: '0 auto', maxHeight: '80vh', overflowY: 'auto' }}>
+            <div style={{ width: 36, height: 3, borderRadius: 100, background: 'rgba(0,0,0,0.12)', margin: '8px auto 0' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{SHEET_EDIT_TITLE}</span>
+              <button
+                onClick={() => setSheet(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+                aria-label="Close"
+              >
+                <i className="ti ti-x" style={{ fontSize: 18, color: 'var(--text3)' }} />
+              </button>
+            </div>
             <input value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder={SHEET_EDIT_TITLE_PLACEHOLDER}
               style={{ width: '100%', padding: '8px 10px', background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 8, color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 6 }} />
             <input value={editVenueName} onChange={e => setEditVenueName(e.target.value)} placeholder={SHEET_EDIT_VENUE_PLACEHOLDER}
