@@ -130,7 +130,17 @@ export default function CoverImagePicker({
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 410 }} />
       <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', zIndex: 411, padding: '10px 16px calc(16px + env(safe-area-inset-bottom, 0px))', maxWidth: 480, margin: '0 auto', maxHeight: '82vh', display: 'flex', flexDirection: 'column' }}>
         <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border2)', margin: '4px auto 12px', flexShrink: 0 }} />
-        <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)', marginBottom: 12, flexShrink: 0 }}>{COVER_IMAGE_PICKER_TITLE}</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexShrink: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>{COVER_IMAGE_PICKER_TITLE}</div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+          >
+            <i className="ti ti-x" style={{ fontSize: 20, color: 'var(--text3)' }} />
+          </button>
+        </div>
 
         <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexShrink: 0 }}>
           <button type="button" onClick={() => setTab('library')}
