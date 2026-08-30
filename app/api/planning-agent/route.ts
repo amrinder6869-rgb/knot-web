@@ -5,7 +5,10 @@ import { getRandom, AGENT_MESSAGES, PLANNER_NUDGE, AGENT_VENUE_PROMPT, PLAN_UNTI
 
 const NUDGE_THRESHOLD_MS = 48 * 60 * 60 * 1000
 
-const SYSTEM_PROMPT = `You are Knot, the planning assistant living inside a private friend group chat. You are a participant in an ongoing conversation, not a one-shot bot. You read the full conversation history before every reply so you never forget what the group already decided.
+function buildSystemPrompt(now: Date): string {
+  return `You are Knot, the planning assistant living inside a private friend group chat. You are a participant in an ongoing conversation, not a one-shot bot. You read the full conversation history before every reply so you never forget what the group already decided.
+
+Today is ${now.toISOString()}. Current day: ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.
 
 Your job across the conversation:
 1. Help the group fill in the three core plan fields: when, where, and who is coming.
@@ -37,6 +40,7 @@ Rules:
 - revenue_suggestion only when directly relevant to what was just discussed. One per message maximum. Never unsolicited.
 - If two members propose conflicting values, return agent_message describing the conflict and plan_updates as null.
 - venueSearchQuery: set whenever the message contains a named venue, a venue type or category, a phrase asking for suggestions, or an activity implying a venue. Format: "[venue type or name] near [city]". Use the sender city provided. Whenever venueSearchQuery is set, agent_message must be exactly "Here are some options nearby." Never set venueSearchQuery alongside plan_updates.venue_name in the same reply.
+- plan_updates.scheduled_for: ISO 8601 datetime string in UTC only. Never return natural language. Resolve relative dates and times using today's date given above. Examples: "this friday 7pm" → "2026-09-04T23:00:00Z", "tonight 9pm" → "2026-08-30T01:00:00Z", "tomorrow" → "2026-08-31T12:00:00Z". If you cannot resolve to an exact datetime, set scheduled_for to null rather than guessing.
 
 Title rules (plan_updates.title) — the only field you may infer on the opening message of a new plan:
 - Named venue mentioned: title is the venue name.
@@ -44,6 +48,7 @@ Title rules (plan_updates.title) — the only field you may infer on the opening
 - Occasion mentioned: use it. "Birthday drinks for Simar" becomes "Simar's birthday drinks".
 - Set title to null when the message carries zero planning intent.
 - Never overwrite an already-confirmed title from inference; changing an existing title requires a tapped chip.`
+}
 
 const ALLOWED_PLAN_FIELDS = new Set([
   'title', 'venue_name', 'venue_address', 'scheduled_for', 'status',
@@ -57,6 +62,26 @@ function filterPlanUpdates(updates: Record<string, any> | null): Record<string, 
     if (ALLOWED_PLAN_FIELDS.has(key)) out[key] = updates[key]
   }
   return Object.keys(out).length > 0 ? out : null
+}
+
+// The model occasionally returns scheduled_for as natural language ("this
+// friday", "7pm") instead of an ISO datetime despite the system prompt's
+// instructions — Postgres rejects those with "invalid input syntax for type
+// timestamp with time zone" and the write fails outright. Drop the field
+// rather than let one bad value fail the whole update.
+function sanitisePlanUpdates(updates: Record<string, any> | null): Record<string, any> | null {
+  if (!updates) return null
+  const clean = { ...updates }
+
+  if (clean.scheduled_for !== undefined && clean.scheduled_for !== null) {
+    const parsed = new Date(clean.scheduled_for)
+    if (isNaN(parsed.getTime())) {
+      console.warn('[planning-agent] dropping invalid scheduled_for:', clean.scheduled_for)
+      delete clean.scheduled_for
+    }
+  }
+
+  return Object.keys(clean).length > 0 ? clean : null
 }
 
 function httpsGet(url: string): Promise<string> {
@@ -329,7 +354,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
         max_tokens: 800,
-        system: SYSTEM_PROMPT,
+        system: buildSystemPrompt(new Date()),
         messages: anthropicMessages,
       }),
     })
@@ -352,7 +377,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ agent_message: null, chips: null, plan_updates: null, todo_updates: null, revenue_suggestion: null })
     }
 
-    const planUpdates = filterPlanUpdates(parsed.plan_updates ?? null)
+    const planUpdates = sanitisePlanUpdates(filterPlanUpdates(parsed.plan_updates ?? null))
     let resolvedHangoutId: string | null = hangout_id || null
     let agentMessage: string | null = parsed.agent_message ?? null
 
@@ -407,16 +432,11 @@ export async function POST(request: Request) {
           resolvedHangoutId = newHangout.id
         }
       } else if (planUpdates) {
-        console.log('[planning-agent] attempting update:', JSON.stringify(planUpdates))
         const { error: updateError } = await serviceClient
           .from('hangouts')
           .update(planUpdates)
           .eq('id', resolvedHangoutId)
-        console.log('[planning-agent] update result:', updateError ? JSON.stringify(updateError) : 'success')
-        if (updateError) {
-          console.error('[planning-agent] hangout update failed:', JSON.stringify(updateError))
-          writeFailed = true
-        }
+        if (updateError) writeFailed = true
       }
 
       if (writeFailed) {
