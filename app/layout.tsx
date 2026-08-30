@@ -27,6 +27,7 @@ export default function RootLayout({
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#F8BD03" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         {/* Tabler Icons — the only icon set used in this codebase (ti ti-* classes). */}
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.1/dist/tabler-icons.min.css" />
       </head>
