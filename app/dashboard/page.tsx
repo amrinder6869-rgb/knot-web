@@ -538,21 +538,47 @@ export default function Dashboard() {
       )}
 
       {/* TOP GLOBAL NAV */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 100, background: 'var(--glass-bg)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid var(--border)', height: 52, display: 'flex', alignItems: 'center', padding: '0 20px', gap: 12 }}>
-        <div onClick={() => { setShowHome(true); setActiveKnot(null); localStorage.setItem('show_home', 'true') }} style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, cursor: 'pointer' }}>
-          {/* Knot logomark — only permitted inline SVG in the codebase */}
-          <svg width="22" height="22" viewBox="0 0 44 44" fill="none">
-            <circle cx="17" cy="17" r="10" stroke="var(--yellow)" strokeWidth="3" fill="none"/>
-            <circle cx="27" cy="27" r="10" stroke="var(--yellow)" strokeWidth="3" fill="none" opacity="0.5"/>
-          </svg>
-          <span style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)' }}>
-            kn<span style={{ color: 'var(--yellow)' }}>o</span>t
-          </span>
-        </div>
+      <div style={{ position: 'sticky', top: 0, zIndex: 100, background: 'var(--glass-bg)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid var(--border)', height: 52 }}>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', height: '100%', width: '100%', padding: '0 20px', gap: 12 }}>
 
-        <div style={{ position: 'relative', flex: 1 }}>
+          {/* Desktop header - Knot logo + wordmark, unchanged */}
+          <div className="desktop-only" onClick={() => { setShowHome(true); setActiveKnot(null); localStorage.setItem('show_home', 'true') }} style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, cursor: 'pointer' }}>
+            {/* Knot logomark — only permitted inline SVG in the codebase */}
+            <svg width="22" height="22" viewBox="0 0 44 44" fill="none">
+              <circle cx="17" cy="17" r="10" stroke="var(--yellow)" strokeWidth="3" fill="none"/>
+              <circle cx="27" cy="27" r="10" stroke="var(--yellow)" strokeWidth="3" fill="none" opacity="0.5"/>
+            </svg>
+            <span style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text)' }}>
+              kn<span style={{ color: 'var(--yellow)' }}>o</span>t
+            </span>
+          </div>
+
+          {/* Mobile header - hamburger */}
+          <button
+            className="mobile-only"
+            onClick={() => setShowMobileNav(true)}
+            aria-label="Open navigation"
+            style={{
+              width: 36, height: 36, borderRadius: 8,
+              background: 'var(--bg3)', border: '1px solid var(--border)',
+              alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', flexShrink: 0,
+            }}
+          >
+            <i className="ti ti-menu-2" style={{ fontSize: 18, color: 'var(--text2)' }} />
+          </button>
+
+          {/* Mobile header - centred Knot logomark only */}
+          <div className="mobile-only" style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}>
+            {/* Knot logomark — only permitted inline SVG in the codebase */}
+            <svg width="28" height="16" viewBox="0 0 28 16" fill="none">
+              <circle cx="10" cy="8" r="7" stroke="#F8BD03" strokeWidth="2"/>
+              <circle cx="18" cy="8" r="7" stroke="#F8BD03" strokeWidth="2"/>
+            </svg>
+          </div>
+
           {/* Desktop header - Knot name dropdown as before */}
-          <div className="desktop-only">
+          <div className="desktop-only" style={{ position: 'relative', flex: 1 }}>
             <button onClick={() => setShowKnotList(!showKnotList)}
               style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--text)', fontSize: 13, fontWeight: 500 }}>
               <span style={{ maxWidth: 180, overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
@@ -589,50 +615,30 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Mobile header - hamburger only */}
-          <div className="mobile-only" style={{ alignItems: 'center', gap: 8 }}>
-            <button
-              onClick={() => setShowMobileNav(true)}
-              style={{
-                width: 36, height: 36, borderRadius: 8,
-                background: 'var(--bg3)', border: '1px solid var(--border)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer',
-              }}
-              aria-label="Open navigation"
-            >
-              <i className="ti ti-menu-2" style={{ fontSize: 18, color: 'var(--text2)' }} />
-            </button>
-            {activeKnot && (
-              <span style={{
-                fontSize: 13, fontWeight: 700, color: '#111',
-                maxWidth: 140, overflow: 'hidden',
-                textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}>
-                {activeKnot.name}
-              </span>
-            )}
-          </div>
-        </div>
+          {/* Mobile header - spacer pushes bell + avatar to the far edge */}
+          <div className="mobile-only" style={{ flex: 1 }} />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-          <VibesCounter userId={user?.id} userName={profile?.name} />
-          <Notifications
-            userId={user?.id || ''}
-            knots={knots}
-            onSelectKnot={(k) => switchKnot(k)}
-            onOpenChat={openHangoutChat}
-            onOpenBills={(knotId) => {
-              const k = knots.find(x => x.id === knotId)
-              if (k) { switchKnot(k); setActive('split') }
-            }}
-          />
-          <button onClick={() => setShowProfile(true)}
-            style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#111', border: profile?.equipped_ring_color ? `3px solid ${profile.equipped_ring_color}` : 'none', cursor: 'pointer', overflow: 'hidden', flexShrink: 0, boxSizing: 'border-box' }}>
-            {profile?.avatar_url && !avatarLoadError
-              ? <img src={profile.avatar_url} alt="" onError={() => setAvatarLoadError(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : initials}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+            <div className="desktop-only">
+              <VibesCounter userId={user?.id} userName={profile?.name} />
+            </div>
+            <Notifications
+              userId={user?.id || ''}
+              knots={knots}
+              onSelectKnot={(k) => switchKnot(k)}
+              onOpenChat={openHangoutChat}
+              onOpenBills={(knotId) => {
+                const k = knots.find(x => x.id === knotId)
+                if (k) { switchKnot(k); setActive('split') }
+              }}
+            />
+            <button onClick={() => setShowProfile(true)}
+              style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--yellow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#111', border: profile?.equipped_ring_color ? `3px solid ${profile.equipped_ring_color}` : 'none', cursor: 'pointer', overflow: 'hidden', flexShrink: 0, boxSizing: 'border-box' }}>
+              {profile?.avatar_url && !avatarLoadError
+                ? <img src={profile.avatar_url} alt="" onError={() => setAvatarLoadError(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : initials}
+            </button>
+          </div>
         </div>
       </div>
 
