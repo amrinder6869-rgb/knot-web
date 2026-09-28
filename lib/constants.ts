@@ -91,6 +91,22 @@ export function getKnotIcon(value: string | null | undefined) {
   return found ?? KNOT_ICONS.find(k => k.id === DEFAULT_KNOT_ICON)!
 }
 
+// Time zones. profiles.resident_city is the only location the app stores
+// today, so the planning agent maps the sender's city to a zone here and
+// falls back to Toronto. Task 1.1d moves this to a column on knots.
+export const DEFAULT_TIME_ZONE = 'America/Toronto'
+export const CITY_TIME_ZONES: Record<string, string> = {
+  'toronto': 'America/Toronto',
+  'san francisco': 'America/Los_Angeles',
+  'san jose': 'America/Los_Angeles',
+  'berkeley': 'America/Los_Angeles',
+  'oakland': 'America/Los_Angeles',
+}
+export function timeZoneForCity(city: string | null | undefined): string {
+  const key = (city || '').trim().toLowerCase()
+  return CITY_TIME_ZONES[key] || DEFAULT_TIME_ZONE
+}
+
 export const PUSH_TITLES: Record<string, string> = {
   new_moment: 'New moment',
   bill_reminder: 'Bill reminder',

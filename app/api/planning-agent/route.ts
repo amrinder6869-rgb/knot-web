@@ -2,13 +2,16 @@ import { NextResponse } from 'next/server'
 import https from 'https'
 import { createClient } from '@supabase/supabase-js'
 import { getRandom, AGENT_MESSAGES, PLANNER_NUDGE, AGENT_VENUE_PROMPT, PLAN_UNTITLED, CTA_CONFIRM } from '@/lib/copy'
+import { timeZoneForCity } from '@/lib/constants'
+import { formatInZone, hasExplicitOffset, localToUtc, nowInZone } from '@/lib/time'
 
 const NUDGE_THRESHOLD_MS = 48 * 60 * 60 * 1000
 
-function buildSystemPrompt(now: Date): string {
+function buildSystemPrompt(now: Date, timeZone: string): string {
+  const local = nowInZone(timeZone, now)
   return `You are Knot, the planning assistant living inside a private friend group chat. You are a participant in an ongoing conversation, not a one-shot bot. You read the full conversation history before every reply so you never forget what the group already decided.
 
-Today is ${now.toISOString()}. Current day: ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.
+Right now it is ${local.label} in the group's time zone (${timeZone}), written as ${local.iso}. Every date and time in this conversation is in that time zone. Never convert to UTC yourself.
 
 Your job across the conversation:
 1. Help the group fill in the three core plan fields: when, where, and who is coming.
@@ -40,7 +43,7 @@ Rules:
 - revenue_suggestion only when directly relevant to what was just discussed. One per message maximum. Never unsolicited.
 - If two members propose conflicting values, return agent_message describing the conflict and plan_updates as null.
 - venueSearchQuery: set whenever the message contains a named venue, a venue type or category, a phrase asking for suggestions, or an activity implying a venue. Format: "[venue type or name] near [city]". Use the sender city provided. Whenever venueSearchQuery is set, agent_message must be exactly "Here are some options nearby." Never set venueSearchQuery alongside plan_updates.venue_name in the same reply.
-- plan_updates.scheduled_for: ISO 8601 datetime string in UTC only. Never return natural language. Resolve relative dates and times using today's date given above. Examples: "this friday 7pm" → "2026-09-04T23:00:00Z", "tonight 9pm" → "2026-08-30T01:00:00Z", "tomorrow" → "2026-08-31T12:00:00Z". If you cannot resolve to an exact datetime, set scheduled_for to null rather than guessing.
+- plan_updates.scheduled_for: the local wall-clock time in the group's time zone given above, formatted exactly "YYYY-MM-DDTHH:mm" in 24-hour time, with no seconds, no offset and no Z. Never return natural language. Resolve relative dates and times from the current date and time given above. Examples: "this friday 7pm" → "2026-09-04T19:00", "tonight 9pm" → "2026-08-30T21:00", "tomorrow" with no time → "2026-08-31T12:00". If you cannot resolve to an exact date and time, set scheduled_for to null rather than guessing.
 
 Title rules (plan_updates.title) — the only field you may infer on the opening message of a new plan:
 - Named venue mentioned: title is the venue name.
@@ -64,18 +67,28 @@ function filterPlanUpdates(updates: Record<string, any> | null): Record<string, 
   return Object.keys(out).length > 0 ? out : null
 }
 
-// The model occasionally returns scheduled_for as natural language ("this
-// friday", "7pm") instead of an ISO datetime despite the system prompt's
-// instructions — Postgres rejects those with "invalid input syntax for type
-// timestamp with time zone" and the write fails outright. Drop the field
-// rather than let one bad value fail the whole update.
-function sanitisePlanUpdates(updates: Record<string, any> | null): Record<string, any> | null {
+// scheduled_for arrives from the model as a local wall-clock time in the
+// group's zone ("2026-10-03T19:00"). The conversion to UTC happens here, in
+// code, so the offset is never guessed. A value that already carries "Z" or
+// an offset is an absolute instant and is kept as it is. Anything else
+// (natural language like "this friday") is dropped rather than let one bad
+// value fail the whole update.
+function sanitisePlanUpdates(updates: Record<string, any> | null, timeZone: string): Record<string, any> | null {
   if (!updates) return null
   const clean = { ...updates }
 
   if (clean.scheduled_for !== undefined && clean.scheduled_for !== null) {
-    const parsed = new Date(clean.scheduled_for)
-    if (isNaN(parsed.getTime())) {
+    const raw = String(clean.scheduled_for).trim()
+    let resolved: Date | null = null
+    if (hasExplicitOffset(raw)) {
+      const parsed = new Date(raw)
+      resolved = isNaN(parsed.getTime()) ? null : parsed
+    } else {
+      resolved = localToUtc(raw, timeZone)
+    }
+    if (resolved) {
+      clean.scheduled_for = resolved.toISOString()
+    } else {
       console.warn('[planning-agent] dropping invalid scheduled_for:', clean.scheduled_for)
       delete clean.scheduled_for
     }
@@ -121,6 +134,7 @@ async function welcomeForHangout(
   serviceClient: any,
   hangoutId: string,
   agentUserId: string,
+  timeZone: string,
 ) {
   const { count } = await serviceClient
     .from('hangout_messages')
@@ -146,9 +160,7 @@ async function welcomeForHangout(
   let chips: { label: string; action: string; value: any }[] | null = null
 
   if (phase === 'confirmed' || phase === 'locked') {
-    const when = hangout.scheduled_for
-      ? new Date(hangout.scheduled_for).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
-      : null
+    const when = hangout.scheduled_for ? formatInZone(hangout.scheduled_for, timeZone) : null
     const summary = [title || PLAN_UNTITLED, when, hangout.venue_name].filter(Boolean).join(' · ')
     agentMessage = summary ? `Locked in. See you there. ${summary}` : 'Locked in. See you there.'
     chips = [{ label: CTA_CONFIRM, action: 'lock', value: true }]
@@ -248,6 +260,18 @@ export async function POST(request: Request) {
     // The Knot every later read and write is scoped to.
     const planKnotId: string = hangoutKnotId || knot_id
 
+    // The sender's zone drives every date the model sees and returns. It
+    // comes from profiles.resident_city until Task 1.1d puts a zone on the
+    // Knot itself.
+    const { data: senderProfile } = await serviceClient
+      .from('profiles')
+      .select('resident_city, name')
+      .eq('id', senderId)
+      .maybeSingle()
+    const locationHint = senderProfile?.resident_city?.trim() || 'Toronto'
+    const senderName = senderProfile?.name?.trim() || 'Someone'
+    const timeZone = timeZoneForCity(senderProfile?.resident_city)
+
     if (detection_mode) {
       const apiKey = process.env.ANTHROPIC_API_KEY
       if (!apiKey) return NextResponse.json({ plan_detected: false, agent_message: null })
@@ -298,7 +322,7 @@ export async function POST(request: Request) {
 
     if (message.trim() === '__init__') {
       if (!hangout_id) return NextResponse.json({ error: 'Missing hangout_id' }, { status: 400 })
-      const welcome = await welcomeForHangout(serviceClient, hangout_id, agentUserId)
+      const welcome = await welcomeForHangout(serviceClient, hangout_id, agentUserId, timeZone)
       return NextResponse.json({
         agent_message: welcome.agent_message,
         chips: welcome.chips,
@@ -323,14 +347,6 @@ export async function POST(request: Request) {
       console.error('[planning-agent] ANTHROPIC_API_KEY missing')
       return NextResponse.json({ agent_message: null, chips: null, plan_updates: null, todo_updates: null, revenue_suggestion: null })
     }
-
-    const { data: senderProfile } = await serviceClient
-      .from('profiles')
-      .select('resident_city, name')
-      .eq('id', senderId)
-      .maybeSingle()
-    const locationHint = senderProfile?.resident_city?.trim() || 'Toronto'
-    const senderName = senderProfile?.name?.trim() || 'Someone'
 
     // Fetch group members for context
     const { data: memberRows } = await serviceClient
@@ -365,10 +381,20 @@ export async function POST(request: Request) {
     }
 
     // Build the final user turn with full context
+    // The plan's stored time is UTC; the model only ever sees it as local
+    // text in the group's zone so it reasons in the same clock it answers in.
+    const planStateForModel = current_plan_state
+      ? {
+          ...current_plan_state,
+          scheduled_for: current_plan_state.scheduled_for
+            ? formatInZone(current_plan_state.scheduled_for, timeZone)
+            : null,
+        }
+      : null
     const contextBlock = [
-      `Current plan state: ${current_plan_state ? JSON.stringify(current_plan_state) : 'no active plan yet'}`,
+      `Current plan state: ${planStateForModel ? JSON.stringify(planStateForModel) : 'no active plan yet'}`,
       `Group members (${memberCount}): ${memberNames || 'unknown'}`,
-      `Sender: ${senderName} (city: ${locationHint})`,
+      `Sender: ${senderName} (city: ${locationHint}, time zone: ${timeZone})`,
       `New message from ${senderName}: "${message.trim()}"`,
     ].join('\n')
 
@@ -389,7 +415,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
         max_tokens: 800,
-        system: buildSystemPrompt(new Date()),
+        system: buildSystemPrompt(new Date(), timeZone),
         messages: anthropicMessages,
       }),
     })
@@ -412,7 +438,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ agent_message: null, chips: null, plan_updates: null, todo_updates: null, revenue_suggestion: null })
     }
 
-    const planUpdates = sanitisePlanUpdates(filterPlanUpdates(parsed.plan_updates ?? null))
+    const planUpdates = sanitisePlanUpdates(filterPlanUpdates(parsed.plan_updates ?? null), timeZone)
     let resolvedHangoutId: string | null = hangout_id || null
     let agentMessage: string | null = parsed.agent_message ?? null
 
