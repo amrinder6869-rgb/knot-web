@@ -208,18 +208,45 @@ export async function POST(request: Request) {
 
     const senderId = user.id
 
-    const { data: membership } = await userClient
-      .from('knot_members')
-      .select('user_id')
-      .eq('knot_id', knot_id)
-      .eq('user_id', senderId)
-      .maybeSingle()
-    if (!membership) return NextResponse.json({ error: 'Not a member of this knot' }, { status: 403 })
-
     const serviceClient = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
+
+    // Authorisation. Runs before every branch below and before any model
+    // call. The signed-in user comes from the bearer token (checked above,
+    // 401 otherwise). When a hangout id is present, the hangout's own
+    // knot_id decides which Knot the caller must belong to; the knot_id in
+    // the request body is ignored for that decision because a caller can
+    // send any pair of ids. Only when there is no hangout yet (detection
+    // mode) is the request's knot_id the thing being checked.
+    async function isMemberOf(knotId: string): Promise<boolean> {
+      const { data } = await userClient
+        .from('knot_members')
+        .select('user_id')
+        .eq('knot_id', knotId)
+        .eq('user_id', senderId)
+        .maybeSingle()
+      return !!data
+    }
+
+    let hangoutKnotId: string | null = null
+    if (hangout_id) {
+      const { data: hangoutRow } = await serviceClient
+        .from('hangouts')
+        .select('id, knot_id')
+        .eq('id', hangout_id)
+        .maybeSingle()
+      // Unknown id and foreign id look the same to the caller: 403.
+      if (!hangoutRow?.knot_id || !(await isMemberOf(hangoutRow.knot_id))) {
+        return NextResponse.json({ error: 'Not a member of this knot' }, { status: 403 })
+      }
+      hangoutKnotId = hangoutRow.knot_id
+    } else if (!(await isMemberOf(knot_id))) {
+      return NextResponse.json({ error: 'Not a member of this knot' }, { status: 403 })
+    }
+    // The Knot every later read and write is scoped to.
+    const planKnotId: string = hangoutKnotId || knot_id
 
     if (detection_mode) {
       const apiKey = process.env.ANTHROPIC_API_KEY
@@ -283,6 +310,14 @@ export async function POST(request: Request) {
       })
     }
 
+    // A plan exists only after the user posts it from PlanDraftSheet, which
+    // is the one path through create_hangout. This route never creates one,
+    // so a planning message with no hangout id stops here, before the
+    // model is called.
+    if (!hangout_id) {
+      return NextResponse.json({ error: 'Missing hangout_id' }, { status: 400 })
+    }
+
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) {
       console.error('[planning-agent] ANTHROPIC_API_KEY missing')
@@ -301,7 +336,7 @@ export async function POST(request: Request) {
     const { data: memberRows } = await serviceClient
       .from('knot_members')
       .select('profiles:user_id(id, name)')
-      .eq('knot_id', knot_id)
+      .eq('knot_id', planKnotId)
     const memberNames = (memberRows || [])
       .map((r: any) => r.profiles?.name)
       .filter(Boolean)
@@ -420,6 +455,10 @@ export async function POST(request: Request) {
         }
       }
 
+      // Gated, not deleted (Task 1.1b). hangout_id is required above, so
+      // resolvedHangoutId is always set here and wasNewPlan is always
+      // false. Kept so the old shape is visible if this ever needs to be
+      // routed through create_hangout instead.
       if (wasNewPlan) {
         const { data: newHangout, error: createError } = await serviceClient
           .from('hangouts')
