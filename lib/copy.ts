@@ -103,7 +103,12 @@ export const AGENT_RESOLVING_STATES: { text: string; rare: boolean }[] = [
 export const AGENT_MESSAGES = {
   PLAN_CREATED: ['Plan started.', 'Added to the plan.', 'Got it.'],
   VENUE_CONFIRMED: ['On it.', 'Added.', 'Done.'],
-  TIME_CONFIRMED: ['Locked.', 'Set.', 'Done.'],
+  // Never "Locked": a time change while the plan is still open is not a
+  // confirmation. LOCKED below is the only place that word belongs.
+  TIME_CONFIRMED: ['Set.', 'Done.', 'Noted.'],
+  // The resolved date did not match the day the member named, so nothing
+  // was written. Ask once, plainly.
+  TIME_RECHECK: ['Which day did you mean?', 'Say the day again.'],
   BILL_SPLIT_EQUAL: ['Split equally. Added to bills.', 'Done — added to bills.'],
   BILL_SPLIT_ITEMISED: ["Here's the breakdown. Tap your name on each item."],
   NUDGE_SENT: ['Nudged.', 'Done.'],

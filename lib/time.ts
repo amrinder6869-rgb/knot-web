@@ -97,3 +97,63 @@ export function nowInZone(timeZone: string, now: Date = new Date()): { iso: stri
   }).format(now)
   return { iso, label }
 }
+
+// "2026-10-03" for the instant, read in the zone.
+export function dateInZone(date: Date, timeZone: string): string {
+  const w = wallClockAt(date, timeZone)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${w.year}-${pad(w.month)}-${pad(w.day)}`
+}
+
+// 0 = Sunday ... 6 = Saturday, read in the zone.
+export function weekdayInZone(date: Date, timeZone: string): number {
+  const w = wallClockAt(date, timeZone)
+  return new Date(Date.UTC(w.year, w.month - 1, w.day)).getUTCDay()
+}
+
+const WEEKDAY_WORDS: [RegExp, number][] = [
+  [/\bsun(?:day)?\b/i, 0],
+  [/\bmon(?:day)?\b/i, 1],
+  [/\btue(?:s|sday)?\b/i, 2],
+  [/\bwed(?:s|nesday)?\b/i, 3],
+  [/\bthu(?:r|rs|rsday)?\b/i, 4],
+  [/\bfri(?:day)?\b/i, 5],
+  [/\bsat(?:urday)?\b/i, 6],
+]
+const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+// Guard for the planning agent. When the member's message names one
+// weekday, or says today or tomorrow, the resolved instant must land on
+// that day in the zone. Returns a short reason when it does not, and null
+// when the message makes no such claim or the date agrees with it. Two
+// different weekdays in one message ("not Friday, Saturday") is ambiguous
+// and is left alone.
+export function relativeDayMismatch(
+  message: string,
+  resolved: Date,
+  timeZone: string,
+  now: Date = new Date(),
+): string | null {
+  const named = WEEKDAY_WORDS.filter(([re]) => re.test(message)).map(([, day]) => day)
+  const distinct = Array.from(new Set(named))
+  const resolvedDay = weekdayInZone(resolved, timeZone)
+  if (distinct.length === 1) {
+    if (resolvedDay !== distinct[0]) {
+      return `message names ${WEEKDAY_NAMES[distinct[0]]} but resolved date is a ${WEEKDAY_NAMES[resolvedDay]}`
+    }
+    return null
+  }
+  if (distinct.length > 1) return null
+
+  const todayIso = dateInZone(now, timeZone)
+  const resolvedIso = dateInZone(resolved, timeZone)
+  if (/\btomorrow\b/i.test(message) && !/\bday after tomorrow\b/i.test(message)) {
+    const tomorrow = dateInZone(new Date(now.getTime() + 24 * 60 * 60 * 1000), timeZone)
+    if (resolvedIso !== tomorrow) return `message says tomorrow (${tomorrow}) but resolved date is ${resolvedIso}`
+    return null
+  }
+  if (/\b(today|tonight)\b/i.test(message)) {
+    if (resolvedIso !== todayIso) return `message says today (${todayIso}) but resolved date is ${resolvedIso}`
+  }
+  return null
+}

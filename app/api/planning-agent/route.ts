@@ -3,7 +3,7 @@ import https from 'https'
 import { createClient } from '@supabase/supabase-js'
 import { getRandom, AGENT_MESSAGES, PLANNER_NUDGE, AGENT_VENUE_PROMPT, PLAN_UNTITLED, CTA_CONFIRM } from '@/lib/copy'
 import { timeZoneForCity } from '@/lib/constants'
-import { formatInZone, hasExplicitOffset, localToUtc, nowInZone } from '@/lib/time'
+import { formatInZone, hasExplicitOffset, localToUtc, nowInZone, relativeDayMismatch } from '@/lib/time'
 
 const NUDGE_THRESHOLD_MS = 48 * 60 * 60 * 1000
 
@@ -12,6 +12,8 @@ function buildSystemPrompt(now: Date, timeZone: string): string {
   return `You are Knot, the planning assistant living inside a private friend group chat. You are a participant in an ongoing conversation, not a one-shot bot. You read the full conversation history before every reply so you never forget what the group already decided.
 
 Right now it is ${local.label} in the group's time zone (${timeZone}), written as ${local.iso}. Every date and time in this conversation is in that time zone. Never convert to UTC yourself.
+
+Relative day words always count from right now, never from the plan's current scheduled time. "today" and "tonight" are ${local.iso.slice(0, 10)}. "tomorrow" is the day after that. A weekday name ("Saturday", "next Friday") is the next occurrence of that weekday on or after today. A plan that already has a time does not move the anchor: if right now is Sunday and the plan currently says Monday 8:30 PM and a member writes "Saturday at 7", the answer is the coming Saturday at 19:00, not Monday.
 
 Your job across the conversation:
 1. Help the group fill in the three core plan fields: when, where, and who is coming.
@@ -43,7 +45,7 @@ Rules:
 - revenue_suggestion only when directly relevant to what was just discussed. One per message maximum. Never unsolicited.
 - If two members propose conflicting values, return agent_message describing the conflict and plan_updates as null.
 - venueSearchQuery: set whenever the message contains a named venue, a venue type or category, a phrase asking for suggestions, or an activity implying a venue. Format: "[venue type or name] near [city]". Use the sender city provided. Whenever venueSearchQuery is set, agent_message must be exactly "Here are some options nearby." Never set venueSearchQuery alongside plan_updates.venue_name in the same reply.
-- plan_updates.scheduled_for: the local wall-clock time in the group's time zone given above, formatted exactly "YYYY-MM-DDTHH:mm" in 24-hour time, with no seconds, no offset and no Z. Never return natural language. Resolve relative dates and times from the current date and time given above. Examples: "this friday 7pm" → "2026-09-04T19:00", "tonight 9pm" → "2026-08-30T21:00", "tomorrow" with no time → "2026-08-31T12:00". If you cannot resolve to an exact date and time, set scheduled_for to null rather than guessing.
+- plan_updates.scheduled_for: the local wall-clock time in the group's time zone given above, formatted exactly "YYYY-MM-DDTHH:mm" in 24-hour time, with no seconds, no offset and no Z. Never return natural language. Resolve relative dates and times from the "Right now" line above, never from the plan's existing scheduled_for. Examples when right now is Sunday 2026-09-27T20:23: "this friday 7pm" → "2026-10-02T19:00", "tonight 9pm" → "2026-09-27T21:00", "tomorrow" with no time → "2026-09-28T12:00", "Saturday at 7" while the plan currently shows "Mon, Sep 28, 8:30 PM" → "2026-10-03T19:00". If you cannot resolve to an exact date and time, set scheduled_for to null rather than guessing.
 
 Title rules (plan_updates.title) — the only field you may infer on the opening message of a new plan:
 - Named venue mentioned: title is the venue name.
@@ -381,6 +383,8 @@ export async function POST(request: Request) {
     }
 
     // Build the final user turn with full context
+    const requestNow = new Date()
+
     // The plan's stored time is UTC; the model only ever sees it as local
     // text in the group's zone so it reasons in the same clock it answers in.
     const planStateForModel = current_plan_state
@@ -415,7 +419,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
         max_tokens: 800,
-        system: buildSystemPrompt(new Date(), timeZone),
+        system: buildSystemPrompt(requestNow, timeZone),
         messages: anthropicMessages,
       }),
     })
@@ -438,9 +442,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ agent_message: null, chips: null, plan_updates: null, todo_updates: null, revenue_suggestion: null })
     }
 
-    const planUpdates = sanitisePlanUpdates(filterPlanUpdates(parsed.plan_updates ?? null), timeZone)
+    let planUpdates = sanitisePlanUpdates(filterPlanUpdates(parsed.plan_updates ?? null), timeZone)
     let resolvedHangoutId: string | null = hangout_id || null
     let agentMessage: string | null = parsed.agent_message ?? null
+
+    // Day guard. If the member named a weekday, or said today or tomorrow,
+    // and the resolved date is not that day, the time is not written and
+    // the agent asks for the day again instead of confirming.
+    let dayMismatch: string | null = null
+    if (planUpdates?.scheduled_for) {
+      dayMismatch = relativeDayMismatch(message, new Date(planUpdates.scheduled_for), timeZone, requestNow)
+      if (dayMismatch) {
+        const rest = { ...planUpdates }
+        delete rest.scheduled_for
+        planUpdates = Object.keys(rest).length > 0 ? rest : null
+        agentMessage = getRandom(AGENT_MESSAGES.TIME_RECHECK)
+      }
+    }
+
+    // Trace of the dynamic part of the prompt and the raw model output. The
+    // static system prompt is buildSystemPrompt in this file.
+    console.log('[planning-agent] trace', JSON.stringify({
+      hangout_id,
+      time_zone: timeZone,
+      right_now: nowInZone(timeZone, requestNow).iso,
+      history_turns: conversationHistory.length,
+      context_block: contextBlock,
+      raw_model_text: text,
+      model_scheduled_for: parsed.plan_updates?.scheduled_for ?? null,
+      resolved_scheduled_for: planUpdates?.scheduled_for ?? null,
+      day_mismatch: dayMismatch,
+    }))
 
     let skipVenueSearch = false
     if (hangout_id && !current_plan_state?.venue_name) {
