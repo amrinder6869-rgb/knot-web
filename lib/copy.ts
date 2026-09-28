@@ -438,3 +438,5 @@ export const TOAST_PLAN_POSTED = {
   pool: ['Dropped in the group.', "It's in the thread.", "Plan's live."],
   rare: ['And so it begins.'],
 }
+export const PLAN_DRAFT_KEEP_EDITING = 'Keep editing'
+export const PLAN_DRAFT_DISCARD = 'Discard'

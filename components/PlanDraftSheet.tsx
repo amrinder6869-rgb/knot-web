@@ -16,6 +16,8 @@ import {
   PLAN_DRAFT_CHIP_DONE,
   PLAN_DRAFT_CHIP_CLEAR,
   PLAN_DRAFT_DISCARD_CONFIRM,
+  PLAN_DRAFT_KEEP_EDITING,
+  PLAN_DRAFT_DISCARD,
   PLAN_DRAFT_POST_CONTENT,
   PLAN_DRAFT_POST_CONTENT_AT,
   SHEET_EDIT_VENUE_PLACEHOLDER,
@@ -40,7 +42,8 @@ export type PlanDraftVenue = {
 // The draft sheet is the only way a member starts a plan. Everything the
 // user types stays in this component's state. The one and only database
 // write is the create_hangout RPC inside postPlan, which runs when the
-// user taps the post button. Cancel, backdrop, and Escape never write.
+// user taps the post button. Cancel, backdrop, Escape and the phone back
+// gesture never write.
 export default function PlanDraftSheet({
   knotId,
   currentUser,
@@ -65,6 +68,7 @@ export default function PlanDraftSheet({
   const [venueAddress, setVenueAddress] = useState(initialVenue?.address || '')
   const [picker, setPicker] = useState<null | 'when' | 'where'>(null)
   const [posting, setPosting] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const canPost = title.trim().length > 0 && !posting
 
@@ -77,30 +81,32 @@ export default function PlanDraftSheet({
     venueName.trim() !== (initialVenue?.name || '').trim() ||
     venueAddress.trim() !== (initialVenue?.address || '').trim()
 
+  // Cancel, backdrop and Escape. Nothing typed: close at once. Something
+  // typed: show the in-app discard dialog and let the user decide.
   function requestClose() {
     if (posting) return
-    if (dirty && !window.confirm(PLAN_DRAFT_DISCARD_CONFIRM)) return
+    if (dirty) { setConfirmOpen(true); return }
     onClose()
   }
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        requestClose()
-      }
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      if (confirmOpen) { setConfirmOpen(false); return }
+      requestClose()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
     // requestClose reads the latest state through closure each render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dirty, posting])
+  }, [dirty, posting, confirmOpen])
 
   // Phone back gesture. Opening the sheet pushes one history entry, so
-  // swiping back pops it and behaves exactly like Cancel: confirm only
-  // when the draft was edited, and never write. If the user keeps the
-  // draft, the entry is pushed again so the next swipe asks again. When
-  // the sheet closes any other way, its entry is removed on unmount.
+  // swiping back pops it and behaves exactly like Cancel. Nothing typed:
+  // close. Something typed: put the entry back and show the discard
+  // dialog, so the sheet stays until the user chooses. When the sheet
+  // closes any other way, its entry is removed on unmount.
   const dirtyRef = useRef(dirty)
   const postingRef = useRef(posting)
   const onCloseRef = useRef(onClose)
@@ -114,8 +120,9 @@ export default function PlanDraftSheet({
   useEffect(() => {
     window.history.pushState({ knotPlanSheet: true }, '')
     function onPop() {
-      if (postingRef.current || (dirtyRef.current && !window.confirm(PLAN_DRAFT_DISCARD_CONFIRM))) {
+      if (postingRef.current || dirtyRef.current) {
         window.history.pushState({ knotPlanSheet: true }, '')
+        if (!postingRef.current) setConfirmOpen(true)
         return
       }
       closedByBackRef.current = true
@@ -232,70 +239,82 @@ export default function PlanDraftSheet({
     fontFamily: 'inherit', fontSize: 12, fontWeight: 600, padding: '7px 12px', cursor: 'pointer',
   }
 
+  const secondaryBtn: React.CSSProperties = {
+    background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 10, color: 'var(--text2)',
+    fontFamily: 'inherit', fontSize: 12, fontWeight: 500, padding: '9px 14px', cursor: 'pointer',
+  }
+
   return (
     <>
       <div onClick={requestClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 600 }} />
       <div
         role="dialog"
         aria-label={PLAN_DRAFT_HEADING}
-        style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', zIndex: 601, padding: '0 16px calc(16px + env(safe-area-inset-bottom, 0px))', maxWidth: 480, margin: '0 auto', maxHeight: '85vh', overflowY: 'auto', fontFamily: 'Manrope, sans-serif' }}
+        className="plan-draft-sheet"
+        style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: '#fff', borderRadius: '16px 16px 0 0', boxShadow: '0 -8px 32px rgba(0,0,0,0.18)', zIndex: 601, maxWidth: 480, margin: '0 auto', display: 'flex', flexDirection: 'column', fontFamily: 'Manrope, sans-serif' }}
       >
-        <div style={{ width: 36, height: 3, borderRadius: 100, background: 'rgba(0,0,0,0.12)', margin: '8px auto 0' }} />
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' }}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{PLAN_DRAFT_HEADING}</span>
-          <button type="button" onClick={requestClose} aria-label="Close"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
-            <i className="ti ti-x" style={{ fontSize: 18, color: 'var(--text3)' }} />
-          </button>
+        {/* Header: never scrolls */}
+        <div style={{ flexShrink: 0, padding: '0 16px' }}>
+          <div style={{ width: 36, height: 3, borderRadius: 100, background: 'rgba(0,0,0,0.12)', margin: '8px auto 0' }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0' }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{PLAN_DRAFT_HEADING}</span>
+            <button type="button" onClick={requestClose} aria-label="Close"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+              <i className="ti ti-x" style={{ fontSize: 18, color: 'var(--text3)' }} />
+            </button>
+          </div>
         </div>
 
-        <textarea
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) postPlan() }}
-          placeholder={placeholder}
-          autoFocus
-          rows={2}
-          style={{ ...inputStyle, resize: 'none', lineHeight: 1.5, fontSize: 15, fontWeight: 600, marginBottom: 10 }}
-        />
+        {/* Body: the only part that scrolls */}
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 16px 8px', WebkitOverflowScrolling: 'touch' }}>
+          <textarea
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) postPlan() }}
+            placeholder={placeholder}
+            autoFocus
+            rows={2}
+            style={{ ...inputStyle, resize: 'none', lineHeight: 1.5, fontSize: 15, fontWeight: 600, marginBottom: 10 }}
+          />
 
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: picker ? 10 : 14 }}>
-          <button type="button" onClick={() => setPicker(p => (p === 'when' ? null : 'when'))} style={chipStyle(!!when, picker === 'when')}>
-            <i className="ti ti-clock" style={{ fontSize: ICON_SIZE.inline }} /> {whenLabel}
-          </button>
-          <button type="button" onClick={() => setPicker(p => (p === 'where' ? null : 'where'))} style={chipStyle(!!venueName.trim(), picker === 'where')}>
-            <i className="ti ti-map-pin" style={{ fontSize: ICON_SIZE.inline }} /> {whereLabel}
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: picker ? 10 : 4 }}>
+            <button type="button" onClick={() => setPicker(p => (p === 'when' ? null : 'when'))} style={chipStyle(!!when, picker === 'when')}>
+              <i className="ti ti-clock" style={{ fontSize: ICON_SIZE.inline }} /> {whenLabel}
+            </button>
+            <button type="button" onClick={() => setPicker(p => (p === 'where' ? null : 'where'))} style={chipStyle(!!venueName.trim(), picker === 'where')}>
+              <i className="ti ti-map-pin" style={{ fontSize: ICON_SIZE.inline }} /> {whereLabel}
+            </button>
+          </div>
+
+          {picker === 'when' && (
+            <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 10, marginBottom: 6 }}>
+              <DateTimePicker value={when} onChange={setWhen} />
+              <div style={{ display: 'flex', gap: 8, marginTop: 8, justifyContent: 'flex-end' }}>
+                {when && (
+                  <button type="button" onClick={() => { setWhen(null); setPicker(null) }} style={smallBtn}>{PLAN_DRAFT_CHIP_CLEAR}</button>
+                )}
+                <button type="button" onClick={() => setPicker(null)} style={{ ...smallBtn, background: 'var(--yellow)', border: 'none', color: '#111' }}>{PLAN_DRAFT_CHIP_DONE}</button>
+              </div>
+            </div>
+          )}
+
+          {picker === 'where' && (
+            <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 10, marginBottom: 6 }}>
+              <input value={venueName} onChange={e => setVenueName(e.target.value)} placeholder={SHEET_EDIT_VENUE_PLACEHOLDER} autoFocus style={inputStyle} />
+              <input value={venueAddress} onChange={e => setVenueAddress(e.target.value)} placeholder={SHEET_EDIT_ADDRESS_PLACEHOLDER} style={{ ...inputStyle, marginBottom: 0 }} />
+              <div style={{ display: 'flex', gap: 8, marginTop: 8, justifyContent: 'flex-end' }}>
+                {(venueName || venueAddress) && (
+                  <button type="button" onClick={() => { setVenueName(''); setVenueAddress(''); setPicker(null) }} style={smallBtn}>{PLAN_DRAFT_CHIP_CLEAR}</button>
+                )}
+                <button type="button" onClick={() => setPicker(null)} style={{ ...smallBtn, background: 'var(--yellow)', border: 'none', color: '#111' }}>{PLAN_DRAFT_CHIP_DONE}</button>
+              </div>
+            </div>
+          )}
         </div>
 
-        {picker === 'when' && (
-          <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 10, marginBottom: 14 }}>
-            <DateTimePicker value={when} onChange={setWhen} />
-            <div style={{ display: 'flex', gap: 8, marginTop: 8, justifyContent: 'flex-end' }}>
-              {when && (
-                <button type="button" onClick={() => { setWhen(null); setPicker(null) }} style={smallBtn}>{PLAN_DRAFT_CHIP_CLEAR}</button>
-              )}
-              <button type="button" onClick={() => setPicker(null)} style={{ ...smallBtn, background: 'var(--yellow)', border: 'none', color: '#111' }}>{PLAN_DRAFT_CHIP_DONE}</button>
-            </div>
-          </div>
-        )}
-
-        {picker === 'where' && (
-          <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 10, marginBottom: 14 }}>
-            <input value={venueName} onChange={e => setVenueName(e.target.value)} placeholder={SHEET_EDIT_VENUE_PLACEHOLDER} autoFocus style={inputStyle} />
-            <input value={venueAddress} onChange={e => setVenueAddress(e.target.value)} placeholder={SHEET_EDIT_ADDRESS_PLACEHOLDER} style={{ ...inputStyle, marginBottom: 0 }} />
-            <div style={{ display: 'flex', gap: 8, marginTop: 8, justifyContent: 'flex-end' }}>
-              {(venueName || venueAddress) && (
-                <button type="button" onClick={() => { setVenueName(''); setVenueAddress(''); setPicker(null) }} style={smallBtn}>{PLAN_DRAFT_CHIP_CLEAR}</button>
-              )}
-              <button type="button" onClick={() => setPicker(null)} style={{ ...smallBtn, background: 'var(--yellow)', border: 'none', color: '#111' }}>{PLAN_DRAFT_CHIP_DONE}</button>
-            </div>
-          </div>
-        )}
-
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button type="button" onClick={requestClose} disabled={posting}
-            style={{ background: 'var(--bg3)', border: '1px solid var(--border2)', borderRadius: 10, color: 'var(--text2)', fontFamily: 'inherit', fontSize: 12, fontWeight: 500, padding: '9px 14px', cursor: 'pointer' }}>
+        {/* Footer: pinned above the safe area, always visible */}
+        <div style={{ flexShrink: 0, display: 'flex', gap: 8, padding: '10px 16px calc(16px + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid var(--border)', background: '#fff' }}>
+          <button type="button" onClick={requestClose} disabled={posting} style={secondaryBtn}>
             {SHEET_CANCEL}
           </button>
           <button type="button" onClick={postPlan} disabled={!canPost}
@@ -304,6 +323,32 @@ export default function PlanDraftSheet({
           </button>
         </div>
       </div>
+
+      {/* Discard dialog. Plain on purpose: this is the one destructive
+          choice in the sheet. Keep editing is the safe default. */}
+      {confirmOpen && (
+        <>
+          <div onClick={() => setConfirmOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 610 }} />
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-label={PLAN_DRAFT_DISCARD_CONFIRM}
+            style={{ position: 'fixed', left: 16, right: 16, top: '50%', transform: 'translateY(-50%)', maxWidth: 360, margin: '0 auto', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 16, zIndex: 611, boxShadow: '0 12px 32px rgba(0,0,0,0.18)', fontFamily: 'Manrope, sans-serif' }}
+          >
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', lineHeight: 1.45, marginBottom: 14 }}>{PLAN_DRAFT_DISCARD_CONFIRM}</div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" autoFocus onClick={() => setConfirmOpen(false)}
+                style={{ ...secondaryBtn, fontWeight: 600, color: 'var(--text)' }}>
+                {PLAN_DRAFT_KEEP_EDITING}
+              </button>
+              <button type="button" onClick={() => { setConfirmOpen(false); onClose() }}
+                style={{ ...secondaryBtn, fontWeight: 600, color: 'var(--danger)' }}>
+                {PLAN_DRAFT_DISCARD}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </>
   )
 }
