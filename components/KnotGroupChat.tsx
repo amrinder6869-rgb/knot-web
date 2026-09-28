@@ -9,12 +9,12 @@ import {
   AGENT_START_PLAN,
   AGENT_NOT_A_PLAN,
   POST_OPEN_PLAN,
-  PLAN_UNTITLED,
   TOAST_ERROR,
   CHAT_LOADING,
 } from '@/lib/copy'
 import { ICON_SIZE } from '@/lib/constants'
 import KnotIcon from '@/components/KnotIcon'
+import PlanDraftSheet from '@/components/PlanDraftSheet'
 
 interface KnotGroupChatProps {
   knotId: string
@@ -64,7 +64,7 @@ export default function KnotGroupChat({ knotId, knotName, knotEmoji, members, cu
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [agentSuggestion, setAgentSuggestion] = useState<{ text: string; hangoutId?: string } | null>(null)
-  const [startingPlan, setStartingPlan] = useState(false)
+  const [planOpen, setPlanOpen] = useState(false)
 
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -154,54 +154,17 @@ export default function KnotGroupChat({ knotId, knotName, knotEmoji, members, cu
     setSending(false)
   }
 
-  async function handleStartPlan() {
-    if (startingPlan || !currentUser?.id) return
-    setStartingPlan(true)
-    const actorName = currentUser?.name || 'Someone'
-    const pInput: Record<string, any> = {
-      knot_id: knotId,
-      title: PLAN_UNTITLED,
-      type: 'planned',
-      scheduled_for: null,
-      venue_name: null,
-      venue_address: null,
-      venue_place_id: null,
-      venue_lat: null,
-      venue_lng: null,
-      venue_category: null,
-      venue_maps_url: null,
-      venue_booking_url: null,
-      meeting_url: null,
-      brief: null,
-      brief_vibe: null,
-      brief_budget: null,
-      movie_title: null,
-      movie_showtime: null,
-      event_restrictions: [],
-      invite_mode: 'all',
-      is_surprise: false,
-      reveal_at: null,
-      poll_mode: false,
-      poll_title: PLAN_UNTITLED,
-      is_standalone: false,
-      post_content: `${actorName} started a plan`,
-      post_type: 'hangout',
-      planning_status: 'planning',
-    }
-    try {
-      const { data, error } = await supabase.rpc('create_hangout', { p_input: pInput })
-      if (error || !data?.hangout_id) {
-        toast.error(TOAST_ERROR)
-        return
-      }
-      setAgentSuggestion(null)
-      onOpenHangout(data.hangout_id as string)
-    } catch (err) {
-      console.error('[KnotGroupChat] handleStartPlan failed:', err)
-      toast.error(TOAST_ERROR)
-    } finally {
-      setStartingPlan(false)
-    }
+  // Opening the plan sheet writes nothing. The create_hangout RPC runs
+  // once, inside PlanDraftSheet, when the user taps the post button.
+  function handleStartPlan() {
+    if (!currentUser?.id) return
+    setPlanOpen(true)
+  }
+
+  function handlePlanPosted(hangoutId: string) {
+    setPlanOpen(false)
+    setAgentSuggestion(null)
+    onOpenHangout(hangoutId)
   }
 
   function memberFor(authorId: string) {
@@ -300,8 +263,8 @@ export default function KnotGroupChat({ knotId, knotName, knotEmoji, members, cu
                   <span style={{ fontSize: 13, color: '#111', fontWeight: 600 }}>{agentSuggestion.text}</span>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={handleStartPlan} disabled={startingPlan}
-                    style={{ flex: 1, padding: '8px 0', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 12, fontWeight: 700, cursor: startingPlan ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: startingPlan ? 0.6 : 1 }}>
+                  <button onClick={handleStartPlan}
+                    style={{ flex: 1, padding: '8px 0', background: 'var(--yellow)', border: 'none', borderRadius: 8, color: '#111', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
                     {AGENT_START_PLAN}
                   </button>
                   <button onClick={() => setAgentSuggestion(null)}
@@ -339,6 +302,15 @@ export default function KnotGroupChat({ knotId, knotName, knotEmoji, members, cu
           <i className="ti ti-send" style={{ fontSize: ICON_SIZE.nav, color: '#111' }} />
         </button>
       </div>
+
+      {planOpen && (
+        <PlanDraftSheet
+          knotId={knotId}
+          currentUser={currentUser}
+          onClose={() => setPlanOpen(false)}
+          onPosted={handlePlanPosted}
+        />
+      )}
     </div>
   )
 }

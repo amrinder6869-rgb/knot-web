@@ -4,8 +4,8 @@ import { supabase } from '@/lib/supabase'
 import HangoutCard, { HangoutCardSkeleton } from '@/components/HangoutCard'
 import { loadHangoutBundle } from '@/lib/hangoutBundle'
 import { ICON_SIZE } from '@/lib/constants'
-import { EMPTY_HANGOUTS, PLAN_UNTITLED, TOAST_ERROR } from '@/lib/copy'
-import { useToast } from '@/components/ToastProvider'
+import { EMPTY_HANGOUTS } from '@/lib/copy'
+import PlanDraftSheet from '@/components/PlanDraftSheet'
 import { UPCOMING_PLANNING_STATUSES, PAST_PLANNING_STATUSES } from '@/lib/hangoutPhase'
 import type { OpenChatOpts } from '@/components/AttentionStrip'
 
@@ -20,13 +20,12 @@ export default function PlansList({
   activeKnotId?: string
   onOpenChat: (opts: OpenChatOpts) => void
 }) {
-  const toast = useToast()
   const [upcoming, setUpcoming] = useState<any[]>([])
   const [past, setPast] = useState<any[]>([])
   const [bundle, setBundle] = useState<any>(null)
   const [membersByKnot, setMembersByKnot] = useState<Map<string, any[]>>(new Map())
   const [loading, setLoading] = useState(true)
-  const [creating, setCreating] = useState(false)
+  const [planOpen, setPlanOpen] = useState(false)
 
   const load = useCallback(async () => {
     if (!currentUser?.id || knots.length === 0) { setUpcoming([]); setPast([]); setLoading(false); return }
@@ -87,71 +86,18 @@ export default function PlansList({
 
   useEffect(() => { load() }, [load])
 
-  async function handleNewPlan() {
-    if (creating) return
-    const knotId = activeKnotId || knots[0]?.id
-    const { data: sessionData } = await supabase.auth.getUser()
-    const userId = currentUser?.id || sessionData.user?.id
-    if (!knotId || !userId) {
-      toast.error(TOAST_ERROR)
-      return
-    }
-    setCreating(true)
-    const actorName = currentUser?.name || 'Someone'
-    // Same p_input shape as Composer.tsx postHangout — create_hangout is
-    // SECURITY DEFINER and bypasses hangouts INSERT RLS.
-    const pInput: Record<string, any> = {
-      knot_id:            knotId,
-      title:               PLAN_UNTITLED,
-      type:                'planned',
-      scheduled_for:       null,
-      venue_name:          null,
-      venue_address:       null,
-      venue_place_id:      null,
-      venue_lat:           null,
-      venue_lng:           null,
-      venue_category:      null,
-      venue_maps_url:      null,
-      venue_booking_url:   null,
-      meeting_url:         null,
-      brief:               null,
-      brief_vibe:          null,
-      brief_budget:        null,
-      movie_title:         null,
-      movie_showtime:      null,
-      event_restrictions:  [],
-      invite_mode:         'all',
-      is_surprise:         false,
-      reveal_at:           null,
-      poll_mode:           false,
-      poll_title:          PLAN_UNTITLED,
-      is_standalone:       false,
-      post_content:        `${actorName} started a plan`,
-      post_type:           'hangout',
-      // hangouts_planning_status_check allows planning|draft|locked|abandoned
-      // (not 'voting' — that is hangouts.status). Composer hangouts start in planning.
-      planning_status:     'planning',
-    }
-    try {
-      const { data, error } = await supabase.rpc('create_hangout', { p_input: pInput })
-      if (error || !data || data.error) {
-        console.error('[handleNewPlan] rpc failed', { error, data })
-        toast.error(TOAST_ERROR)
-        return
-      }
-      const newHangoutId = data.hangout_id as string
-      if (!newHangoutId) {
-        toast.error(TOAST_ERROR)
-        return
-      }
-      onOpenChat({ hangoutId: newHangoutId, scrollToBottom: true })
-      await load()
-    } catch (err) {
-      console.error('[handleNewPlan] failed', err)
-      toast.error(TOAST_ERROR)
-    } finally {
-      setCreating(false)
-    }
+  // Opening the plan sheet writes nothing. The create_hangout RPC runs
+  // once, inside PlanDraftSheet, when the user taps the post button.
+  const planKnotId = activeKnotId || knots[0]?.id
+  function handleNewPlan() {
+    if (!planKnotId || !currentUser?.id) return
+    setPlanOpen(true)
+  }
+
+  async function handlePlanPosted(hangoutId: string) {
+    setPlanOpen(false)
+    onOpenChat({ hangoutId, scrollToBottom: true })
+    await load()
   }
 
   function buildCardData(hangout: any) {
@@ -204,12 +150,21 @@ export default function PlansList({
           <div style={{ fontSize: 20, fontWeight: 700 }}>Plans</div>
           <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>Upcoming across your Knots</div>
         </div>
-        <button type="button" onClick={handleNewPlan} disabled={creating || knots.length === 0}
-          style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--yellow)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: creating ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: creating ? 0.6 : 1 }}
+        <button type="button" onClick={handleNewPlan} disabled={knots.length === 0}
+          style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--yellow)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontFamily: 'inherit' }}
           aria-label="Start a plan">
           <i className="ti ti-plus" style={{ fontSize: ICON_SIZE.nav, color: '#111' }} />
         </button>
       </div>
+
+      {planOpen && planKnotId && (
+        <PlanDraftSheet
+          knotId={planKnotId}
+          currentUser={currentUser}
+          onClose={() => setPlanOpen(false)}
+          onPosted={handlePlanPosted}
+        />
+      )}
 
       {loading && (
         <div>

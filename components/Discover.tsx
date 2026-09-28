@@ -8,6 +8,7 @@ import {
   TOAST_ERROR,
 } from '@/lib/copy'
 import { ICON_SIZE } from '@/lib/constants'
+import PlanDraftSheet, { type PlanDraftVenue } from '@/components/PlanDraftSheet'
 
 // icon holds a Tabler ti-* class suffix, not raw glyph content — see AGENTS.md icon audit notes.
 const CATEGORIES = [
@@ -82,7 +83,7 @@ export default function Discover({ onVenueSelect, currentUser, knotId, onOpenCha
   const [showSuggestions, setShowSuggestions]   = useState(false)
   const [, setFetchingSuggestions] = useState(false)
   const [savedIds, setSavedIds]         = useState<Set<string>>(new Set())
-  const [startingPlanId, setStartingPlanId] = useState<string | null>(null)
+  const [planVenue, setPlanVenue] = useState<any | null>(null)
   const [suggestingId, setSuggestingId]     = useState<string | null>(null)
 
   // Keep locationRef in sync with location state
@@ -295,53 +296,30 @@ export default function Discover({ onVenueSelect, currentUser, knotId, onOpenCha
     if (onVenueSelect) onVenueSelect({ ...venue, category_id: category })
   }
 
-  async function startPlanAtVenue(venue: any) {
-    if (!knotId || !currentUser?.id || startingPlanId) return
-    setStartingPlanId(venue.fsq_id)
-    const actorName = currentUser?.name || 'Someone'
-    const pInput: Record<string, any> = {
-      knot_id: knotId,
-      title: venue.name,
-      type: 'planned',
-      scheduled_for: null,
-      venue_name: venue.name,
-      venue_address: venue.location?.formatted_address || null,
-      venue_place_id: venue.fsq_id,
-      venue_lat: venue.lat ?? null,
-      venue_lng: venue.lng ?? null,
-      venue_category: venue.categories?.[0]?.name || null,
-      venue_maps_url: venue.google_maps_url || null,
-      venue_booking_url: null,
-      meeting_url: null,
-      brief: null,
-      brief_vibe: null,
-      brief_budget: null,
-      movie_title: null,
-      movie_showtime: null,
-      event_restrictions: [],
-      invite_mode: 'all',
-      is_surprise: false,
-      reveal_at: null,
-      poll_mode: false,
-      poll_title: venue.name,
-      is_standalone: false,
-      post_content: `${actorName} started a plan at ${venue.name}`,
-      post_type: 'hangout',
-      planning_status: 'planning',
+  // Opening the plan sheet writes nothing. The create_hangout RPC runs
+  // once, inside PlanDraftSheet, when the user taps the post button. The
+  // venue is handed in as the Where chip and as a suggested title.
+  function startPlanAtVenue(venue: any) {
+    if (!knotId || !currentUser?.id) return
+    setPlanVenue(venue)
+  }
+
+  function planVenueFor(venue: any): PlanDraftVenue {
+    return {
+      name: venue.name,
+      address: venue.location?.formatted_address || null,
+      place_id: venue.fsq_id ?? null,
+      lat: venue.lat ?? null,
+      lng: venue.lng ?? null,
+      category: venue.categories?.[0]?.name || null,
+      maps_url: venue.google_maps_url || null,
     }
-    try {
-      const { data, error } = await supabase.rpc('create_hangout', { p_input: pInput })
-      if (error || !data?.hangout_id) {
-        toast.error(TOAST_ERROR)
-        return
-      }
-      setSelected(null)
-      onOpenChat?.({ hangoutId: data.hangout_id })
-    } catch {
-      toast.error(TOAST_ERROR)
-    } finally {
-      setStartingPlanId(null)
-    }
+  }
+
+  function handlePlanPosted(hangoutId: string) {
+    setPlanVenue(null)
+    setSelected(null)
+    onOpenChat?.({ hangoutId })
   }
 
   async function suggestToGroup(venue: any) {
@@ -809,14 +787,12 @@ export default function Discover({ onVenueSelect, currentUser, knotId, onOpenCha
             <div style={{ display: 'flex', gap: 8, padding: '12px 0 4px' }}>
               <button
                 onClick={() => startPlanAtVenue(selected)}
-                disabled={startingPlanId === selected.fsq_id}
                 style={{
                   flex: 1, padding: '10px 8px',
                   background: '#111', border: 'none', borderRadius: 10,
                   color: '#F8BD03', fontSize: 12, fontWeight: 700,
-                  cursor: startingPlanId === selected.fsq_id ? 'wait' : 'pointer', fontFamily: 'inherit',
+                  cursor: 'pointer', fontFamily: 'inherit',
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-                  opacity: startingPlanId === selected.fsq_id ? 0.6 : 1,
                 }}
               >
                 <i className="ti ti-calendar-plus" style={{ fontSize: 16 }} />
@@ -856,6 +832,17 @@ export default function Discover({ onVenueSelect, currentUser, knotId, onOpenCha
             </div>
           </div>
         </>
+      )}
+
+      {planVenue && knotId && (
+        <PlanDraftSheet
+          knotId={knotId}
+          currentUser={currentUser}
+          initialTitle={planVenue.name}
+          initialVenue={planVenueFor(planVenue)}
+          onClose={() => setPlanVenue(null)}
+          onPosted={handlePlanPosted}
+        />
       )}
     </div>
   )

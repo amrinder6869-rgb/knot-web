@@ -417,3 +417,24 @@ export const BILLS_TAX_PROPORTIONAL = 'Split proportionally'
 export const BILLS_CROSS_KNOT_TITLE = 'All balances'
 export const BILLS_CROSS_KNOT_TOTAL_OWED = 'You are owed'
 export const BILLS_CROSS_KNOT_TOTAL_OWE = 'You owe'
+
+// Plan draft sheet — the composer contract for starting a hangout. Nothing
+// is written to the database until the user taps the post button, so the
+// sheet's own copy never implies a plan exists yet.
+export const PLAN_DRAFT_HEADING = 'Plan a hangout'
+export const PLAN_DRAFT_PLACEHOLDER = [
+  'What are we doing?',
+  'What is the plan?',
+  'What is the move?',
+]
+export const PLAN_DRAFT_POST = 'Drop it in the group'
+export const PLAN_DRAFT_POSTING = 'Dropping it in.'
+export const PLAN_DRAFT_CHIP_DONE = 'Done'
+export const PLAN_DRAFT_CHIP_CLEAR = 'Clear'
+export const PLAN_DRAFT_DISCARD_CONFIRM = 'Discard this plan? Nothing has been posted.'
+export const PLAN_DRAFT_POST_CONTENT = 'started a plan' // prepend member name
+export const PLAN_DRAFT_POST_CONTENT_AT = 'started a plan at' // prepend member name, append venue
+export const TOAST_PLAN_POSTED = {
+  pool: ['Dropped in the group.', "It's in the thread.", "Plan's live."],
+  rare: ['And so it begins.'],
+}

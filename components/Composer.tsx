@@ -4,10 +4,10 @@ import { supabase } from '@/lib/supabase'
 import { notifyKnotMembers } from '@/lib/notifications'
 import { compressImage } from '@/lib/compressImage'
 import { useToast } from '@/components/ToastProvider'
-import { getRandom, COMPOSER_PLACEHOLDER, PLAN_UNTITLED, TOAST_ERROR } from '@/lib/copy'
+import { getRandom, COMPOSER_PLACEHOLDER, PLAN_DRAFT_HEADING } from '@/lib/copy'
 import { ICON_SIZE } from '@/lib/constants'
-import { track } from '@/lib/track'
 import MemberAvatar from '@/components/MemberAvatar'
+import PlanDraftSheet from '@/components/PlanDraftSheet'
 
 export default function Composer({
   knotId,
@@ -39,7 +39,7 @@ export default function Composer({
   const [momentError, setMomentError] = useState('')
   const momentPhotoInputRef = useRef<HTMLInputElement>(null)
 
-  const [creating, setCreating] = useState(false)
+  const [planOpen, setPlanOpen] = useState(false)
   const [inputText, setInputText] = useState('')
   const [sheet, setSheet] = useState<null | 'plus' | 'moment' | 'bill'>(null)
 
@@ -173,76 +173,18 @@ export default function Composer({
     onPosted()
   }
 
-  async function startPlan() {
-    if (creating) return
-    const { data: sessionData } = await supabase.auth.getUser()
-    const userId = currentUser?.id || sessionData.user?.id
-    if (!knotId || !userId) {
-      toast.error(TOAST_ERROR)
-      return
-    }
-    setCreating(true)
+  // Opening the plan sheet writes nothing. The create_hangout RPC runs
+  // once, inside PlanDraftSheet, when the user taps the post button.
+  function startPlan() {
     setSheet(null)
-    const actorName = currentUser?.name || 'Someone'
-    const pInput: Record<string, any> = {
-      knot_id:            knotId,
-      title:               PLAN_UNTITLED,
-      type:                'planned',
-      scheduled_for:       null,
-      venue_name:          null,
-      venue_address:       null,
-      venue_place_id:      null,
-      venue_lat:           null,
-      venue_lng:           null,
-      venue_category:      null,
-      venue_maps_url:      null,
-      venue_booking_url:   null,
-      meeting_url:         null,
-      brief:               null,
-      brief_vibe:          null,
-      brief_budget:        null,
-      movie_title:         null,
-      movie_showtime:      null,
-      event_restrictions:  [],
-      invite_mode:         'all',
-      is_surprise:         false,
-      reveal_at:           null,
-      poll_mode:           false,
-      poll_title:          PLAN_UNTITLED,
-      is_standalone:       false,
-      post_content:        `${actorName} started a plan`,
-      post_type:           'hangout',
-      // hangouts_planning_status_check allows planning|draft|locked|abandoned
-      // (not 'voting' — that is hangouts.status). Composer hangouts start in planning.
-      planning_status:     'planning',
-    }
-    try {
-      const { data, error } = await supabase.rpc('create_hangout', { p_input: pInput })
-      if (error || !data || data.error) {
-        console.error('[startPlan] rpc failed', { error, data })
-        toast.error(TOAST_ERROR)
-        return
-      }
-      const newHangoutId = data.hangout_id as string
-      if (!newHangoutId) {
-        toast.error(TOAST_ERROR)
-        return
-      }
-      track(supabase, 'hangout_created', {
-        hangout_id: newHangoutId,
-        type: 'planned',
-        has_venue: false,
-        poll_mode: false,
-      }, knotId)
-      onOpenChat(newHangoutId)
-      setInputText('')
-      onPosted()
-    } catch (err) {
-      console.error('[startPlan] failed', err)
-      toast.error(TOAST_ERROR)
-    } finally {
-      setCreating(false)
-    }
+    setPlanOpen(true)
+  }
+
+  function handlePlanPosted(hangoutId: string) {
+    setPlanOpen(false)
+    setInputText('')
+    onOpenChat(hangoutId)
+    onPosted()
   }
 
   function submitFromBar() {
@@ -291,9 +233,9 @@ export default function Composer({
           style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
           <i className="ti ti-camera" style={{ fontSize: ICON_SIZE.inline, color: 'var(--text3)' }} /> Moment
         </button>
-        <button type="button" onClick={startPlan} disabled={creating}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, border: '1px solid var(--yellow-dim)', background: 'var(--yellow-soft)', color: 'var(--yellow)', fontSize: 12, fontWeight: 700, cursor: creating ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: creating ? 0.6 : 1 }}>
-          <i className="ti ti-calendar" style={{ fontSize: ICON_SIZE.inline, color: 'var(--yellow)' }} /> {creating ? 'Starting…' : 'Plan a hangout'}
+        <button type="button" onClick={startPlan}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, border: '1px solid var(--yellow-dim)', background: 'var(--yellow-soft)', color: 'var(--yellow)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+          <i className="ti ti-calendar" style={{ fontSize: ICON_SIZE.inline, color: 'var(--yellow)' }} /> {PLAN_DRAFT_HEADING}
         </button>
         <button type="button" onClick={() => setSheet('bill')}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 20, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -318,10 +260,10 @@ export default function Composer({
             </div>
             {[
               { icon: 'ti-camera', label: 'Moment', onClick: () => setSheet('moment') },
-              { icon: 'ti-calendar', label: 'Plan a hangout', onClick: () => { void startPlan() } },
+              { icon: 'ti-calendar', label: PLAN_DRAFT_HEADING, onClick: startPlan },
               { icon: 'ti-receipt', label: 'Bill', onClick: () => setSheet('bill') },
-              { icon: 'ti-world', label: 'Online hangout', onClick: () => { void startPlan() } },
-              { icon: 'ti-broadcast', label: 'Live join-in', onClick: () => { void startPlan() } },
+              { icon: 'ti-world', label: 'Online hangout', onClick: startPlan },
+              { icon: 'ti-broadcast', label: 'Live join-in', onClick: startPlan },
             ].map(item => (
               <div key={item.label} onClick={item.onClick}
                 style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 4px', cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -415,6 +357,15 @@ export default function Composer({
             </div>
           </div>
         </>
+      )}
+
+      {planOpen && (
+        <PlanDraftSheet
+          knotId={knotId}
+          currentUser={currentUser}
+          onClose={() => setPlanOpen(false)}
+          onPosted={handlePlanPosted}
+        />
       )}
     </div>
   )
