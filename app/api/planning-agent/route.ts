@@ -3,7 +3,7 @@ import https from 'https'
 import { createClient } from '@supabase/supabase-js'
 import { getRandom, AGENT_MESSAGES, PLANNER_NUDGE, AGENT_VENUE_PROMPT, PLAN_UNTITLED, CTA_CONFIRM } from '@/lib/copy'
 import { timeZoneForCity } from '@/lib/constants'
-import { formatInZone, hasExplicitOffset, localToUtc, nowInZone, relativeDayMismatch } from '@/lib/time'
+import { formatInZone, hasExplicitOffset, localToUtc, mentionsDayOrTime, nowInZone, relativeDayMismatch } from '@/lib/time'
 
 const NUDGE_THRESHOLD_MS = 48 * 60 * 60 * 1000
 
@@ -40,6 +40,7 @@ Respond only with valid JSON:
 
 Rules:
 - agent_message null only when the message has zero planning relevance. Never null when venueSearchQuery is set.
+- The latest message always wins. When a member states a day or time, compare it with the current plan state only, never with earlier messages in the conversation. If it differs from the current plan state, return plan_updates.scheduled_for for it, even if the same words were said before. Only when it matches the current plan state exactly do you acknowledge and return plan_updates null.
 - chips maximum three. Labels maximum three words each.
 - plan_updates only when a chip has been tapped confirming a value, or the user explicitly states a confirmed value. Never from inference alone. Exception: plan_updates.title on the first message that introduces a plan.
 - revenue_suggestion only when directly relevant to what was just discussed. One per message maximum. Never unsolicited.
@@ -409,42 +410,71 @@ export async function POST(request: Request) {
       { role: 'user', content: contextBlock },
     ]
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5',
-        max_tokens: 800,
-        system: buildSystemPrompt(requestNow, timeZone),
-        messages: anthropicMessages,
-      }),
-    })
-
-    if (!response.ok) {
-      const errText = await response.text().catch(() => '')
-      console.error('[planning-agent] Anthropic API error:', response.status, errText)
-      return NextResponse.json({ agent_message: null, chips: null, plan_updates: null, todo_updates: null, revenue_suggestion: null })
+    const anthropicKey: string = apiKey
+    async function askModel(messages: { role: 'user' | 'assistant'; content: string }[]): Promise<{ text: string; parsed: any } | null> {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': anthropicKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5',
+          max_tokens: 800,
+          system: buildSystemPrompt(requestNow, timeZone),
+          messages,
+        }),
+      })
+      if (!response.ok) {
+        const errText = await response.text().catch(() => '')
+        console.error('[planning-agent] Anthropic API error:', response.status, errText)
+        return null
+      }
+      const data = await response.json()
+      const text = data.content?.find((b: any) => b.type === 'text')?.text || '{}'
+      try {
+        const clean = text.replace(/```json|```/g, '').trim()
+        return { text, parsed: JSON.parse(clean) }
+      } catch (err) {
+        console.error('[planning-agent] failed to parse model response as JSON:', err, 'raw text:', text)
+        return null
+      }
     }
 
-    const data = await response.json()
-    const text = data.content?.find((b: any) => b.type === 'text')?.text || '{}'
-
-    let parsed: any
-    try {
-      const clean = text.replace(/```json|```/g, '').trim()
-      parsed = JSON.parse(clean)
-    } catch (err) {
-      console.error('[planning-agent] failed to parse model response as JSON:', err, 'raw text:', text)
+    const first = await askModel(anthropicMessages)
+    if (!first) {
       return NextResponse.json({ agent_message: null, chips: null, plan_updates: null, todo_updates: null, revenue_suggestion: null })
     }
+    let parsed: any = first.parsed
 
     let planUpdates = sanitisePlanUpdates(filterPlanUpdates(parsed.plan_updates ?? null), timeZone)
     let resolvedHangoutId: string | null = hangout_id || null
     let agentMessage: string | null = parsed.agent_message ?? null
+
+    // Time guard. The member named a day or a clock time but the model
+    // returned no scheduled_for (it tends to treat a repeated phrase as
+    // already handled). Ask once more with an explicit instruction. If that
+    // still yields nothing, ask the member for the day instead of going
+    // quiet.
+    const mentionsTime = mentionsDayOrTime(message)
+    let retried = false
+    let retryText: string | null = null
+    if (mentionsTime && !planUpdates?.scheduled_for) {
+      retried = true
+      const nudge = `${contextBlock}\nThe message above names a day or a clock time. Treat it as a new request measured against the current plan state only, not against earlier messages. Return plan_updates.scheduled_for for it, resolved from the "Right now" line.`
+      const second = await askModel([...conversationHistory, { role: 'user', content: nudge }])
+      if (second) {
+        retryText = second.text
+        const retryUpdates = sanitisePlanUpdates(filterPlanUpdates(second.parsed.plan_updates ?? null), timeZone)
+        if (retryUpdates?.scheduled_for) {
+          parsed = second.parsed
+          planUpdates = retryUpdates
+          agentMessage = second.parsed.agent_message ?? agentMessage
+        }
+      }
+      if (!planUpdates?.scheduled_for) agentMessage = getRandom(AGENT_MESSAGES.TIME_RECHECK)
+    }
 
     // Day guard. If the member named a weekday, or said today or tomorrow,
     // and the resolved date is not that day, the time is not written and
@@ -468,7 +498,10 @@ export async function POST(request: Request) {
       right_now: nowInZone(timeZone, requestNow).iso,
       history_turns: conversationHistory.length,
       context_block: contextBlock,
-      raw_model_text: text,
+      raw_model_text: first.text,
+      mentions_time: mentionsTime,
+      retried,
+      retry_raw_text: retryText,
       model_scheduled_for: parsed.plan_updates?.scheduled_for ?? null,
       resolved_scheduled_for: planUpdates?.scheduled_for ?? null,
       day_mismatch: dayMismatch,
@@ -492,6 +525,14 @@ export async function POST(request: Request) {
       venueSuggestions = await searchVenues(venueSearchQuery, token)
     }
     if (venueSearchQuery && !skipVenueSearch) agentMessage = AGENT_VENUE_PROMPT
+
+    // Never silent. A member wrote into an active plan; if the model gave
+    // back nothing at all, the agent still answers with a neutral line.
+    const hasChips = Array.isArray(parsed.chips) && parsed.chips.length > 0
+    if (!agentMessage && !planUpdates && !hasChips && venueSuggestions.length === 0 && !parsed.revenue_suggestion) {
+      agentMessage = getRandom(AGENT_MESSAGES.HEARD)
+      console.log('[planning-agent] silent-fallback', JSON.stringify({ hangout_id, message: message.trim() }))
+    }
 
     const wasExisting = !!resolvedHangoutId
     const needsHangout = !resolvedHangoutId && (planUpdates || agentMessage)

@@ -109,6 +109,10 @@ export const AGENT_MESSAGES = {
   // The resolved date did not match the day the member named, so nothing
   // was written. Ask once, plainly.
   TIME_RECHECK: ['Which day did you mean?', 'Say the day again.'],
+  // The model returned nothing at all for a direct message in an active
+  // plan. The agent still answers, briefly, so the member is never left
+  // talking to silence.
+  HEARD: ['Heard.', 'Got it.', 'Go on.'],
   BILL_SPLIT_EQUAL: ['Split equally. Added to bills.', 'Done — added to bills.'],
   BILL_SPLIT_ITEMISED: ["Here's the breakdown. Tap your name on each item."],
   NUDGE_SENT: ['Nudged.', 'Done.'],

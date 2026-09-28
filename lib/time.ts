@@ -157,3 +157,15 @@ export function relativeDayMismatch(
   }
   return null
 }
+
+// True when the message carries a day or clock-time expression the agent is
+// expected to act on: a weekday, today, tonight, tomorrow, noon, midnight,
+// or a clock time such as "7", "at 7", "7pm", "8:30 pm" or "19:00".
+export function mentionsDayOrTime(message: string): boolean {
+  if (WEEKDAY_WORDS.some(([re]) => re.test(message))) return true
+  if (/\b(today|tonight|tomorrow|noon|midnight)\b/i.test(message)) return true
+  if (/\b\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)\b/i.test(message)) return true
+  if (/\b\d{1,2}:\d{2}\b/.test(message)) return true
+  if (/\bat\s+\d{1,2}\b/i.test(message)) return true
+  return false
+}
